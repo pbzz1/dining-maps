@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+
+# 시크릿이 들어가는 파일
+docker/.env
+frontend-react/.env
+
+# 프론트엔드 빌드 산출물 / 의존성
+frontend-react/node_modules/
+frontend-react/dist/
+
+# 크롤링 중간 산출물·디버그 덤프 (재생성 가능)
+data/raw/
+
+# 로컬 개발 환경 설정
+.claude/settings.local.json
+
+# Word 임시 잠금 파일
+~$*

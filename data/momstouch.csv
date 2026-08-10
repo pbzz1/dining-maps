@@ -1,0 +1,35 @@
+﻿restaurant,menu_name,menu_category,weight_g,calorie_kcal,protein_g,sodium_mg,sugar_g,saturated_fat_g,set_calorie_range_kcal,data_source
+맘스터치,어메이징 매콤마요버거,버거,321,842,38,1485,12,11.5,971~1715,image_ocr_manual_verify
+맘스터치,정과장 싸이버거,버거,265,694,30,1006,15,10.4,823~1568,image_ocr_manual_verify
+맘스터치,박차장 싸이버거,버거,267,652,30,1057,16,7.6,780~1525,image_ocr_manual_verify
+맘스터치,한라봉싸이버거,버거,236,610,25,984,15,4.7,739~1483,image_ocr_manual_verify
+맘스터치,매직풍싸이버거,버거,265,658,30,1397,18,7.9,786~1531,image_ocr_manual_verify
+맘스터치,후덕죽싸이버거,버거,285,575,32,1400,10,7.6,704~1449,image_ocr_manual_verify
+맘스터치,후덕죽 통새우버거,버거,275,600,17,1081,18,2.8,729~1473,image_ocr_manual_verify
+맘스터치,마살라버거,버거,237,447,28,835,15,2.1,575~1320,image_ocr_manual_verify
+맘스터치,슈퍼싸이더블킥,버거,320,883,48,1679,13,10.2,1012~1757,image_ocr_manual_verify
+맘스터치,셰프스 K 싸이버거,버거,296,695,35,1533,10,10.6,824~1568,image_ocr_manual_verify
+맘스터치,와우스모크디럭스버거,버거,267,579,34,849,14,5.5,708~1452,image_ocr_manual_verify
+맘스터치,셰프스 베이컨 싸이버거,버거,274,615,37,1152,14,7.8,744~1488,image_ocr_manual_verify
+맘스터치,아라비아따치즈버거,버거,309,791,41,1622,10,12,920~1664,image_ocr_manual_verify
+맘스터치,딥치즈싸이버거,버거,246,655,30,1196,10,12.1,784~1529,image_ocr_manual_verify
+맘스터치,화이트갈릭싸이버거,버거,263,759,37,1345,10,13,888~1633,image_ocr_manual_verify
+맘스터치,쉬림프싸이플렉스버거,버거,301,858,29,1392,12,11.8,987~1731,image_ocr_manual_verify
+맘스터치,싸이플렉스버거,버거,406,991,44,2024,14,15.2,1119~1864,image_ocr_manual_verify
+맘스터치,싸이버거,버거,230,594,28,1009,14,8.6,723~1467,image_ocr_manual_verify
+맘스터치,불싸이버거,버거,230,543,28,1152,15,6.9,672~1416,image_ocr_manual_verify
+맘스터치,휠렛버거,버거,248,545,32,939,13,4.2,673~1418,image_ocr_manual_verify
+맘스터치,딥치즈버거,버거,259,543,33,1087,9,7.1,672~1416,image_ocr_manual_verify
+맘스터치,언빌리버블버거,버거,327,702,40,1423,13,6.3,831~1576,image_ocr_manual_verify
+맘스터치,화이트갈릭버거,버거,280,638,40,1268,13,9.0,767~1512,image_ocr_manual_verify
+맘스터치,새우불고기버거,버거,252,601,19,1054,20,6.3,729~1474,image_ocr_manual_verify
+맘스터치,불고기버거,버거,164,403,14,615,14,5.1,532~1277,image_ocr_manual_verify
+맘스터치,디럭스불고기버거,버거,236,614,24,1197,16,9.3,743~1487,image_ocr_manual_verify
+맘스터치,통새우버거,버거,178,449,12,707,9,12.4,578~1322,image_ocr_manual_verify
+맘스터치,매직풍 비프버거,버거,226,546,26,1062,16,9.2,675~1419,image_ocr_manual_verify
+맘스터치,셰프스 K 비프버거,버거,253,601,29,1139,11,13.7,730~1474,image_ocr_manual_verify
+맘스터치,셰프스 베이컨 비프버거,버거,247,638,31,922,14,13.6,767~1511,image_ocr_manual_verify
+맘스터치,비프스테이크버거,버거,270,739,36,1149,14,13.9,867~1612,image_ocr_manual_verify
+맘스터치,그릴드더블비프버거,버거,329,826,50,1259,9,24,955~1700,image_ocr_manual_verify
+맘스터치,그릴드비프버거,버거,233,565,28,895,8,14.4,693~1438,image_ocr_manual_verify
+맘스터치,시그니처불고기버거,버거,241,569,19,1157,18,13.3,697~1442,image_ocr_manual_verify

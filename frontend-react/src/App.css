@@ -1,0 +1,485 @@
+:root {
+  --bg: #f6f5f2;
+  --card-bg: #ffffff;
+  --text: #23201b;
+  --muted: #74706a;
+  --border: #e4e0d8;
+  --accent: #c1440e;
+  --accent-soft: #fbe9e0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.topbar {
+  padding: 32px 24px 20px;
+  text-align: center;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.top-nav {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--muted);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nav-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.map-controls {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0 12px;
+}
+
+.map-controls input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.map-controls button {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 12px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.grade-type-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.grade-type-btn.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: #fff;
+}
+
+#min-grade-select {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 760px) {
+  .map-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+
+#map-container {
+  width: 100%;
+  height: 480px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #eee;
+}
+
+.store-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.store-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.store-card:hover {
+  border-color: var(--accent);
+}
+
+.store-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.store-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-card-distance {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.store-card-address {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.map-legend {
+  margin-top: 12px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  align-items: center;
+}
+
+.map-legend .grade-badge {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  margin-right: 4px;
+}
+
+.map-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.map-pin span {
+  display: inline-block;
+  transform: rotate(45deg);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.store-popup {
+  position: relative;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  width: 220px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+
+.store-popup-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.store-popup-title {
+  font-weight: 700;
+  font-size: 13px;
+  padding-right: 18px;
+  margin-bottom: 6px;
+}
+
+.store-popup-meta {
+  color: var(--muted);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.store-popup-menu-btn {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.store-popup-menu-btn:hover {
+  opacity: 0.9;
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 24px 0 16px;
+}
+
+.hidden { display: none; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.restaurant-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.restaurant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  border-color: var(--accent);
+}
+
+.restaurant-card .name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.restaurant-card .count {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.loading, .error {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.error { color: var(--accent); }
+
+#back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 0;
+  margin-top: 20px;
+}
+
+.legend-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: -8px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.legend-hint .grade-badge {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.menu-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.menu-toolbar select {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.stat-chip {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-item {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.menu-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.menu-item-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.menu-item-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.nutrition-row {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nutrient-badge {
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  color: var(--text);
+}
+
+.nutrient-badge b { color: var(--accent); }
+
+.card-grade-slot {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.grade-a { background: #2f8f4e; }
+.grade-b { background: #6fa83d; }
+.grade-c { background: #d99a2b; }
+.grade-d { background: #c1440e; }
+
+.grade-chip {
+  background: #eef3ea;
+  color: #2f6b3a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

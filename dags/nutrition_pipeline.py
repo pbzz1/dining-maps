@@ -1,0 +1,70 @@
+"""Menu & nutrition refresh pipeline (docs/Dining_Maps_기획안.docx 10.1절 계획).
+
+4 brands are crawled in parallel (McDonald's/Lotteria/Subway/Salady have
+official APIs or HTML pages). The crawled CSVs are then snapshotted and
+validated BEFORE anything touches the serving tables -- if a brand redesigns
+its site and a parser silently breaks, snapshot_and_validate fails here and
+load_data never runs, so the good data already in menu_item survives. Only
+after the gate passes do we load and recompute diet scores.
+See docs/data_quality.md.
+
+맘스터치 is intentionally NOT re-crawled here: its nutrition info is only
+published as an image (see docs/diet_score.md), so data/momstouch.csv stays a
+manually-maintained file until that changes -- an automated task would just
+silently do nothing.
+
+Scheduled monthly (paused by default -- unpause in the Airflow UI to
+activate). Menu changes happen at brand release-cycle pace, not daily.
+"""
+from datetime import datetime, timedelta
+
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+PROJECT_DIR = "/opt/airflow/dining_maps"
+PYTHON = "python"
+
+default_args = {
+    "owner": "dining-maps",
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
+}
+
+with DAG(
+    dag_id="nutrition_pipeline",
+    description="Crawl menu/nutrition data (4 brands), load into SQLite, recompute diet scores",
+    default_args=default_args,
+    schedule="0 3 1 * *",  # 03:00 KST on the 1st of each month
+    start_date=datetime(2026, 1, 1),
+    catchup=False,
+    is_paused_upon_creation=True,
+    tags=["nutrition", "monthly"],
+) as dag:
+
+    crawl_tasks = [
+        BashOperator(
+            task_id=f"crawl_{brand}",
+            bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/crawl_{brand}.py",
+        )
+        for brand in ["mcdonalds", "lotteria", "subway", "salady"]
+    ]
+
+    # Quality gate: exits non-zero on any hard failure, which fails this task
+    # and (by default trigger rule) skips everything downstream.
+    snapshot_and_validate = BashOperator(
+        task_id="snapshot_and_validate",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/snapshot_and_validate.py --source airflow",
+        retries=0,  # a failed quality gate is a real signal, not a flake -- don't retry into a false pass
+    )
+
+    load_data = BashOperator(
+        task_id="load_data",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/load_data.py",
+    )
+
+    compute_diet_score = BashOperator(
+        task_id="compute_diet_score",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/compute_diet_score.py",
+    )
+
+    crawl_tasks >> snapshot_and_validate >> load_data >> compute_diet_score

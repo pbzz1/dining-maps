@@ -1,0 +1,7 @@
+# Airflow's own image, plus the same libraries our crawl/load/score scripts
+# need (beautifulsoup4/lxml for parsing, pandas for compute_diet_score.py).
+FROM apache/airflow:3.3.0-python3.11
+
+USER airflow
+COPY docker/requirements-airflow.txt /requirements-airflow.txt
+RUN pip install --no-cache-dir -r /requirements-airflow.txt
