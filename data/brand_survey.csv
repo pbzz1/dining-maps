@@ -1,45 +1,45 @@
-﻿brand,category,status,nutrition,nutrition_format,nutrients,price,source,notes,surveyed_at
+brand,category,status,nutrition,nutrition_format,nutrients,price,source,notes,surveyed_at
 롯데리아,버거,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.lotteeatz.com/upload/stg/etc/ria/items.html,[수동확인] 정적 HTML 영양성분표. rowspan/colspan 처리 필요,2026-08-05
 맘스터치,버거,adopted,partial,image,"열량,단백질,당류,포화지방,나트륨",N,공지사항 영양성분 이미지(PNG),[수동확인] 영양정보가 이미지로만 공개되어 자동 크롤링 불가. 버거류만 수동 전사,2026-08-05
 맥도날드,버거,adopted,Y,json_api,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.mcdonalds.co.kr/api/v1/kor/product/nutrition,[수동확인] 공식 API. price 필드는 있으나 179개 전부 null이고 메뉴 페이지에도 가격 표기 없음,2026-08-05
 서브웨이,샌드위치,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨",N,https://www.subway.co.kr/menuView/sandwich?menuItemIdx=,[수동확인] 상품별 상세페이지 순회. 일부 ID는 500 에러,2026-08-05
 샐러디,샐러드,adopted,Y,server_html,"열량,탄수화물,당류,단백질,지방,포화지방,나트륨",N,https://salady.com/menu/view_1?idx=,[수동확인] 유일하게 탄수화물·지방까지 공개. 단 중량(g) 정보는 없음,2026-08-05
-배스킨라빈스,디저트,viable,Y,server_html,"열량,kcal,나트륨,단백질,당류,포화지방,영양정보",Y,https://www.baskinrobbins.co.kr/menu/view.php?seq=7,자동 프로브: 영양 키워드 6종 검출 (브라우저 확인 권장),2026-08-05
-버거킹,버거,viable,Y,json_api,"열량,단백질,당류,포화지방,나트륨,중량",Y,POST https://www.burgerking.co.kr/burgerking/BKR0632.json (목록) / BKR0634.json (상세),[수동확인] 조사한 브랜드 중 영양정보와 가격(dineInprc)을 함께 제공하는 유일한 사례,2026-08-05
-포케올데이,샐러드,viable,Y,server_html,"열량,나트륨,탄수화물,당류,단백질,지방,콜레스테롤,포화지방산,트랜스지방",N,https://pokeallday.co.kr/nutrition_info,[수동확인] 조사 브랜드 중 영양소 항목이 가장 많음(9종). 콜레스테롤·트랜스지방까지 공개,2026-08-05
-BHC,치킨,viable,Y,server_html,"열량,당류,단백질,포화지방,나트륨",N,https://www.bhc.co.kr/menu/chicken.asp,[수동확인] 서버 렌더링 <table>. 롯데리아와 유사한 구조,2026-08-05
-빽다방,커피,viable,Y,server_html,"kcal,칼로리,나트륨,단백질,당류,포화지방",N,https://paikdabang.com/menu/menu_coffee/,자동 프로브: 영양 키워드 5종 검출 (브라우저 확인 권장),2026-08-05
-스타벅스,커피,viable,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.starbucks.co.kr/menu/drink_view.do?product_cd=,[수동확인] 음료 207개 확인. Tall 사이즈 기준. 서버 렌더링이라 curl 크롤링 가능,2026-08-05
-이디야,커피,viable,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.ediya.com/contents/drink.html,[수동확인] 목록 페이지 HTML에 dl/dt/dd로 인라인 표기. 상세페이지 순회 불필요,2026-08-05
-커피빈,커피,viable,Y,server_html,"열량,Kcal,나트륨,단백질,포화지방",N,https://www.coffeebeankorea.com/menu/list.asp,자동 프로브: 영양 키워드 4종 검출 (브라우저 확인 권장),2026-08-05
-할리스,커피,viable,Y,server_html,"kcal,칼로리,나트륨,단백질,당류,포화지방,영양정보",N,https://www.hollys.co.kr/menu/espresso.do,자동 프로브: 영양 키워드 6종 검출 (브라우저 확인 권장),2026-08-05
-도미노피자,피자,viable,Y,server_html,"열량,kcal,나트륨,단백질,당류,포화지방,영양성분",N,https://web.dominos.co.kr/contents/ingredient,자동 프로브: 영양 키워드 6종 검출 (브라우저 확인 권장),2026-08-05
-설빙,디저트,unknown,unknown,js_rendered?,,N,https://sulbing.com/menu,자동 프로브: 영양 키워드 없음(14409자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-KFC,버거,unknown,unknown,js_rendered,,Y,https://www.kfckorea.com/menu/detail/N/{id},"[수동확인] 주문 페이지라 가격 표시됨(예: 복버켓 16,400). '영양정보표 및 원산지 정보' 링크가 있으나 내용 미확인 - 재조사 필요",2026-08-05
-쉐이크쉑,버거,unknown,unknown,unreachable,,unknown,https://www.shakeshack.kr/menu/,접근 실패: URLError,2026-08-05
-타코벨,버거,unknown,unknown,unreachable,,unknown,https://www.tacobell.co.kr/menu/,접근 실패: URLError,2026-08-05
-프랭크버거,버거,unknown,unknown,unreachable,,unknown,https://frankburger.co.kr/menu,접근 실패: HTTPError,2026-08-05
-뚜레쥬르,베이커리,unknown,unknown,js_rendered?,,N,https://www.tlj.co.kr/menu/menu_list,자동 프로브: 영양 키워드 없음(2159자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-파리바게뜨,베이커리,unknown,unknown,js_rendered?,,Y,https://www.paris.co.kr/products/,자동 프로브: 영양 키워드 없음(99980자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-신전떡볶이,분식,unknown,unknown,js_rendered?,,N,https://www.sinjeon.co.kr/menu,자동 프로브: 영양 키워드 없음(1716자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-죠스떡볶이,분식,unknown,unknown,unreachable,,unknown,https://jawstteokbokki.com/menu,접근 실패: HTTPError,2026-08-05
-에그드랍,샌드위치,unknown,unknown,unknown,,unknown,eggdrop.co.kr,[수동확인] SSL 인증서 검증 실패 - 재조사 필요,2026-08-05
-이삭토스트,샌드위치,unknown,unknown,unreachable,,unknown,https://www.isaac-toast.co.kr/menu,접근 실패: HTTPError,2026-08-05
-슬로우캘리,샐러드,unknown,unknown,unknown,,unknown,slowcalorie.co.kr,[수동확인] 도메인 연결 거부 - 정확한 도메인 재확인 필요,2026-08-05
-BBQ,치킨,unknown,unknown,unknown,,unknown,https://www.bbq.co.kr,[수동확인] 메뉴 페이지 경로를 찾지 못함(시도한 URL 전부 404) - 재조사 필요,2026-08-05
-교촌치킨,치킨,unknown,partial,js_rendered,"열량,당류,단백질,포화지방,나트륨",Y,https://m.kyochon.com/menu/menu_view?product_id=,[수동확인] 100g당 표기. 값이 비어있는 항목이 많음(예: 반반한마리는 열량·나트륨만). 권장소비자가격 표기 있음,2026-08-05
-네네치킨,치킨,unknown,unknown,unreachable,,unknown,https://nenechicken.com/menu/,접근 실패: HTTPError,2026-08-05
-노랑통닭,치킨,unknown,unknown,unreachable,,unknown,https://www.norangtongdak.com/menu,접근 실패: HTTPError,2026-08-05
-처갓집양념치킨,치킨,unknown,unknown,unreachable,,unknown,https://www.cheogajip.co.kr/menu,접근 실패: HTTPError,2026-08-05
-푸라닭,치킨,unknown,unknown,unreachable,,unknown,https://www.puradak.com/menu,접근 실패: URLError,2026-08-05
-컴포즈커피,커피,unknown,unknown,unreachable,,unknown,https://composecoffee.com/menu,접근 실패: HTTPError,2026-08-05
-폴바셋,커피,unknown,unknown,unreachable,,unknown,https://www.paulbassett.co.kr/menu/menuList,접근 실패: URLError,2026-08-05
-미스터피자,피자,unknown,unknown,js_rendered?,,N,https://www.mrpizza.co.kr/menu,자동 프로브: 영양 키워드 없음(33166자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-파파존스,피자,unknown,unknown,unreachable,,unknown,https://www.papajohns.co.kr/menu/,접근 실패: URLError,2026-08-05
-피자헛,피자,unknown,unknown,js_rendered?,,N,https://www.pizzahut.co.kr/menu/list,자동 프로브: 영양 키워드 없음(12787자). JS 렌더링이거나 미공개 - 수동 확인 필요,2026-08-05
-본도시락,한식,unknown,unknown,unknown,,unknown,https://www.bonif.co.kr,[수동확인] SSL 인증서 검증 실패로 접근 불가 - 재조사 필요,2026-08-05
-본죽,한식,unknown,unknown,unreachable,,unknown,https://www.bonif.co.kr/bonjuk/menu,접근 실패: HTTPError,2026-08-05
-본죽&비빔밥,한식,unknown,unknown,unreachable,,unknown,https://www.bonif.co.kr/bonjukbibimbap/menu,접근 실패: HTTPError,2026-08-05
+배스킨라빈스,디저트,adopted,Y,server_html,"열량,당류,단백질,포화지방,나트륨",N,https://www.baskinrobbins.co.kr/menu/view.php?seq=,[파서완료] 아이스크림 카테고리(30/30)만 영양정보 dl 블록 존재. 프리팩/케이크/디저트 카테고리는 페이지 자체에 영양정보 없음(파서 문제 아님),2026-08-12
+버거킹,버거,adopted,Y,json_api,"열량,단백질,당류,포화지방,나트륨,카페인,중량",Y,POST https://www.burgerking.co.kr/burgerking/BKR0347.json (전체 영양정보) + BKR0632/BKR0634 (가격),[재수집] 최초 기록은 틀림 -- BKR0632/BKR0634에는 영양정보 없음(BKR0634는 열량만). 실제 영양정보는 BKR0347 단일호출로 전체 상품 일괄 제공. urllib/curl은 WAF가 TLS 핸드셰이크 단계에서 차단하여 브라우저 세션에서 fetch로 직접 수집(85개 상품, data/burgerking.csv). 재크롤링 방법은 crawl_viable_brands.py의 crawl_burgerking 참조,2026-08-12
+포케올데이,샐러드,adopted,Y,server_html,"열량,단백질,중량",N,https://pokeallday.co.kr/poke 등 카테고리별 페이지,[재수집] 최초 기록(/nutrition_info)은 틀림 -- 그 페이지는 1일 영양성분 기준치 표 1행뿐이고 실제 상품 데이터가 아님. 진짜 영양정보는 /poke /rice_bowl /side /protein_poke /menu_balance_box /drink 각 페이지의 상품 카드(.bh_item.item)에 있으며 칼로리/단백질/중량만 제공(나트륨·당류 없음 -- diet_score 채점 대상에서 자동 제외됨),2026-08-12
+BHC,치킨,adopted,Y,json_api,"열량,단백질,당류,포화지방,나트륨,가격",Y,https://www.bhc.co.kr/api/v1/web/products/{id},[재수집] 최초 기록(server_html table)은 틀림 -- /menu 페이지 표는 빈 템플릿(전부 '-')이고 React가 API로 채움. 실제 API는 /api/v1/web/categories/list -> categories/{id}/products -> products/{id}. 100g당 표기(교촌과 동일 방식). 가격도 함께 제공,2026-08-12
+교촌치킨,치킨,adopted,Y,json_api,"열량,단백질,나트륨,가격",Y,https://m.kyochon.com/product/ProductSO/getProductDetailToMenu.do,[재수집] 최초 기록(당류,포화지방 포함)은 틀림 -- 실제 API 필드는 CALORIE/PROTEIN/CARBOHYDRATE/FAT/NATRIUM뿐이고 당류·포화지방 필드 자체가 없음. 100g당 표기. 목록 API는 getProductListToMenu.do(DEPTH1/DEPTH2 파라미터). urllib 정상 작동,2026-08-12
+빽다방,커피,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://paikdabang.com/menu/menu_coffee/,[파서완료] div.hover 안의 h3.font-bl(이름) + ul.ingredient_table(li 쌍). 실제 표(<table>)가 아니라 커스텀 마크업이라 범용 파서로는 0행이었음. 303개 상품 확보,2026-08-12
+스타벅스,커피,adopted,Y,json_api,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.starbucks.co.kr/upload/json/menu/{카테고리코드}.js,[재수집] 최초 기록(product_cd 목록페이지+상세페이지 순회)은 틀림 -- 목록페이지 표는 빈 템플릿. 실제로는 카테고리(10개)별 정적 JSON 파일 하나에 전 상품 영양정보가 이미 다 들어있음. Tall(base) 사이즈 기준. 192개 상품,2026-08-12
+이디야,커피,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.ediya.com/inc/ajax_brand.php?gubun=menu_more&product_cate={7|8}&page={n},[재수집] 최초 기록(목록페이지 인라인, 순회 불필요)은 틀림 -- 목록페이지엔 처음 8개만 있고 나머지는 POST 방식 더보기 AJAX로 페이지네이션. GET은 항상 1페이지만 반환해 페이지네이션이 도는 것처럼 보이는 함정 있음. 320개 상품,2026-08-12
+커피빈,커피,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.coffeebeankorea.com/menu/list.asp?page={n}&category={id}&category2=1,[파서완료] dt=값/dd=라벨로 순서가 뒤집힌 <dl> 구조(dl.bg1~bg4). 9개 음료 카테고리, 페이지네이션 있음. 108개 상품. 베이커리/케익 등 푸드 카테고리는 영양정보 없음(확인함),2026-08-12
+할리스,커피,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.hollys.co.kr/menu/espresso.do 등 6개 카테고리,[파서완료] 상품명이 표 헤더가 아니라 <table><caption>에 있음(첫 컬럼은 HOT/ICED). 최초 기록 URL(brewed.do/beverage.do)은 존재하지 않는 경로 -- 실제는 espresso/signature/hollyccino/juice/tea/bakery. HOT/ICED 각각 별도 행. 174개 상품,2026-08-12
+도미노피자,피자,adopted,Y,server_html,"열량,단백질,당류,포화지방,나트륨,가격,중량",N,https://web.dominos.co.kr/contents/ingredient,[파서완료] 다른 브랜드와 달리 EUC-KR 인코딩. 피자표(489행)는 상품명에 rowspan이 19단까지 걸린 중첩 그리드라 범용 파서로는 불가 -- rowspan 전용 그리드 복원 함수 작성. 피자/음료/사이드 3개 표 통합, 551개 상품. 100g이 아닌 총중량 기준값 사용,2026-08-12
+설빙,디저트,unknown,unknown,js_rendered,,N,https://sulbing.com/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(14409바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+KFC,버거,unknown,unknown,js_rendered,,N,https://www.kfckorea.com/menu/detail/N/{id},[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(12547바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요 / [수동확인] 주문 페이지라 가격 표시됨(예: 복버켓 16,400). '영양정보표 및 원산지 정보' 링크가 있으나 내용 미확인 - 재조사 필요,2026-08-12
+쉐이크쉑,버거,unknown,unknown,path_unknown,,N,https://www.shakeshack.kr/menu/,[재조사] 홈페이지만 수신됨. 메뉴 페이지에 도달하지 못해 영양정보 유무 판단 불가 - 메뉴 경로 재확인 필요,2026-08-11
+타코벨,버거,unknown,unknown,js_rendered,,N,https://www.tacobell.co.kr/menu/,[SPA API 탐색] 홈페이지 자체가 연결 거부(WinError 10061) - 서비스 중단 또는 도메인 변경 가능성 / [재조사] 페이지는 받았으나 영양 키워드 0종(8186바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+프랭크버거,버거,unknown,unknown,js_rendered,,N,https://frankburger.co.kr/menu,[SPA API 탐색] frankburger.co.kr은 창업 안내 포털이고 실제 메뉴는 "브랜드홈페이지" 링크(index_brand.html) 아래에 있으나 그마저도 구식 게시판(board/index.php) CMS라 메뉴 경로를 찾지 못함 - 재조사 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(31313바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+뚜레쥬르,베이커리,unknown,partial,unknown,kcal,Y,https://tlj.co.kr/menu/menu_list,[재조사] 영양 키워드 일부만(1종) 검출 - 상세페이지 확인 필요,2026-08-11
+파리바게뜨,베이커리,unknown,unknown,js_rendered,,Y,https://www.paris.co.kr/products/,[SPA API 탐색] JS 번들에서 API 경로 37개 발견되었으나 전부 카카오톡 공유 SDK(kakaolink) 관련이고 메뉴/상품 API 아님. Next.js SSR로 추정 - 브라우저 네트워크 탭 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(100002바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+신전떡볶이,분식,unknown,unknown,js_rendered,,N,https://www.sinjeon.co.kr/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(1716바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+죠스떡볶이,분식,unknown,unknown,dns_failure,,unknown,https://jawstteokbokki.com/menu,[재조사] 도메인이 DNS에 없음 - 정확한 도메인 재확인 필요,2026-08-11
+에그드랍,샌드위치,unknown,unknown,js_rendered,,N,eggdrop.co.kr,[SPA API 탐색] /api/sendnum.php(문자인증) /api/store-sido.php(매장검색)만 발견 - 메뉴/영양정보 API 아님. 브라우저 네트워크 탭 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(114344바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요 / [수동확인] SSL 인증서 검증 실패 - 재조사 필요,2026-08-12
+이삭토스트,샌드위치,unknown,unknown,blocked,,N,https://www.isaac-toast.co.kr/menu,[재조사] 홈페이지는 열리나 메뉴 경로가 403/406 - WAF 차단. 브라우저 도구 필요,2026-08-11
+슬로우캘리,샐러드,unknown,unknown,path_unknown,,N,slowcalorie.co.kr,[재조사] 홈페이지만 수신됨. 메뉴 페이지에 도달하지 못해 영양정보 유무 판단 불가 - 메뉴 경로 재확인 필요 / [수동확인] 도메인 연결 거부 - 정확한 도메인 재확인 필요,2026-08-11
+BBQ,치킨,unknown,unknown,js_rendered,,N,https://www.bbq.co.kr/,[SPA API 탐색] /api/delivery/menu/category 등 Next.js API 확인됨. 단 배달 매장(store) 스코프라 매장 id 없이는 빈 배열 반환 - 매장 선택 흐름까지 재현해야 실제 메뉴 데이터 획득 가능 / [재조사] 페이지는 받았으나 영양 키워드 0종(76739바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요 / [수동확인] 메뉴 페이지 경로를 찾지 못함(시도한 URL 전부 404) - 재조사 필요,2026-08-12
+네네치킨,치킨,unknown,unknown,js_rendered,,N,https://nenechicken.com/menu/,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(161159바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+노랑통닭,치킨,unknown,unknown,js_rendered,,N,https://www.norangtongdak.com/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(58463바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+처갓집양념치킨,치킨,unknown,unknown,js_rendered,,N,https://www.cheogajip.co.kr/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(58304바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+푸라닭,치킨,unknown,unknown,dns_failure,,unknown,https://www.puradak.com/menu,[재조사] 도메인이 DNS에 없음 - 정확한 도메인 재확인 필요,2026-08-11
+컴포즈커피,커피,unknown,unknown,js_rendered,,N,https://composecoffee.com/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(6457바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+폴바셋,커피,unknown,unknown,dns_failure,,unknown,https://www.paulbassett.co.kr/menu/menuList,[재조사] 도메인이 DNS에 없음 - 정확한 도메인 재확인 필요,2026-08-11
+미스터피자,피자,unknown,unknown,js_rendered,,N,https://www.mrpizza.co.kr/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(33166바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+파파존스,피자,unknown,partial,unknown,"열량,Kcal,영양성분",Y,http://www.papajohns.co.kr/menu/,[재조사] 영양 키워드 일부만(2종) 검출 - 상세페이지 확인 필요,2026-08-11
+피자헛,피자,unknown,unknown,js_rendered,,N,https://www.pizzahut.co.kr/menu/list,[SPA API 탐색] /api /api/ /api/csm/csp 발견되었으나 공통 프레임워크 헬퍼로 보이며 메뉴 데이터로 연결되지 않음. Next.js SSR로 추정 - 브라우저 네트워크 탭 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(12787바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+본도시락,한식,unknown,unknown,js_rendered,,N,https://www.bonif.co.kr/,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(69859바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요 / [수동확인] SSL 인증서 검증 실패로 접근 불가 - 재조사 필요,2026-08-12
+본죽,한식,unknown,unknown,js_rendered,,N,https://www.bonif.co.kr/bonjuk/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(69859바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
+본죽&비빔밥,한식,unknown,unknown,js_rendered,,N,https://www.bonif.co.kr/bonjukbibimbap/menu,[SPA API 탐색] find_spa_api.py로 JS 번들 정적 스캔 - API 경로 흔적 없음. Next.js 서버사이드 렌더링(SSR)로 추정되며 클라이언트 번들에 fetch 경로가 남지 않음. 브라우저 네트워크 탭으로 직접 확인 필요 / [재조사] 페이지는 받았으나 영양 키워드 0종(69859바이트, 텍스트 5% 미만). JS 렌더링 - urllib으로는 불가. 브라우저 도구 또는 배후 JSON API 필요,2026-08-12
 노브랜드버거,버거,rejected,N,none,,N,https://www.nobrandburger.com/menu/menuList.do,[수동확인] 영양성분 팝업 링크(shinsegaefood.com/popup/nobrandburger_02.html)가 718바이트 빈 페이지,2026-08-05
 굽네치킨,치킨,rejected,N,none,,Y,https://www.goobne.co.kr/menu/menu_list,[수동확인] 가격은 있으나 영양정보 없음,2026-08-05
 메가커피,커피,rejected,N,none,,N,https://www.mega-mgccoffee.com/menu/,[수동확인] 메뉴 페이지에 이름·영문명·설명만 존재. 별도 영양 페이지 경로도 전부 404,2026-08-05
