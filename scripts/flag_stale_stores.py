@@ -10,11 +10,12 @@ was missing from at least that many days' worth of re-crawls.
     python scripts/flag_stale_stores.py --stale-days 14
 """
 import argparse
-import sqlite3
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "db" / "dining.db"
+sys.path.insert(0, str(ROOT))
+from app.db import connect  # noqa: E402
 
 
 def main():
@@ -22,25 +23,25 @@ def main():
     parser.add_argument("--stale-days", type=int, default=14, help="flag stores not re-seen in this many days")
     args = parser.parse_args()
 
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        """SELECT s.id, r.name, s.branch_name, s.address, s.last_seen_at,
-                  CAST(julianday('now') - julianday(s.last_seen_at) AS INTEGER) AS days_stale
-           FROM store s
-           JOIN restaurant r ON r.id = s.restaurant_id
-           WHERE julianday('now') - julianday(s.last_seen_at) > ?
-           ORDER BY days_stale DESC""",
-        (args.stale_days,),
-    ).fetchall()
-    conn.close()
+    with connect() as conn:
+        rows = conn.execute(
+            """SELECT s.id, r.name AS restaurant, s.branch_name, s.address, s.last_seen_at,
+                      EXTRACT(DAY FROM now() - s.last_seen_at)::int AS days_stale
+               FROM store s
+               JOIN restaurant r ON r.id = s.restaurant_id
+               WHERE now() - s.last_seen_at > make_interval(days => %s)
+               ORDER BY days_stale DESC""",
+            (args.stale_days,),
+        ).fetchall()
 
     if not rows:
         print(f"No stores stale beyond {args.stale_days} days.")
         return
 
     print(f"{len(rows)} store(s) not re-seen in over {args.stale_days} days (closure/rename candidates):\n")
-    for store_id, restaurant, branch, address, last_seen, days_stale in rows:
-        print(f"  [{days_stale}d] #{store_id} {restaurant} {branch} -- {address} (last seen {last_seen})")
+    for r in rows:
+        print(f"  [{r['days_stale']}d] #{r['id']} {r['restaurant']} {r['branch_name']}"
+              f" -- {r['address']} (last seen {r['last_seen_at']})")
 
 
 if __name__ == "__main__":

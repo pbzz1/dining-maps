@@ -12,14 +12,15 @@ UNIQUE(kakao_place_id) constraint via upsert, same as the single-point script.
     KAKAO_REST_API_KEY=xxxx python scripts/fetch_store_locations_nationwide.py
 """
 import os
-import sqlite3
+import sys
 import time
 from pathlib import Path
 
-from fetch_store_locations import search_brand, upsert_store
-
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "db" / "dining.db"
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
+from app.db import connect  # noqa: E402
+from fetch_store_locations import search_brand, upsert_store  # noqa: E402
 
 # Bounding box covering mainland Korea + Jeju (excludes remote west-sea
 # islands like Baengnyeongdo and Dokdo -- no franchise stores there anyway).
@@ -56,9 +57,9 @@ def main():
     if not api_key:
         raise SystemExit("Set KAKAO_REST_API_KEY env var first (developers.kakao.com REST API key)")
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    restaurants = conn.execute("SELECT id, name FROM restaurant").fetchall()
+    conn = connect().__enter__()
+    restaurants = [(r["id"], r["name"]) for r in
+                   conn.execute("SELECT id, name FROM restaurant").fetchall()]
 
     grid = build_grid()
     print(f"Grid: {len(grid)} points, {len(restaurants)} brands -> up to {len(grid) * len(restaurants)} base calls")
@@ -89,11 +90,11 @@ def main():
     print("Raw upserts per brand (before /stores endpoint dedup accounting):", totals)
 
     final_counts = conn.execute(
-        """SELECT r.name, COUNT(*) FROM store s JOIN restaurant r ON r.id = s.restaurant_id
+        """SELECT r.name, COUNT(*) AS n FROM store s JOIN restaurant r ON r.id = s.restaurant_id
            GROUP BY r.name ORDER BY r.name"""
     ).fetchall()
     print("\nFinal distinct store counts in DB:")
-    for name, n in final_counts:
+    for name, n in [(r["name"], r["n"]) for r in final_counts]:
         print(f"  {name}: {n}")
 
     conn.close()

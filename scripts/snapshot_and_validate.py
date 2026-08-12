@@ -14,16 +14,16 @@ downstream load is skipped. See docs/data_quality.md for the rules.
 """
 import argparse
 import csv
-import sqlite3
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from load_data import FILES, to_float, to_int  # reuse the per-brand column mapping
-
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
+from app.db import connect  # noqa: E402
+from load_data import FILES, to_float, to_int  # noqa: E402  (per-brand column mapping)
+
 DATA_DIR = ROOT / "data"
-DB_PATH = ROOT / "db" / "dining.db"
 SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 # --- validation thresholds (see docs/data_quality.md for how these were picked) ---
@@ -84,11 +84,13 @@ def load_snapshot(conn, run_id):
     items = {}
     rows = conn.execute(
         """SELECT id, restaurant_name, menu_name, category, price_krw, weight_g
-           FROM menu_snapshot WHERE run_id = ?""",
+           FROM menu_snapshot WHERE run_id = %s""",
         (run_id,),
     ).fetchall()
     by_snapshot_id = {}
-    for sid, restaurant, name, category, price, weight in rows:
+    for r in rows:
+        sid, restaurant, name = r["id"], r["restaurant_name"], r["menu_name"]
+        category, price, weight = r["category"], r["price_krw"], r["weight_g"]
         rec = {
             "restaurant": restaurant,
             "menu_name": name,
@@ -100,40 +102,40 @@ def load_snapshot(conn, run_id):
         items[(restaurant, name)] = rec
         by_snapshot_id[sid] = rec
 
-    for sid, nutrient, value, unit in conn.execute(
+    for r in conn.execute(
         """SELECT ns.menu_snapshot_id, ns.nutrient_name, ns.value, ns.unit
            FROM nutrition_snapshot ns
            JOIN menu_snapshot ms ON ms.id = ns.menu_snapshot_id
-           WHERE ms.run_id = ?""",
+           WHERE ms.run_id = %s""",
         (run_id,),
-    ):
-        by_snapshot_id[sid]["nutrients"][nutrient] = (value, unit)
+    ).fetchall():
+        by_snapshot_id[r["menu_snapshot_id"]]["nutrients"][r["nutrient_name"]] = (r["value"], r["unit"])
 
     return items
 
 
 def write_snapshot(conn, run_id, records):
     for rec in records.values():
-        cur = conn.execute(
+        snapshot_id = conn.execute(
             """INSERT INTO menu_snapshot
                    (run_id, restaurant_name, menu_name, category, price_krw, weight_g)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
             (run_id, rec["restaurant"], rec["menu_name"], rec["category"],
              rec["price_krw"], rec["weight_g"]),
-        )
+        ).fetchone()["id"]
         for nutrient, (value, unit) in rec["nutrients"].items():
             conn.execute(
                 """INSERT INTO nutrition_snapshot
                        (menu_snapshot_id, nutrient_name, value, unit)
-                   VALUES (?, ?, ?, ?)""",
-                (cur.lastrowid, nutrient, value, unit),
+                   VALUES (%s, %s, %s, %s)""",
+                (snapshot_id, nutrient, value, unit),
             )
 
 
 def record_check(conn, run_id, name, scope, severity, detail):
     conn.execute(
         """INSERT INTO data_quality_check (run_id, check_name, scope, severity, detail)
-           VALUES (?, ?, ?, ?, ?)""",
+           VALUES (%s, %s, %s, %s, %s)""",
         (run_id, name, scope, severity, detail),
     )
     return severity
@@ -272,11 +274,11 @@ def detect_changes(conn, run_id, current, previous):
                      None if new is None else str(new),
                      pct, verdict))
 
-    conn.executemany(
+    conn.cursor().executemany(
         """INSERT INTO menu_change_log
                (run_id, restaurant_name, menu_name, change_type, field_name,
                 old_value, new_value, pct_change, verdict)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
         rows,
     )
     return rows
@@ -287,20 +289,19 @@ def main():
     parser.add_argument("--source", default="manual", help="manual / airflow")
     args = parser.parse_args()
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    conn = connect().__enter__()
+    conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
     prev_run = conn.execute(
         "SELECT id FROM crawl_run WHERE status = 'passed' ORDER BY id DESC LIMIT 1"
     ).fetchone()
-    prev_run_id = prev_run[0] if prev_run else None
+    prev_run_id = prev_run["id"] if prev_run else None
     previous = load_snapshot(conn, prev_run_id) if prev_run_id else {}
 
-    cur = conn.execute(
-        "INSERT INTO crawl_run (started_at, source, status) VALUES (datetime('now'), ?, 'running')",
+    run_id = conn.execute(
+        "INSERT INTO crawl_run (started_at, source, status) VALUES (now(), %s, 'running') RETURNING id",
         (args.source,),
-    )
-    run_id = cur.lastrowid
+    ).fetchone()["id"]
 
     current = {}
     for config in FILES:
@@ -314,22 +315,22 @@ def main():
     passed = validate(conn, run_id, current, previous)
     changes = detect_changes(conn, run_id, current, previous)
 
-    conn.execute("UPDATE crawl_run SET status = ? WHERE id = ?",
+    conn.execute("UPDATE crawl_run SET status = %s WHERE id = %s",
                  ("passed" if passed else "failed", run_id))
     conn.commit()
 
     checks = conn.execute(
-        "SELECT severity, COUNT(*) FROM data_quality_check WHERE run_id = ? GROUP BY severity",
+        "SELECT severity, COUNT(*) AS n FROM data_quality_check WHERE run_id = %s GROUP BY severity",
         (run_id,),
     ).fetchall()
     print("quality checks:", ", ".join(f"{s}={n}" for s, n in checks) or "none")
 
-    for name, scope, detail in conn.execute(
+    for r in conn.execute(
         """SELECT check_name, scope, detail FROM data_quality_check
-           WHERE run_id = ? AND severity IN ('fail', 'warn')""",
+           WHERE run_id = %s AND severity IN ('fail', 'warn')""",
         (run_id,),
-    ):
-        print(f"  [{name}] {scope}: {detail}")
+    ).fetchall():
+        print(f"  [{r['check_name']}] {r['scope']}: {r['detail']}")
 
     if changes:
         real = sum(1 for c in changes if c[-1] == "real_change")

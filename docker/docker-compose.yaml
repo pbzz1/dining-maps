@@ -31,6 +31,8 @@ x-airflow-common: &airflow-common
     AIRFLOW__API_AUTH__JWT_ISSUER: airflow
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
+    # DAG가 실행하는 scripts/*.py가 접속할 애플리케이션 DB
+    DATABASE_URL: postgresql://dining:dining@postgres-app:5432/dining_maps
   volumes:
     - ../dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs
@@ -38,8 +40,12 @@ x-airflow-common: &airflow-common
   depends_on: &airflow-common-depends-on
     postgres:
       condition: service_healthy
+    postgres-app:
+      condition: service_healthy
 
 services:
+  # Airflow 메타데이터 전용. 애플리케이션 데이터와 섞지 않으려고 분리했다.
+  # (운영에서는 이 역할을 RDS가 아니라 Airflow 호스팅 쪽이 갖는다)
   postgres:
     image: postgres:17
     environment:
@@ -50,6 +56,25 @@ services:
       - postgres-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # 애플리케이션 데이터(메뉴·영양정보·매장). 운영에서는 이 자리를 RDS가 대신하며,
+  # 접속 정보는 양쪽 모두 DATABASE_URL 하나로만 주입된다.
+  # 호스트에 5432를 열어두어 로컬에서 스크립트/FastAPI를 그대로 돌릴 수 있다.
+  postgres-app:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: dining
+      POSTGRES_PASSWORD: dining
+      POSTGRES_DB: dining_maps
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-app-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "dining"]
       interval: 5s
       retries: 5
     restart: unless-stopped
@@ -111,4 +136,5 @@ services:
 
 volumes:
   postgres-db:
+  postgres-app-db:
   airflow-logs:

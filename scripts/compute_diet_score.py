@@ -4,13 +4,14 @@ for full citations). Also derives a relative (percentile-based) grade
 alongside the absolute one -- see docs/diet_score.md "절대 기준 vs 상대
 기준" for why both exist. Re-run anytime nutrition data changes;
 overwrites diet_score."""
-import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "db" / "dining.db"
+sys.path.insert(0, str(ROOT))
+from app.db import connect  # noqa: E402
 
 # Only nutrients every brand publishes -- see docs/diet_score.md for why.
 REQUIRED_NUTRIENTS = ["calorie", "protein", "sugar", "saturated_fat", "sodium"]
@@ -98,17 +99,22 @@ def relative_grade_for(percentile: float) -> str:
 
 
 def main():
-    conn = sqlite3.connect(DB_PATH)
+    with connect() as conn:
+        rows = conn.execute(
+            """SELECT mi.id AS menu_item_id, nf.nutrient_name, nf.value
+               FROM menu_item mi
+               JOIN nutrition_fact nf ON nf.menu_item_id = mi.id
+               WHERE nf.nutrient_name = ANY(%s)""",
+            (REQUIRED_NUTRIENTS,),
+        ).fetchall()
+        _score_and_store(conn, rows)
 
-    facts = pd.read_sql_query(
-        """SELECT mi.id AS menu_item_id, nf.nutrient_name, nf.value
-           FROM menu_item mi
-           JOIN nutrition_fact nf ON nf.menu_item_id = mi.id
-           WHERE nf.nutrient_name IN ({})""".format(
-            ",".join(f"'{n}'" for n in REQUIRED_NUTRIENTS)
-        ),
-        conn,
-    )
+
+def _score_and_store(conn, rows):
+    facts = pd.DataFrame(rows, columns=["menu_item_id", "nutrient_name", "value"])
+    if facts.empty:
+        print("No nutrition facts found; nothing to score.")
+        return
 
     wide = facts.pivot(index="menu_item_id", columns="nutrient_name", values="value")
     wide = wide.dropna(subset=REQUIRED_NUTRIENTS)
@@ -116,7 +122,6 @@ def main():
 
     if wide.empty:
         print("No menu items have all required nutrients; nothing to score.")
-        conn.close()
         return
 
     per_100kcal = pd.DataFrame(index=wide.index)
@@ -137,15 +142,14 @@ def main():
     relative_grades = percentiles.apply(relative_grade_for)
 
     conn.execute("DELETE FROM diet_score")
-    conn.executemany(
+    conn.cursor().executemany(
         """INSERT INTO diet_score (menu_item_id, score, absolute_grade, relative_grade, percentile)
-           VALUES (?, ?, ?, ?, ?)""",
+           VALUES (%s, %s, %s, %s, %s)""",
         [
             (int(idx), round(float(s), 2), ag, rg, round(float(p), 2))
             for idx, s, ag, rg, p in zip(scores.index, scores, absolute_grades, relative_grades, percentiles)
         ],
     )
-    conn.commit()
 
     print(f"Scored {len(scores)} menu items.")
     print("Absolute grade distribution:")
@@ -153,19 +157,16 @@ def main():
     print("\nRelative grade distribution:")
     print(relative_grades.value_counts().sort_index())
 
-    grade_by_restaurant = pd.read_sql_query(
+    by_restaurant = conn.execute(
         """SELECT r.name AS restaurant, ds.absolute_grade, ds.relative_grade, COUNT(*) AS n
            FROM diet_score ds
            JOIN menu_item mi ON mi.id = ds.menu_item_id
            JOIN restaurant r ON r.id = mi.restaurant_id
            GROUP BY r.name, ds.absolute_grade, ds.relative_grade
-           ORDER BY r.name, ds.absolute_grade""",
-        conn,
-    )
+           ORDER BY r.name, ds.absolute_grade"""
+    ).fetchall()
     print()
-    print(grade_by_restaurant.to_string(index=False))
-
-    conn.close()
+    print(pd.DataFrame(by_restaurant).to_string(index=False))
 
 
 if __name__ == "__main__":

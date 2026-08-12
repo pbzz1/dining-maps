@@ -1,6 +1,17 @@
+-- PostgreSQL 스키마.
+--
+-- 원래 SQLite였으나 배포 대상인 컨테이너 환경은 재배포 시 파일시스템이 초기화되어
+-- db 파일이 사라진다. RDS 같은 관리형 DB가 필요해 PostgreSQL로 옮겼고, 로컬에서도
+-- 같은 엔진을 써야 방언 차이로 인한 사고를 막을 수 있다.
+--
+-- SQLite 대비 바뀐 부분:
+--   INTEGER PRIMARY KEY AUTOINCREMENT -> GENERATED ALWAYS AS IDENTITY
+--   REAL                              -> DOUBLE PRECISION
+--   TEXT + datetime('now')            -> TIMESTAMPTZ + now()
+
 -- Restaurant chains (교촌치킨, 맥도날드, 롯데리아, 맘스터치, 서브웨이, 샐러디 ...)
 CREATE TABLE IF NOT EXISTS restaurant (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    id   INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name TEXT NOT NULL UNIQUE
 );
 
@@ -8,12 +19,12 @@ CREATE TABLE IF NOT EXISTS restaurant (
 -- are real columns; everything nutrition-related lives in nutrition_fact
 -- because each brand publishes a different subset of nutrients.
 CREATE TABLE IF NOT EXISTS menu_item (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurant(id),
     name          TEXT NOT NULL,
     category      TEXT,
     price_krw     INTEGER,
-    weight_g      REAL,
+    weight_g      DOUBLE PRECISION,
     allergy_info  TEXT,
     origin_info   TEXT,
     data_source   TEXT,   -- official_api / official_html / image_ocr_manual_verify
@@ -25,10 +36,10 @@ CREATE TABLE IF NOT EXISTS menu_item (
 -- publishes total carbs and total fat. Fixed columns would leave most brands
 -- with permanently-NULL carb_g/fat_g, so nutrients are modeled as rows instead.
 CREATE TABLE IF NOT EXISTS nutrition_fact (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     menu_item_id  INTEGER NOT NULL REFERENCES menu_item(id),
     nutrient_name TEXT NOT NULL,   -- calorie / protein / carb / fat / sugar / saturated_fat / sodium / caffeine
-    value         REAL NOT NULL,
+    value         DOUBLE PRECISION NOT NULL,
     unit          TEXT NOT NULL,   -- kcal / g / mg
     UNIQUE (menu_item_id, nutrient_name)
 );
@@ -53,10 +64,10 @@ CREATE INDEX IF NOT EXISTS idx_nutrition_fact_name ON nutrition_fact(nutrient_na
 --     is the "most restaurants show B" UX requirement.
 CREATE TABLE IF NOT EXISTS diet_score (
     menu_item_id   INTEGER PRIMARY KEY REFERENCES menu_item(id),
-    score          REAL NOT NULL,  -- 0-100, absolute (WHO/논문 기준)
+    score          DOUBLE PRECISION NOT NULL,  -- 0-100, absolute (WHO/논문 기준)
     absolute_grade TEXT NOT NULL,  -- A / B / C / D, fixed cutoffs
     relative_grade TEXT NOT NULL,  -- A / B / C / D, percentile among current catalog
-    percentile     REAL NOT NULL   -- 0-100, this item's percentile rank of `score`
+    percentile     DOUBLE PRECISION NOT NULL   -- 0-100, this item's percentile rank of `score`
 );
 
 -- Physical branch locations, one row per real-world store location.
@@ -68,14 +79,14 @@ CREATE TABLE IF NOT EXISTS diet_score (
 -- most recent re-crawl -- likely closed or renamed -- and is a candidate for
 -- scripts/flag_stale_stores.py to flag rather than delete outright.
 CREATE TABLE IF NOT EXISTS store (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurant(id),
     branch_name   TEXT NOT NULL,
     address       TEXT,
-    lat           REAL NOT NULL,
-    lng           REAL NOT NULL,
+    lat           DOUBLE PRECISION NOT NULL,
+    lng           DOUBLE PRECISION NOT NULL,
     kakao_place_id TEXT UNIQUE,
-    last_seen_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_store_restaurant ON store(restaurant_id);
@@ -92,38 +103,38 @@ CREATE INDEX IF NOT EXISTS idx_store_restaurant ON store(restaurant_id);
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS crawl_run (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at TEXT NOT NULL,
+    id         INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    started_at TIMESTAMPTZ NOT NULL,
     source     TEXT NOT NULL,   -- manual / airflow
     status     TEXT NOT NULL    -- passed / failed
 );
 
 -- One row per (run, menu item). Append-only; never UPDATEd.
 CREATE TABLE IF NOT EXISTS menu_snapshot (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     run_id          INTEGER NOT NULL REFERENCES crawl_run(id),
     restaurant_name TEXT NOT NULL,
     menu_name       TEXT NOT NULL,
     category        TEXT,
     price_krw       INTEGER,
-    weight_g        REAL,
+    weight_g        DOUBLE PRECISION,
     UNIQUE (run_id, restaurant_name, menu_name)
 );
 
 -- Mirrors nutrition_fact's key-value shape so a snapshot row and a serving row
 -- are directly comparable.
 CREATE TABLE IF NOT EXISTS nutrition_snapshot (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    id               INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     menu_snapshot_id INTEGER NOT NULL REFERENCES menu_snapshot(id),
     nutrient_name    TEXT NOT NULL,
-    value            REAL NOT NULL,
+    value            DOUBLE PRECISION NOT NULL,
     unit             TEXT NOT NULL,
     UNIQUE (menu_snapshot_id, nutrient_name)
 );
 
 -- Result of each validation rule for a run. severity='fail' blocks the load.
 CREATE TABLE IF NOT EXISTS data_quality_check (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    id         INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     run_id     INTEGER NOT NULL REFERENCES crawl_run(id),
     check_name TEXT NOT NULL,
     scope      TEXT,            -- brand name, or 'all'
@@ -135,7 +146,7 @@ CREATE TABLE IF NOT EXISTS data_quality_check (
 -- verdict distinguishes a genuine menu change from a suspected parser bug --
 -- the heuristic is in docs/data_quality.md.
 CREATE TABLE IF NOT EXISTS menu_change_log (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     run_id          INTEGER NOT NULL REFERENCES crawl_run(id),
     restaurant_name TEXT NOT NULL,
     menu_name       TEXT NOT NULL,
@@ -143,7 +154,7 @@ CREATE TABLE IF NOT EXISTS menu_change_log (
     field_name      TEXT,            -- calorie / sodium / price_krw / ...
     old_value       TEXT,
     new_value       TEXT,
-    pct_change      REAL,
+    pct_change      DOUBLE PRECISION,
     verdict         TEXT NOT NULL    -- real_change / suspected_parser_bug
 );
 

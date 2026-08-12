@@ -12,14 +12,15 @@ Not run yet -- waiting on the key. Once you have it:
 import argparse
 import json
 import os
-import sqlite3
+import sys
 import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "db" / "dining.db"
+sys.path.insert(0, str(ROOT))
+from app.db import connect  # noqa: E402
 
 KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 MAX_RADIUS_M = 20000  # Kakao's own cap
@@ -52,10 +53,10 @@ def search_brand(brand_name: str, lat: float, lng: float, radius: int, api_key: 
 def upsert_store(conn, restaurant_id: int, place: dict):
     conn.execute(
         """INSERT INTO store (restaurant_id, branch_name, address, lat, lng, kakao_place_id, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-           ON CONFLICT(kakao_place_id) DO UPDATE SET
+           VALUES (%s, %s, %s, %s, %s, %s, now())
+           ON CONFLICT (kakao_place_id) DO UPDATE SET
                branch_name=excluded.branch_name, address=excluded.address,
-               lat=excluded.lat, lng=excluded.lng, last_seen_at=datetime('now')""",
+               lat=excluded.lat, lng=excluded.lng, last_seen_at=now()""",
         (
             restaurant_id,
             place["place_name"],
@@ -78,9 +79,9 @@ def main():
     if not api_key:
         raise SystemExit("Set KAKAO_REST_API_KEY env var first (developers.kakao.com REST API key)")
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    restaurants = conn.execute("SELECT id, name FROM restaurant").fetchall()
+    conn = connect().__enter__()
+    restaurants = [(r["id"], r["name"]) for r in
+                   conn.execute("SELECT id, name FROM restaurant").fetchall()]
 
     total = 0
     for restaurant_id, name in restaurants:

@@ -72,7 +72,7 @@ app.add_middleware(
 
 def get_restaurant_or_404(conn, restaurant_id: int):
     row = conn.execute(
-        "SELECT id, name FROM restaurant WHERE id = ?", (restaurant_id,)
+        "SELECT id, name FROM restaurant WHERE id = %s", (restaurant_id,)
     ).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="Restaurant not found")
@@ -98,14 +98,14 @@ def get_restaurant_menu(restaurant_id: int):
                   ds.absolute_grade, ds.relative_grade, ds.percentile
            FROM menu_item mi
            LEFT JOIN diet_score ds ON ds.menu_item_id = mi.id
-           WHERE mi.restaurant_id = ? ORDER BY mi.name""",
+           WHERE mi.restaurant_id = %s ORDER BY mi.name""",
         (restaurant_id,),
     ).fetchall()
 
     result = []
     for item in items:
         facts = conn.execute(
-            "SELECT nutrient_name, value, unit FROM nutrition_fact WHERE menu_item_id = ?",
+            "SELECT nutrient_name, value, unit FROM nutrition_fact WHERE menu_item_id = %s",
             (item["id"],),
         ).fetchall()
         result.append(
@@ -138,14 +138,14 @@ def get_restaurant_stats(restaurant_id: int):
     restaurant = get_restaurant_or_404(conn, restaurant_id)
 
     menu_item_count = conn.execute(
-        "SELECT COUNT(*) FROM menu_item WHERE restaurant_id = ?", (restaurant_id,)
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS n FROM menu_item WHERE restaurant_id = %s", (restaurant_id,)
+    ).fetchone()["n"]
 
     rows = conn.execute(
         """SELECT nf.nutrient_name, nf.unit, AVG(nf.value) AS avg_value, COUNT(*) AS item_count
            FROM nutrition_fact nf
            JOIN menu_item mi ON mi.id = nf.menu_item_id
-           WHERE mi.restaurant_id = ?
+           WHERE mi.restaurant_id = %s
            GROUP BY nf.nutrient_name, nf.unit
            ORDER BY nf.nutrient_name""",
         (restaurant_id,),
@@ -181,7 +181,7 @@ def get_restaurant_diet_grade(restaurant_id: int):
                   SUM(CASE WHEN ds.absolute_grade IN ('A', 'B') THEN 1 ELSE 0 END) AS good_count
            FROM diet_score ds
            JOIN menu_item mi ON mi.id = ds.menu_item_id
-           WHERE mi.restaurant_id = ?""",
+           WHERE mi.restaurant_id = %s""",
         (restaurant_id,),
     ).fetchone()
     conn.close()
