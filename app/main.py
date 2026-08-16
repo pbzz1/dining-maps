@@ -79,7 +79,7 @@ def get_restaurant_or_404(conn, restaurant_id: int):
     return row
 
 
-@app.get("/restaurants", response_model=list[RestaurantOut])
+@app.get("/api/restaurants", response_model=list[RestaurantOut])
 def list_restaurants():
     conn = get_connection()
     rows = conn.execute("SELECT id, name FROM restaurant ORDER BY name").fetchall()
@@ -87,7 +87,7 @@ def list_restaurants():
     return [RestaurantOut(id=r["id"], name=r["name"]) for r in rows]
 
 
-@app.get("/restaurants/{restaurant_id}/menu", response_model=list[MenuItemOut])
+@app.get("/api/restaurants/{restaurant_id}/menu", response_model=list[MenuItemOut])
 def get_restaurant_menu(restaurant_id: int):
     conn = get_connection()
     get_restaurant_or_404(conn, restaurant_id)
@@ -132,7 +132,7 @@ def get_restaurant_menu(restaurant_id: int):
     return result
 
 
-@app.get("/restaurants/{restaurant_id}/stats", response_model=RestaurantStatsOut)
+@app.get("/api/restaurants/{restaurant_id}/stats", response_model=RestaurantStatsOut)
 def get_restaurant_stats(restaurant_id: int):
     conn = get_connection()
     restaurant = get_restaurant_or_404(conn, restaurant_id)
@@ -168,7 +168,7 @@ def get_restaurant_stats(restaurant_id: int):
     )
 
 
-@app.get("/restaurants/{restaurant_id}/diet-grade", response_model=RestaurantDietGradeOut)
+@app.get("/api/restaurants/{restaurant_id}/diet-grade", response_model=RestaurantDietGradeOut)
 def get_restaurant_diet_grade(restaurant_id: int):
     """Brand-level diet-friendliness grade. See docs/diet_score.md for the formula
     and why absolute_grade and relative_grade are reported side by side rather
@@ -206,7 +206,7 @@ def get_restaurant_diet_grade(restaurant_id: int):
 GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3}  # lower is better, for "at least this grade" filtering
 
 
-@app.get("/stores", response_model=list[StoreOut])
+@app.get("/api/stores", response_model=list[StoreOut])
 def list_stores(
     lat: float | None = None,
     lng: float | None = None,

@@ -221,8 +221,16 @@ def main():
     with connect() as conn:
         conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
-        for config in FILES:
-            load_file(conn, config)
+        # load_file issues one round trip per statement (menu_item insert +
+        # one per nutrient), which is ~7 round trips per row. Against a local
+        # DB that's free; against a managed Postgres with real network
+        # latency (Neon etc.) it adds up to thousands of round trips and the
+        # load can take tens of minutes. Pipelining batches statements onto
+        # the wire without waiting for each response, cutting wall-clock time
+        # by roughly the round-trip count -- harmless against a local DB too.
+        with conn.pipeline():
+            for config in FILES:
+                load_file(conn, config)
 
         counts = conn.execute(
             """SELECT (SELECT COUNT(*) FROM restaurant)     AS restaurants,
