@@ -20,7 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from app.db import connect  # noqa: E402
+from app.db import get_connection  # noqa: E402
 
 KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 MAX_RADIUS_M = 20000  # Kakao's own cap
@@ -79,7 +79,7 @@ def main():
     if not api_key:
         raise SystemExit("Set KAKAO_REST_API_KEY env var first (developers.kakao.com REST API key)")
 
-    conn = connect().__enter__()
+    conn = get_connection()
     restaurants = [(r["id"], r["name"]) for r in
                    conn.execute("SELECT id, name FROM restaurant").fetchall()]
 

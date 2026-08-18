@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
-from app.db import connect  # noqa: E402
+from app.db import get_connection  # noqa: E402
 from fetch_store_locations import search_brand, upsert_store  # noqa: E402
 
 # Bounding box covering mainland Korea + Jeju (excludes remote west-sea
@@ -57,9 +57,14 @@ def main():
     if not api_key:
         raise SystemExit("Set KAKAO_REST_API_KEY env var first (developers.kakao.com REST API key)")
 
-    conn = connect().__enter__()
+    conn = get_connection()
+    # --missing: 이미 매장이 있는 브랜드는 건너뛴다. 브랜드 하나당 그리드 전체를
+    # 도는 데 수십 분 걸려서, 신규 브랜드만 채울 때 전체 재크롤링은 낭비다.
+    where = "WHERE NOT EXISTS (SELECT 1 FROM store s WHERE s.restaurant_id = restaurant.id)"         if "--missing" in sys.argv else ""
     restaurants = [(r["id"], r["name"]) for r in
-                   conn.execute("SELECT id, name FROM restaurant").fetchall()]
+                   conn.execute(f"SELECT id, name FROM restaurant {where}").fetchall()]
+    if not restaurants:
+        raise SystemExit("대상 브랜드 없음")
 
     grid = build_grid()
     print(f"Grid: {len(grid)} points, {len(restaurants)} brands -> up to {len(grid) * len(restaurants)} base calls")

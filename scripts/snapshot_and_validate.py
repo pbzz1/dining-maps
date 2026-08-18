@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
-from app.db import connect  # noqa: E402
+from app.db import get_connection  # noqa: E402
 from load_data import FILES, to_float, to_int  # noqa: E402  (per-brand column mapping)
 
 DATA_DIR = ROOT / "data"
@@ -289,7 +289,7 @@ def main():
     parser.add_argument("--source", default="manual", help="manual / airflow")
     args = parser.parse_args()
 
-    conn = connect().__enter__()
+    conn = get_connection()
     conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
 
     prev_run = conn.execute(
