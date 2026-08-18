@@ -27,6 +27,28 @@ MAX_RADIUS_M = 20000  # Kakao's own cap
 PAGE_SIZE = 15
 MAX_PAGES = 3  # Kakao keyword search caps at 45 results (3 pages x 15)
 
+# Kakao 키워드 검색은 상호를 퍼지 매칭해서 "다이소 고흥점"(맘스터치 검색),
+# "파파존스 포항남구점"(도미노피자 검색), "강릉당커피콩빵"(커피빈 검색) 같은
+# 남의 가게를 섞어 보낸다. 상호가 브랜드명으로 "시작"하는 것만 남긴다 --
+# 단순 포함 검사로는 "투루카 ...(맥도널드 뒤)"나 "또봉이통닭 대전교촌점"이 통과한다.
+#
+# 공식 표기가 DB의 브랜드명과 다른 경우만 별칭을 둔다. 별칭 없이 돌리면
+# 써브웨이 657곳이 통째로 걸러지므로, 브랜드 추가 시 실제 상호를 확인할 것.
+BRAND_ALIASES = {
+    "서브웨이": ["써브웨이"],
+    "배스킨라빈스": ["베스킨라빈스"],
+    "빽다방": ["뺵다방"],
+}
+
+
+def _norm(t: str) -> str:
+    return t.replace(" ", "").lower()
+
+
+def is_brand_store(brand_name: str, place_name: str) -> bool:
+    prefixes = [_norm(brand_name)] + [_norm(a) for a in BRAND_ALIASES.get(brand_name, [])]
+    return _norm(place_name).startswith(tuple(prefixes))
+
 
 def search_brand(brand_name: str, lat: float, lng: float, radius: int, api_key: str) -> list[dict]:
     results = []
@@ -43,7 +65,7 @@ def search_brand(brand_name: str, lat: float, lng: float, radius: int, api_key: 
         req = urllib.request.Request(url, headers={"Authorization": f"KakaoAK {api_key}"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        results.extend(data["documents"])
+        results.extend(d for d in data["documents"] if is_brand_store(brand_name, d["place_name"]))
         if data["meta"]["is_end"]:
             break
         time.sleep(0.2)
