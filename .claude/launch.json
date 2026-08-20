@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "fastapi",
+      "name": "static-dist",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--reload", "--port", "8000"],
-      "port": 8000
-    },
-    {
-      "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend-react"],
-      "port": 5173
+      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "frontend-react/dist"],
+      "port": 4173
     }
   ]
 }
