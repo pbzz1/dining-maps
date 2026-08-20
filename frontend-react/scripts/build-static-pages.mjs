@@ -106,7 +106,7 @@ const fmt = (n) =>
   n === undefined ? "-" : `${Math.round(n.value).toLocaleString("ko-KR")}${n.unit}`;
 
 function brandPage(brand, grade, menu, allBrands) {
-  const url = `${SITE}/brand/${encodeURIComponent(brand.name)}`;
+  const url = `${SITE}/brand/${encodeURIComponent(brand.name)}/`;
   const scored = menu.filter((m) => m.absolute_grade);
   const g = grade.absolute_grade;
 
@@ -129,7 +129,7 @@ function brandPage(brand, grade, menu, allBrands) {
 
   const others = allBrands
     .filter((b) => b.id !== brand.id)
-    .map((b) => `<a href="/brand/${encodeURIComponent(b.name)}">${esc(b.name)}</a>`)
+    .map((b) => `<a href="/brand/${encodeURIComponent(b.name)}/">${esc(b.name)}</a>`)
     .join("");
 
   return page({
@@ -161,7 +161,7 @@ function indexPage(rows) {
     .map(({ brand, grade, menu }) => {
       const g = grade.absolute_grade;
       const badge = g ? `<span class="grade ${g}">${g}</span>` : "-";
-      return `<tr><td><a href="/brand/${encodeURIComponent(brand.name)}">${esc(brand.name)}</a></td>` +
+      return `<tr><td><a href="/brand/${encodeURIComponent(brand.name)}/">${esc(brand.name)}</a></td>` +
         `<td>${menu.length}</td><td>${badge}</td>` +
         `<td>${grade.avg_score === null ? "-" : Math.round(grade.avg_score)}</td></tr>`;
     })
@@ -213,7 +213,7 @@ async function main() {
   await write("brand/index.html", indexPage(rows));
 
   const urls = [`${SITE}/`, `${SITE}/brand/`,
-    ...brands.map((b) => `${SITE}/brand/${encodeURIComponent(b.name)}`)];
+    ...brands.map((b) => `${SITE}/brand/${encodeURIComponent(b.name)}/`)];
   await write("sitemap.xml",
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
