@@ -6,7 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import get_connection
 from app.schemas import (
+    BrandNutritionOut,
+    DataQualityOut,
     MenuItemOut,
+    NutrientTrendOut,
     NutrientAverageOut,
     NutritionFactOut,
     RestaurantDietGradeOut,
@@ -292,6 +295,37 @@ def list_stores(
         result.sort(key=lambda s: s.distance_m)
 
     return result
+
+
+# --- 대시보드: mart 머티리얼라이즈드 뷰를 그대로 읽는다 (집계는 파이프라인이
+# scripts/refresh_marts.py 로 미리 해둔다 -- db/schema.sql 마지막 절 참고) ---
+
+@app.get("/api/stats/brands", response_model=list[BrandNutritionOut])
+def stats_brands():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM mart_brand_nutrition ORDER BY avg_score DESC NULLS LAST"
+    ).fetchall()
+    conn.close()
+    return [BrandNutritionOut(**r) for r in rows]
+
+
+@app.get("/api/stats/trend", response_model=list[NutrientTrendOut])
+def stats_trend():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM mart_nutrient_trend ORDER BY started_at, restaurant_name, nutrient_name"
+    ).fetchall()
+    conn.close()
+    return [NutrientTrendOut(**{**r, "started_at": r["started_at"].isoformat()}) for r in rows]
+
+
+@app.get("/api/stats/quality", response_model=list[DataQualityOut])
+def stats_quality():
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM mart_data_quality ORDER BY run_id").fetchall()
+    conn.close()
+    return [DataQualityOut(**{**r, "started_at": r["started_at"].isoformat()}) for r in rows]
 
 
 # No StaticFiles mount here on purpose: the frontend is now its own Vite/React

@@ -2,6 +2,7 @@ import { useState } from "react";
 import MapView from "./components/MapView";
 import RestaurantList from "./components/RestaurantList";
 import MenuView from "./components/MenuView";
+import Dashboard from "./components/Dashboard";
 import "./App.css";
 
 export default function App() {
@@ -31,6 +32,12 @@ export default function App() {
           >
             지도
           </button>
+          <button
+            className={`nav-btn ${view === "dashboard" ? "active" : ""}`}
+            onClick={() => setView("dashboard")}
+          >
+            대시보드
+          </button>
         </nav>
       </header>
 
@@ -41,6 +48,7 @@ export default function App() {
         <div style={{ display: view === "map" ? "block" : "none" }}>
           <MapView onOpenMenu={openMenu} />
         </div>
+        {view === "dashboard" && <Dashboard />}
         {view === "list" && <RestaurantList onSelect={openMenu} />}
         {view === "menu" && selected && (
           <MenuView restaurant={selected} onBack={() => setView("list")} />

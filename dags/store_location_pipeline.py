@@ -45,4 +45,9 @@ with DAG(
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/flag_stale_stores.py --stale-days 14",
     )
 
-    fetch_stores >> flag_stale
+    refresh_marts = BashOperator(
+        task_id="refresh_marts",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/refresh_marts.py",
+    )
+
+    fetch_stores >> flag_stale >> refresh_marts

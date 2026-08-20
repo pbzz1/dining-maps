@@ -15,3 +15,5 @@ export const fetchDietGrade = (id) => get(`/restaurants/${id}/diet-grade`);
 export const fetchStats = (id) => get(`/restaurants/${id}/stats`);
 export const fetchMenu = (id) => get(`/restaurants/${id}/menu`);
 export const fetchStores = (params) => get("/stores", params);
+export const fetchStatsBrands = () => get("/stats/brands");
+export const fetchStatsQuality = () => get("/stats/quality");
