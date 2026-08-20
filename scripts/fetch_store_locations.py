@@ -50,8 +50,20 @@ def is_brand_store(brand_name: str, place_name: str) -> bool:
     return _norm(place_name).startswith(tuple(prefixes))
 
 
-def search_brand(brand_name: str, lat: float, lng: float, radius: int, api_key: str) -> list[dict]:
+def search_brand(brand_name: str, lat: float, lng: float, radius: int,
+                 api_key: str) -> tuple[list[dict], bool]:
+    """(브랜드 매장 목록, 잘렸는지) 반환.
+
+    두 번째 값이 True면 카카오가 45건 상한에 걸려 나머지를 안 준 것이다 --
+    호출부에서 반경을 쪼개 다시 검색해야 한다 (fetch_store_locations_nationwide.py).
+
+    잘림 판정에 is_end를 쓰면 안 된다. 카카오는 노출 가능한 45건을 다 주면
+    실제로 몇 건이 더 있든 is_end=True를 보낸다 (서울 "스타벅스" 실측:
+    total_count=774, pageable_count=45, 3페이지째 is_end=True).
+    total_count > pageable_count 여야 잘린 걸 알 수 있다.
+    """
     results = []
+    truncated = False
     for page in range(1, MAX_PAGES + 1):
         params = {
             "query": brand_name,
@@ -65,11 +77,13 @@ def search_brand(brand_name: str, lat: float, lng: float, radius: int, api_key: 
         req = urllib.request.Request(url, headers={"Authorization": f"KakaoAK {api_key}"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
+        meta = data["meta"]
+        truncated = meta["total_count"] > meta["pageable_count"]
         results.extend(d for d in data["documents"] if is_brand_store(brand_name, d["place_name"]))
-        if data["meta"]["is_end"]:
+        if meta["is_end"]:
             break
         time.sleep(0.2)
-    return results
+    return results, truncated
 
 
 def upsert_store(conn, restaurant_id: int, place: dict):
@@ -107,7 +121,7 @@ def main():
 
     total = 0
     for restaurant_id, name in restaurants:
-        places = search_brand(name, args.lat, args.lng, args.radius, api_key)
+        places, _ = search_brand(name, args.lat, args.lng, args.radius, api_key)
         for place in places:
             upsert_store(conn, restaurant_id, place)
         conn.commit()
