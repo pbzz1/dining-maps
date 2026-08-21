@@ -85,9 +85,31 @@ def get_restaurant_or_404(conn, restaurant_id: int):
 @app.get("/api/restaurants", response_model=list[RestaurantOut])
 def list_restaurants():
     conn = get_connection()
-    rows = conn.execute("SELECT id, name FROM restaurant ORDER BY name").fetchall()
+    rows = conn.execute(
+        """SELECT r.id, r.name, g.avg_score, g.avg_percentile, g.good_ratio
+           FROM restaurant r
+           LEFT JOIN (
+               SELECT mi.restaurant_id,
+                      AVG(ds.score) AS avg_score,
+                      AVG(ds.percentile) AS avg_percentile,
+                      SUM(CASE WHEN ds.absolute_grade IN ('A','B') THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS good_ratio
+               FROM diet_score ds
+               JOIN menu_item mi ON mi.id = ds.menu_item_id
+               GROUP BY mi.restaurant_id
+           ) g ON g.restaurant_id = r.id
+           ORDER BY r.name"""
+    ).fetchall()
     conn.close()
-    return [RestaurantOut(id=r["id"], name=r["name"]) for r in rows]
+    return [
+        RestaurantOut(
+            id=r["id"],
+            name=r["name"],
+            absolute_grade=absolute_grade_for(r["avg_score"]) if r["avg_score"] is not None else None,
+            relative_grade=relative_grade_for(r["avg_percentile"]) if r["avg_percentile"] is not None else None,
+            good_menu_ratio=round(r["good_ratio"], 3) if r["good_ratio"] is not None else None,
+        )
+        for r in rows
+    ]
 
 
 @app.get("/api/restaurants/{restaurant_id}/menu", response_model=list[MenuItemOut])

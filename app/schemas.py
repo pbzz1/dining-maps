@@ -4,6 +4,10 @@ from pydantic import BaseModel
 class RestaurantOut(BaseModel):
     id: int
     name: str
+    # Brand grade inlined so the list page needs one request, not one per brand.
+    absolute_grade: str | None = None
+    relative_grade: str | None = None
+    good_menu_ratio: float | None = None
 
 
 class NutritionFactOut(BaseModel):
