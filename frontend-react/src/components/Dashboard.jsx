@@ -19,6 +19,17 @@ const NUTRIENT_TABS = [
 const GRADE_RAMP = { A: "#fbe9e0", B: "#eeb59a", C: "#d97b4d", D: "#c1440e" };
 const GRADES = ["A", "B", "C", "D"];
 
+// 차트 제목 옆 ⓘ. 각 차트가 무엇을 보여주는지 클릭하면 뜨는 설명.
+// <details>라서 열림 상태를 들고 있을 필요가 없다.
+function InfoPop({ children }) {
+  return (
+    <details className="dash-info">
+      <summary aria-label="이 차트 설명 보기">ⓘ</summary>
+      <div className="dash-info-pop">{children}</div>
+    </details>
+  );
+}
+
 function BarRow({ name, value, max, formatted }) {
   return (
     <div className="dash-bar-row">
@@ -113,7 +124,22 @@ export default function Dashboard() {
       </div>
 
       <section className="dash-card">
-        <h2>브랜드별 평균 다이어트 점수</h2>
+        <h2>
+          브랜드별 평균 다이어트 점수
+          <InfoPop>
+            <strong>무엇을 보여주나</strong> — 브랜드마다 파는 메뉴들이 평균적으로 얼마나
+            건강한 구성인지. 막대가 길수록 좋다.
+            <br />
+            <br />
+            <strong>어떻게 계산하나</strong> — 메뉴 1개당 100kcal 기준으로 단백질·당류·포화지방·
+            나트륨 4개 지표를 WHO/AHA/식약처 기준선과 비교해 각각 -1~+2점을 매기고(최저 -4,
+            최고 5), 합산 점수를 0~100점으로 환산한다. 브랜드 점수는 그 브랜드 메뉴들의 평균.
+            <br />
+            <br />
+            <strong>주의</strong> — 영양성분 5종을 모두 공개한 메뉴만 채점된다. 100kcal 미만
+            메뉴는 100kcal당 환산이 무의미해 제외. 음료는 1잔 기준 열량·당류·포화지방만으로 따로 채점(단백질·나트륨 미반영).
+          </InfoPop>
+        </h2>
         <p className="dash-sub">WHO/논문 기준 0–100점, 높을수록 건강한 메뉴 구성</p>
         {scoreRows.map((b) => (
           <BarRow
@@ -127,7 +153,22 @@ export default function Dashboard() {
       </section>
 
       <section className="dash-card">
-        <h2>등급 분포</h2>
+        <h2>
+          등급 분포
+          <InfoPop>
+            <strong>무엇을 보여주나</strong> — 위 차트가 브랜드의 평균 한 값이라면, 여기는 그
+            평균 뒤에 숨은 분포다. 막대 하나가 그 브랜드 메뉴 100%이고, 색 구간의 폭이 각
+            등급의 비율. 평균이 같아도 A와 D로 갈리는 브랜드와 전부 C인 브랜드는 다르다.
+            <br />
+            <br />
+            <strong>등급 기준</strong> — 다이어트 점수의 절대 기준: A는 80점 이상, B는 60점
+            이상, C는 40점 이상, 나머지는 D. 카탈로그가 바뀌어도 움직이지 않는 고정 컷.
+            <br />
+            <br />
+            <strong>채점 불가</strong> — 영양성분을 충분히 공개하지 않은 브랜드는 막대가 없다.
+            점수가 나쁘다는 뜻이 아니라 알 수 없다는 뜻.
+          </InfoPop>
+        </h2>
         <p className="dash-sub">
           브랜드별 메뉴 등급 비율 · 짙을수록 나쁜 등급
           <span className="dash-legend">
@@ -163,7 +204,22 @@ export default function Dashboard() {
       </section>
 
       <section className="dash-card">
-        <h2>영양소 평균</h2>
+        <h2>
+          영양소 평균
+          <InfoPop>
+            <strong>무엇을 보여주나</strong> — 점수로 합치기 전의 원본 수치. 탭을 눌러 지표를
+            바꾸면 브랜드가 그 지표 기준으로 다시 정렬된다(높은 순).
+            <br />
+            <br />
+            <strong>점수 차트와 다른 점</strong> — 다이어트 점수는 100kcal당으로 환산해 비교
+            가능하게 만든 값이지만, 여기는 <em>메뉴 1개당 실제 평균</em>이다. 그래서 막대가
+            길다고 나쁜 메뉴라는 뜻은 아니다 — 양이 많은 메뉴일 수도 있다.
+            <br />
+            <br />
+            <strong>주의</strong> — 브랜드마다 판매 단위가 다르다. 도미노피자는 피자 한 판
+            기준이라 1인분 기준 브랜드와 직접 비교하면 안 된다.
+          </InfoPop>
+        </h2>
         <div className="dash-tabs">
           {NUTRIENT_TABS.map((t) => (
             <button
@@ -191,7 +247,23 @@ export default function Dashboard() {
       </section>
 
       <section className="dash-card">
-        <h2>데이터 품질 (크롤 회차별)</h2>
+        <h2>
+          데이터 품질 (크롤 회차별)
+          <InfoPop>
+            <strong>무엇을 보여주나</strong> — 위 차트들이 <em>무엇을</em> 보여주는가라면, 이
+            표는 그 숫자를 <em>믿어도 되는가</em>에 대한 기록이다. 크롤을 돌릴 때마다 검증
+            체크를 걸고, 통과한 회차만 화면에 쓰는 서빙 테이블에 반영한다.
+            <br />
+            <br />
+            <strong>열 읽는 법</strong> — <em>실행</em>은 수동(manual)인지 스케줄러(airflow)인지.{" "}
+            <em>검증</em>은 통과/전체 체크 수. <em>파서 이상 의심</em>은 값이 튀어 크롤러
+            버그로 의심되는 항목 수다.
+            <br />
+            <br />
+            <strong>차단된 회차</strong> — ✗ 표시는 실패한 크롤이 <em>막힌</em> 기록이지 나쁜
+            데이터가 들어간 기록이 아니다. 게이트가 일한 흔적.
+          </InfoPop>
+        </h2>
         <p className="dash-sub">
           검증 게이트를 통과해야만 서빙 테이블에 반영된다. 실패한 회차는 데이터에 반영되지 않은 기록이다.
         </p>

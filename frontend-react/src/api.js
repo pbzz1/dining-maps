@@ -3,7 +3,7 @@
 // Prod: set VITE_API_BASE to the deployed FastAPI origin at build time.
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
-async function get(path, params) {
+export async function get(path, params) {
   const qs = params ? `?${new URLSearchParams(params)}` : "";
   const res = await fetch(`${BASE}/api${path}${qs}`);
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
