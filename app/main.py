@@ -30,16 +30,21 @@ def absolute_grade_for(score: float) -> str:
     return "D"
 
 
-def relative_grade_for(percentile: float) -> str:
-    """Percentile-band cutoffs matching scripts/compute_diet_score.py
-    (A>=85, B>=35, C>=10, else D) so B is the largest band."""
-    if percentile >= 85:
-        return "A"
-    if percentile >= 35:
-        return "B"
-    if percentile >= 10:
-        return "C"
-    return "D"
+# Brand-level relative grade: rank every scored brand by avg menu score and
+# cut the ranking 20/30/30/20 -> A/B/C/D. "A" literally means "top 20% of
+# brands in the DB right now", so it moves as brands are added.
+BRAND_BANDS = ((0.2, "A"), (0.5, "B"), (0.8, "C"), (1.0, "D"))
+
+
+def brand_relative_grades(conn) -> dict[int, str]:
+    """restaurant_id -> A/B/C/D by rank of avg diet score among all scored brands."""
+    rows = conn.execute(
+        """SELECT mi.restaurant_id, AVG(ds.score) AS avg_score
+           FROM diet_score ds JOIN menu_item mi ON mi.id = ds.menu_item_id
+           GROUP BY mi.restaurant_id ORDER BY avg_score DESC, mi.restaurant_id"""
+    ).fetchall()
+    n = len(rows)
+    return {r["restaurant_id"]: next(g for cut, g in BRAND_BANDS if (i + 1) / n <= cut + 1e-9) for i, r in enumerate(rows)}
 
 app = FastAPI(title="Dining Maps API")
 
@@ -90,13 +95,14 @@ def list_restaurants():
            ) g ON g.restaurant_id = r.id
            ORDER BY r.name"""
     ).fetchall()
+    rel = brand_relative_grades(conn)
     conn.close()
     return [
         RestaurantOut(
             id=r["id"],
             name=r["name"],
             absolute_grade=absolute_grade_for(r["avg_score"]) if r["avg_score"] is not None else None,
-            relative_grade=relative_grade_for(r["avg_percentile"]) if r["avg_percentile"] is not None else None,
+            relative_grade=rel.get(r["id"]),
             good_menu_ratio=round(r["good_ratio"], 3) if r["good_ratio"] is not None else None,
         )
         for r in rows
@@ -209,11 +215,11 @@ def get_restaurant_diet_grade(restaurant_id: int):
            WHERE mi.restaurant_id = %s""",
         (restaurant_id,),
     ).fetchone()
+    rel = brand_relative_grades(conn)
     conn.close()
 
     scored_item_count = row["n"]
     avg_score = round(row["avg_score"], 2) if row["avg_score"] is not None else None
-    avg_percentile = row["avg_percentile"]
     good_menu_count = row["good_count"] or 0
 
     return RestaurantDietGradeOut(
@@ -222,7 +228,7 @@ def get_restaurant_diet_grade(restaurant_id: int):
         scored_item_count=scored_item_count,
         avg_score=avg_score,
         absolute_grade=absolute_grade_for(avg_score) if avg_score is not None else None,
-        relative_grade=relative_grade_for(avg_percentile) if avg_percentile is not None else None,
+        relative_grade=rel.get(restaurant_id),
         good_menu_count=good_menu_count,
         good_menu_ratio=round(good_menu_count / scored_item_count, 3) if scored_item_count else None,
     )
@@ -265,11 +271,12 @@ def list_stores(
            JOIN menu_item mi ON mi.id = ds.menu_item_id
            GROUP BY mi.restaurant_id"""
     ).fetchall()
+    rel = brand_relative_grades(conn)
     grade_by_restaurant = {
         r["restaurant_id"]: {
             "avg_score": round(r["avg_score"], 2),
             "absolute_grade": absolute_grade_for(r["avg_score"]),
-            "relative_grade": relative_grade_for(r["avg_percentile"]),
+            "relative_grade": rel[r["restaurant_id"]],
             "good_menu_ratio": round(r["good_ratio"], 3),
         }
         for r in grade_rows
