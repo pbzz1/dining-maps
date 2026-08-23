@@ -67,8 +67,10 @@ CREATE TABLE IF NOT EXISTS diet_score (
     score          DOUBLE PRECISION NOT NULL,  -- 0-100, absolute (WHO/논문 기준)
     absolute_grade TEXT NOT NULL,  -- A / B / C / D, fixed cutoffs
     relative_grade TEXT NOT NULL,  -- A / B / C / D, percentile among current catalog
-    percentile     DOUBLE PRECISION NOT NULL   -- 0-100, this item's percentile rank of `score`
+    percentile     DOUBLE PRECISION NOT NULL,  -- 0-100, percentile rank of `score` within the same basis
+    basis          TEXT NOT NULL DEFAULT 'meal' -- 'meal' (per-100kcal v3 rules) / 'drink' (per-serving, no protein/sodium)
 );
+ALTER TABLE diet_score ADD COLUMN IF NOT EXISTS basis TEXT NOT NULL DEFAULT 'meal';
 
 -- Physical branch locations, one row per real-world store location.
 -- Populated separately from menu data via the Kakao Local API

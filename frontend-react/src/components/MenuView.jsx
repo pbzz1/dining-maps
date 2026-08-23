@@ -110,7 +110,7 @@ export default function MenuView({ restaurant, onBack }) {
                 <div key={item.id} className="menu-item">
                   <div className="menu-item-head">
                     <span className="menu-item-name">
-                      <GradeBadges absolute={item.absolute_grade} relative={item.relative_grade} />{" "}
+                      <GradeBadges absolute={item.absolute_grade} relative={item.relative_grade} basis={item.grade_basis} />{" "}
                       {item.name}
                     </span>
                     <span className="menu-item-meta">{meta.join(" · ")}</span>

@@ -29,7 +29,8 @@ class MenuItemOut(BaseModel):
     diet_score: float | None  # 0-100, see docs/diet_score.md; null if not scored (e.g. <100kcal item)
     absolute_grade: str | None  # A/B/C/D from fixed WHO/논문 cutoffs -- doesn't move with the catalog
     relative_grade: str | None  # A/B/C/D from percentile rank among current catalog -- B is the largest band
-    percentile: float | None  # 0-100, this item's percentile rank of diet_score
+    percentile: float | None  # 0-100, this item's percentile rank of diet_score (within the same basis)
+    grade_basis: str | None = None  # 'meal' (per-100kcal, protein counts) / 'drink' (per-serving, no protein/sodium)
 
 
 class NutrientAverageOut(BaseModel):

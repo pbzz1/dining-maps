@@ -1,10 +1,11 @@
-import math
 import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import get_connection
+from app.geo import haversine_m
+from app.recommend.router import router as recommend_router
 from app.schemas import (
     BrandNutritionOut,
     DataQualityOut,
@@ -17,17 +18,6 @@ from app.schemas import (
     RestaurantStatsOut,
     StoreOut,
 )
-
-EARTH_RADIUS_M = 6371000
-
-
-def haversine_m(lat1, lng1, lat2, lng2):
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
-    return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(a))
-
 
 def absolute_grade_for(score: float) -> str:
     """Fixed WHO/논문-derived cutoffs -- see docs/diet_score.md."""
@@ -71,6 +61,7 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+app.include_router(recommend_router)
 
 
 def get_restaurant_or_404(conn, restaurant_id: int):
@@ -120,7 +111,7 @@ def get_restaurant_menu(restaurant_id: int):
     items = conn.execute(
         """SELECT mi.id, mi.name, mi.category, mi.price_krw, mi.weight_g, mi.allergy_info,
                   mi.origin_info, mi.data_source, ds.score AS diet_score,
-                  ds.absolute_grade, ds.relative_grade, ds.percentile
+                  ds.absolute_grade, ds.relative_grade, ds.percentile, ds.basis
            FROM menu_item mi
            LEFT JOIN diet_score ds ON ds.menu_item_id = mi.id
            WHERE mi.restaurant_id = %s ORDER BY mi.name""",
@@ -159,6 +150,7 @@ def get_restaurant_menu(restaurant_id: int):
                 absolute_grade=item["absolute_grade"],
                 relative_grade=item["relative_grade"],
                 percentile=item["percentile"],
+                grade_basis=item["basis"],
             )
         )
     conn.close()
