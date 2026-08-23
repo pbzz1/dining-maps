@@ -5,6 +5,10 @@ import { GradeBadges, GradeLegend } from "./GradeBadges";
 export default function RestaurantList({ onSelect }) {
   const [restaurants, setRestaurants] = useState([]);
   const [error, setError] = useState(null);
+  // Showing both grades at once on every card reads as noise -- default to
+  // the one people actually compare stores by, let them switch to the fixed
+  // WHO/논문 one when they want that instead.
+  const [gradeMode, setGradeMode] = useState("relative");
 
   useEffect(() => {
     let cancelled = false;
@@ -22,7 +26,23 @@ export default function RestaurantList({ onSelect }) {
   return (
     <section>
       <h2>매장 선택</h2>
-      <GradeLegend />
+      <div className="grade-mode-toggle" role="group" aria-label="등급 기준 선택">
+        <button
+          type="button"
+          className={gradeMode === "relative" ? "active" : ""}
+          onClick={() => setGradeMode("relative")}
+        >
+          상대 기준
+        </button>
+        <button
+          type="button"
+          className={gradeMode === "absolute" ? "active" : ""}
+          onClick={() => setGradeMode("absolute")}
+        >
+          절대 기준
+        </button>
+      </div>
+      <GradeLegend mode={gradeMode} />
       <div className="card-grid">
         {restaurants.length === 0 && <p className="loading">불러오는 중...</p>}
         {restaurants.map((r) => (
@@ -31,7 +51,7 @@ export default function RestaurantList({ onSelect }) {
             <div className="card-grade-slot">
               {r.absolute_grade ? (
                 <>
-                  <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} />
+                  <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} mode={gradeMode} />
                   <span className="count">
                     다이어트 메뉴 {Math.round(r.good_menu_ratio * 100)}%
                   </span>
