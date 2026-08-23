@@ -67,8 +67,10 @@ CREATE TABLE IF NOT EXISTS diet_score (
     score          DOUBLE PRECISION NOT NULL,  -- 0-100, absolute (WHO/논문 기준)
     absolute_grade TEXT NOT NULL,  -- A / B / C / D, fixed cutoffs
     relative_grade TEXT NOT NULL,  -- A / B / C / D, percentile among current catalog
-    percentile     DOUBLE PRECISION NOT NULL   -- 0-100, this item's percentile rank of `score`
+    percentile     DOUBLE PRECISION NOT NULL,  -- 0-100, percentile rank of `score` within the same basis
+    basis          TEXT NOT NULL DEFAULT 'meal' -- 'meal' (per-100kcal v3 rules) / 'drink' (per-serving, no protein/sodium)
 );
+ALTER TABLE diet_score ADD COLUMN IF NOT EXISTS basis TEXT NOT NULL DEFAULT 'meal';
 
 -- Physical branch locations, one row per real-world store location.
 -- Populated separately from menu data via the Kakao Local API
@@ -161,3 +163,87 @@ CREATE TABLE IF NOT EXISTS menu_change_log (
 CREATE INDEX IF NOT EXISTS idx_menu_snapshot_run ON menu_snapshot(run_id);
 CREATE INDEX IF NOT EXISTS idx_nutrition_snapshot_item ON nutrition_snapshot(menu_snapshot_id);
 CREATE INDEX IF NOT EXISTS idx_change_log_run ON menu_change_log(run_id);
+
+-- ---------------------------------------------------------------------------
+-- 대시보드용 mart (scripts/refresh_marts.py)
+--
+-- 데이터는 하루 한 번 파이프라인이 돌 때만 바뀌는데 대시보드는 요청마다
+-- 열린다. 요청마다 nutrition_fact 1.2만 행을 집계할 이유가 없어 결과를
+-- 머티리얼라이즈드 뷰로 저장해두고, 파이프라인 끝에서 REFRESH 한다.
+-- 뷰가 수백 행 이하라 REFRESH는 즉시 끝난다 (CONCURRENTLY 불필요).
+-- ---------------------------------------------------------------------------
+
+-- 브랜드별 요약: 메뉴/매장 수, 평균 점수, 등급 분포, 주요 영양소 평균.
+-- avg가 조인 곱으로 왜곡되지 않도록 영양소/등급을 각자 집계한 뒤 붙인다.
+CREATE MATERIALIZED VIEW IF NOT EXISTS mart_brand_nutrition AS
+WITH nut AS (
+    SELECT mi.restaurant_id, nf.nutrient_name, avg(nf.value) AS avg_value
+    FROM nutrition_fact nf
+    JOIN menu_item mi ON mi.id = nf.menu_item_id
+    GROUP BY 1, 2
+), grades AS (
+    SELECT mi.restaurant_id,
+           count(*)                                         AS scored_count,
+           avg(ds.score)                                    AS avg_score,
+           count(*) FILTER (WHERE ds.absolute_grade = 'A')  AS grade_a,
+           count(*) FILTER (WHERE ds.absolute_grade = 'B')  AS grade_b,
+           count(*) FILTER (WHERE ds.absolute_grade = 'C')  AS grade_c,
+           count(*) FILTER (WHERE ds.absolute_grade = 'D')  AS grade_d
+    FROM diet_score ds
+    JOIN menu_item mi ON mi.id = ds.menu_item_id
+    GROUP BY 1
+)
+SELECT r.id   AS restaurant_id,
+       r.name AS restaurant_name,
+       (SELECT count(*) FROM menu_item mi WHERE mi.restaurant_id = r.id) AS menu_count,
+       (SELECT count(*) FROM store s WHERE s.restaurant_id = r.id)       AS store_count,
+       COALESCE(g.scored_count, 0)         AS scored_count,
+       round(g.avg_score::numeric, 1)      AS avg_score,
+       COALESCE(g.grade_a, 0) AS grade_a,
+       COALESCE(g.grade_b, 0) AS grade_b,
+       COALESCE(g.grade_c, 0) AS grade_c,
+       COALESCE(g.grade_d, 0) AS grade_d,
+       round(MAX(n.avg_value) FILTER (WHERE n.nutrient_name = 'calorie')::numeric, 0) AS avg_calorie_kcal,
+       round(MAX(n.avg_value) FILTER (WHERE n.nutrient_name = 'sodium')::numeric, 0)  AS avg_sodium_mg,
+       round(MAX(n.avg_value) FILTER (WHERE n.nutrient_name = 'sugar')::numeric, 1)   AS avg_sugar_g,
+       round(MAX(n.avg_value) FILTER (WHERE n.nutrient_name = 'protein')::numeric, 1) AS avg_protein_g
+FROM restaurant r
+LEFT JOIN grades g ON g.restaurant_id = r.id
+LEFT JOIN nut n    ON n.restaurant_id = r.id
+GROUP BY r.id, r.name, g.scored_count, g.avg_score,
+         g.grade_a, g.grade_b, g.grade_c, g.grade_d;
+
+-- 크롤 회차별 브랜드 x 영양소 평균. append-only 스냅샷이 원천이라
+-- "언제부터 나트륨이 올랐나"를 답할 수 있는 유일한 테이블이다.
+CREATE MATERIALIZED VIEW IF NOT EXISTS mart_nutrient_trend AS
+SELECT cr.id         AS run_id,
+       cr.started_at,
+       ms.restaurant_name,
+       ns.nutrient_name,
+       ns.unit,
+       round(avg(ns.value)::numeric, 1) AS avg_value,
+       count(*)                         AS item_count
+FROM crawl_run cr
+JOIN menu_snapshot ms      ON ms.run_id = cr.id
+JOIN nutrition_snapshot ns ON ns.menu_snapshot_id = ms.id
+WHERE cr.status = 'passed'
+GROUP BY 1, 2, 3, 4, 5;
+
+-- 크롤 회차별 품질 요약: 검증 pass/warn/fail 수, 감지된 변경 건수.
+-- "파이프라인이 스스로를 감시하고 있다"를 보여주는 화면의 원천.
+CREATE MATERIALIZED VIEW IF NOT EXISTS mart_data_quality AS
+SELECT cr.id         AS run_id,
+       cr.started_at,
+       cr.source,
+       cr.status,
+       count(dqc.id)                                    AS checks_total,
+       count(*) FILTER (WHERE dqc.severity = 'pass')    AS checks_pass,
+       count(*) FILTER (WHERE dqc.severity = 'warn')    AS checks_warn,
+       count(*) FILTER (WHERE dqc.severity = 'fail')    AS checks_fail,
+       (SELECT count(*) FROM menu_change_log m
+         WHERE m.run_id = cr.id AND m.verdict = 'real_change')          AS real_changes,
+       (SELECT count(*) FROM menu_change_log m
+         WHERE m.run_id = cr.id AND m.verdict = 'suspected_parser_bug') AS suspected_parser_bugs
+FROM crawl_run cr
+LEFT JOIN data_quality_check dqc ON dqc.run_id = cr.id
+GROUP BY cr.id, cr.started_at, cr.source, cr.status;

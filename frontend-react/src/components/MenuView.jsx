@@ -79,7 +79,7 @@ export default function MenuView({ restaurant, onBack }) {
                 {" "}절대/상대 등급 · 도움 메뉴 {Math.round(grade.good_menu_ratio * 100)}%
               </span>
             ) : (
-              <span className="stat-chip">다이어트 등급 산출 불가 (100kcal 이상 메뉴 없음)</span>
+              <span className="stat-chip">영양정보 부족 (등급 산출 불가 — 당류·포화지방·나트륨 미공개)</span>
             )}
             <span className="stat-chip">메뉴 {stats?.menu_item_count}개</span>
             {stats?.averages.map((a) => (
@@ -110,7 +110,7 @@ export default function MenuView({ restaurant, onBack }) {
                 <div key={item.id} className="menu-item">
                   <div className="menu-item-head">
                     <span className="menu-item-name">
-                      <GradeBadges absolute={item.absolute_grade} relative={item.relative_grade} />{" "}
+                      <GradeBadges absolute={item.absolute_grade} relative={item.relative_grade} basis={item.grade_basis} />{" "}
                       {item.name}
                     </span>
                     <span className="menu-item-meta">{meta.join(" · ")}</span>

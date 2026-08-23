@@ -67,4 +67,9 @@ with DAG(
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/compute_diet_score.py",
     )
 
-    crawl_tasks >> snapshot_and_validate >> load_data >> compute_diet_score
+    refresh_marts = BashOperator(
+        task_id="refresh_marts",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/refresh_marts.py",
+    )
+
+    crawl_tasks >> snapshot_and_validate >> load_data >> compute_diet_score >> refresh_marts

@@ -9,8 +9,12 @@ import react from "@vitejs/plugin-react";
 // (worked in dev against the proxy, 404'd once deployed straight to the API).
 // In production the built files are served from a static host and do talk to the
 // API cross-origin, which is why FastAPI still needs CORSMiddleware (app/main.py).
+// index.html 의 %SITE_URL% (og:image/og:url 절대 URL). 배포 스크립트가 넘기고, 로컬은 빈값.
+process.env.SITE_URL ??= "";
+
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ["VITE_", "SITE_URL"],
   server: {
     port: 5173,
     proxy: {

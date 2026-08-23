@@ -72,6 +72,32 @@ cd docker && docker compose up airflow-init && docker compose up -d   # localhos
 
 `db/dining.db`가 리포에 포함되어 있어 크롤링 없이 바로 실행해볼 수 있다.
 
+## 배포
+
+```
+브라우저 → CloudFront(S3 정적 파일) → Lambda Function URL(FastAPI) → Neon PostgreSQL
+               AWS 시드니                    AWS 시드니               싱가포르
+```
+
+| 계층 | 위치 | 비용 |
+|---|---|---|
+| 프론트 | S3(비공개) + CloudFront(OAC), `/brand/*/` 디렉터리 URL은 CloudFront Function이 index.html로 매핑 | CloudFront 1TB/월 영구 무료, S3 월 $0.01 미만 |
+| API | Lambda + Function URL (Mangum, API Gateway 없음) | 월 100만 요청 영구 무료 |
+| DB | Neon PostgreSQL | 무료 |
+
+```bash
+# API (최초 생성·재배포 동일). 출력된 Function URL을 아래 프론트 배포에 넘긴다.
+DATABASE_URL=postgresql://... ALLOWED_ORIGINS=https://<cloudfront-domain> bash scripts/deploy_lambda.sh
+# 프론트 (빌드 → S3 sync → 캐시 무효화)
+VITE_API_BASE=https://<function-url> bash scripts/deploy_frontend.sh
+```
+
+- 리전은 `ap-southeast-2` 고정 — 계정 SCP가 이 리전만 허용한다. Neon(싱가포르)과 왕복 ~90ms라 엔드포인트 안에서 쿼리 횟수를 줄여야 한다(메뉴 API의 N+1을 이 이유로 제거).
+- RDS는 쓰지 않는다. 무료 플랜 크레딧($100, 6개월)이 끝나면 db.t4g.micro 기준 월 $13~15.
+- Function URL 응답 상한 6MB — 파라미터 없는 `/api/stores`(전국 18k건)는 실패하지만 프론트는 항상 반경을 넘긴다.
+- 새 도메인은 카카오 개발자 콘솔 → 플랫폼 → Web 사이트 도메인에 등록해야 지도가 뜬다.
+- 로컬 `vite build`는 Node 24 + rolldown 조합에서 크래시해 스크립트가 `npx node@22`로 빌드한다.
+
 ## 문서
 
 | 문서 | 내용 |
@@ -94,5 +120,5 @@ cd docker && docker compose up airflow-init && docker compose up -d   # localhos
 ## 다음 작업
 
 1. 확보 가능한 브랜드 10곳 크롤러 구현
-2. 클라우드 배포 (SQLite가 컨테이너 재배포 시 초기화되는 문제 해결 필요)
+2. ~~클라우드 배포~~ → CloudFront + Lambda + Neon 으로 완료
 3. 사용자 행동 로그 설계·수집 → KPI 집계

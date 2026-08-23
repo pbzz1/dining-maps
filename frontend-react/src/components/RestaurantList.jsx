@@ -1,25 +1,20 @@
 import { useEffect, useState } from "react";
-import { fetchRestaurants, fetchDietGrade } from "../api";
+import { fetchRestaurants } from "../api";
 import { GradeBadges, GradeLegend } from "./GradeBadges";
 
 export default function RestaurantList({ onSelect }) {
   const [restaurants, setRestaurants] = useState([]);
-  const [grades, setGrades] = useState({});
   const [error, setError] = useState(null);
+  // Showing both grades at once on every card reads as noise -- default to
+  // the one people actually compare stores by, let them switch to the fixed
+  // WHO/논문 one when they want that instead.
+  const [gradeMode, setGradeMode] = useState("relative");
 
   useEffect(() => {
     let cancelled = false;
+    // Grades come inlined on /api/restaurants -- one request for the whole page.
     fetchRestaurants()
-      .then((list) => {
-        if (cancelled) return;
-        setRestaurants(list);
-        // Grade badges are best-effort: a card still renders if its grade fails.
-        list.forEach((r) =>
-          fetchDietGrade(r.id)
-            .then((g) => !cancelled && setGrades((prev) => ({ ...prev, [r.id]: g })))
-            .catch(() => {})
-        );
-      })
+      .then((list) => !cancelled && setRestaurants(list))
       .catch((e) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
@@ -31,27 +26,42 @@ export default function RestaurantList({ onSelect }) {
   return (
     <section>
       <h2>매장 선택</h2>
-      <GradeLegend />
+      <div className="grade-mode-toggle" role="group" aria-label="등급 기준 선택">
+        <button
+          type="button"
+          className={gradeMode === "relative" ? "active" : ""}
+          onClick={() => setGradeMode("relative")}
+        >
+          상대 기준
+        </button>
+        <button
+          type="button"
+          className={gradeMode === "absolute" ? "active" : ""}
+          onClick={() => setGradeMode("absolute")}
+        >
+          절대 기준
+        </button>
+      </div>
+      <GradeLegend mode={gradeMode} />
       <div className="card-grid">
         {restaurants.length === 0 && <p className="loading">불러오는 중...</p>}
-        {restaurants.map((r) => {
-          const g = grades[r.id];
-          return (
-            <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
-              <div className="name">{r.name}</div>
-              <div className="card-grade-slot">
-                {g?.absolute_grade && (
-                  <>
-                    <GradeBadges absolute={g.absolute_grade} relative={g.relative_grade} />
-                    <span className="count">
-                      다이어트 메뉴 {Math.round(g.good_menu_ratio * 100)}%
-                    </span>
-                  </>
-                )}
-              </div>
+        {restaurants.map((r) => (
+          <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
+            <div className="name">{r.name}</div>
+            <div className="card-grade-slot">
+              {r.absolute_grade ? (
+                <>
+                  <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} mode={gradeMode} />
+                  <span className="count">
+                    다이어트 메뉴 {Math.round(r.good_menu_ratio * 100)}%
+                  </span>
+                </>
+              ) : (
+                <span className="count">영양정보 부족 (등급 산출 불가)</span>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </section>
   );

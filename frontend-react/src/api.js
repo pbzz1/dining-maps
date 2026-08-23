@@ -3,7 +3,7 @@
 // Prod: set VITE_API_BASE to the deployed FastAPI origin at build time.
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
-async function get(path, params) {
+export async function get(path, params) {
   const qs = params ? `?${new URLSearchParams(params)}` : "";
   const res = await fetch(`${BASE}/api${path}${qs}`);
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
@@ -15,3 +15,5 @@ export const fetchDietGrade = (id) => get(`/restaurants/${id}/diet-grade`);
 export const fetchStats = (id) => get(`/restaurants/${id}/stats`);
 export const fetchMenu = (id) => get(`/restaurants/${id}/menu`);
 export const fetchStores = (params) => get("/stores", params);
+export const fetchStatsBrands = () => get("/stats/brands");
+export const fetchStatsQuality = () => get("/stats/quality");

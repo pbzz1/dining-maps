@@ -25,7 +25,7 @@ was an empty template, the other a single daily-%DV reference row);
 버거킹's recorded API had price but not nutrition (the real nutrition
 endpoint, BKR0347, wasn't in the survey at all, and burgerking.co.kr's WAF
 blocks urllib/curl outright -- see crawl_burgerking's docstring); 교촌치킨's
-recorded nutrients ("당류,포화지방") don't exist in its API at all. If a
+mobile API lacks 당류/포화지방 entirely (the PC site has them -- 2026-08-23). If a
 brand's row count or nutrient coverage looks surprising, check the parser's
 own docstring first -- most of them document exactly this kind of correction.
 
@@ -339,64 +339,67 @@ def _bhc_row(detail, entry, category):
 
 
 # --------------------------------------------------------------------------
-# 교촌치킨 -- VERIFIED via browser network inspection (survey's URL/format
-# were both wrong; see 2026-08-12 note in data/brand_survey.csv).
+# 교촌치킨 -- VERIFIED. Nutrition from the PC site, price from the mobile API.
 # --------------------------------------------------------------------------
+KYOCHON_PC = "http://kyochon.com/menu"
+KYOCHON_PC_CATEGORIES = {"chicken": "치킨", "side": "사이드", "drink": "음료",
+                         "burger": "버거", "dream": "치킨", "newmenu": "", "liquor": "음료"}
 KYOCHON_LIST_API = "https://m.kyochon.com/product/ProductSO/getProductListToMenu.do"
-KYOCHON_DETAIL_API = "https://m.kyochon.com/product/ProductSO/getProductDetailToMenu.do"
 
 
 def crawl_kyochon():
-    """List every product via the mobile site's own listing API, then fetch
-    each one's detail for nutrition.
-
-    Two corrections to what the survey recorded. First, the URL:
-    m.kyochon.com/menu/menu_view?product_id=N looks like a working per-product
-    page but is a client-rendered shell that always shows the same default
-    product ("교촌라이스세트") no matter what N is when fetched with plain
-    urllib -- the real data comes from POSTing to KYOCHON_DETAIL_API, found by
-    watching the network tab. Second, the nutrient set: the survey listed
-    "당류,단백질,포화지방,나트륨" (sugar, protein, saturated fat, sodium), but
-    the API's actual fields are CALORIE/FAT/PROTEIN/CARBOHYDRATE/NATRIUM --
-    there is no sugar or saturated-fat field anywhere in the response, across
-    every product checked. FAT here is *total* fat, not saturated, and mapping
-    it to saturated_fat_g would overstate every product's score. So this
-    brand's CSV only ever fills calorie/protein/sodium/weight/price --
-    diet_score.py's REQUIRED_NUTRIENTS will correctly skip it from scoring
-    (missing sugar/sat-fat, same as any brand that doesn't publish them)
-    rather than silently mis-scoring it.
-
-    Values are per 100g (see BEFORE_WEIGHT/WEIGHT on each product, and
-    docs/diet_score.md for why that's fine for grading but not for display).
+    """PC site (kyochon.com/menu/view.asp?id=N) publishes the full 5-nutrient
+    set -- 열량/당류/단백질/포화지방/나트륨 per 100g plus 조리 전 중량 -- which the
+    mobile API (CALORIE/FAT/PROTEIN/CARBOHYDRATE/NATRIUM) never did; that gap is
+    why this brand was unscorable until 2026-08-23. The PC detail page has no
+    price, so SELL_PRICE is joined from the mobile listing API by product ID
+    (both sites share the same IDs, e.g. 41363 = 간장윙박스20PCS).
     """
-    listing = fetch(KYOCHON_LIST_API, data={"DEPTH1": "", "DEPTH2": ""}, as_json=True,
-                    referer="https://m.kyochon.com/menu/menu_list")
-    products = listing["result"]["dataList"][0]["rows"]
-    print(f"  교촌치킨: 상품 {len(products)}개")
-
-    rows = []
-    for product in products:
-        pid = product.get("ID")
-        if not pid:
-            continue
+    ids = {}
+    for cat, label in KYOCHON_PC_CATEGORIES.items():
         try:
-            detail = fetch(KYOCHON_DETAIL_API, data={"product_id": pid}, as_json=True,
-                           referer=f"https://m.kyochon.com/menu/menu_view?product_id={pid}")
-            info = detail["result"]["dataList"][0]["rows"][0]
+            soup = BeautifulSoup(fetch(f"{KYOCHON_PC}/{cat}.asp"), "html.parser")
+        except Exception as e:
+            print(f"  [warn] 교촌치킨 {cat}: {e}")
+            continue
+        for a in soup.select('a[href*="view.asp"]'):
+            m = re.search(r"id=(\d+)&cg=(\d+)", a["href"])
+            if m:
+                ids.setdefault(m.group(1), (m.group(2), label))
+    print(f"  교촌치킨: 상품 {len(ids)}개")
+
+    prices = {}
+    try:
+        listing = fetch(KYOCHON_LIST_API, data={"DEPTH1": "", "DEPTH2": ""}, as_json=True,
+                        referer="https://m.kyochon.com/menu/menu_list")
+        prices = {str(p.get("ID")): num(p.get("SELL_PRICE")) for p in listing["result"]["dataList"][0]["rows"]}
+    except Exception as e:
+        print(f"  [warn] 교촌치킨 price listing: {e}")
+
+    labels = {"열량(Kcal)": "calorie_kcal", "당류(g)": "sugar_g", "단백질(g)": "protein_g",
+              "포화지방(g)": "saturated_fat_g", "나트륨(mg)": "sodium_mg"}
+    rows = []
+    for pid, (cg, label) in ids.items():
+        try:
+            soup = BeautifulSoup(fetch(f"{KYOCHON_PC}/view.asp?id={pid}&cg={cg}"), "html.parser")
         except Exception as e:
             print(f"  [warn] 교촌치킨 {pid}: {e}")
             continue
-
-        cal = num(info.get("CALORIE"))
-        if not cal:
-            continue  # sauces/add-ons with no disclosed nutrition
-        row = blank_row("교촌치킨", info.get("NAME"),
-                        {"2": "치킨", "3": "사이드", "4": "음료"}.get(str(info.get("DEPTH1")), ""))
-        row["calorie_kcal"] = cal
-        row["protein_g"] = num(info.get("PROTEIN"))
-        row["sodium_mg"] = num(info.get("NATRIUM"))
-        row["price_krw"] = num(info.get("SELL_PRICE"))
-        row["nutrition_basis"] = "per_100g"
+        name = soup.select_one("dl.tit dt")
+        table = soup.select_one(".linkCont table")
+        if not name or not table:
+            continue
+        row = blank_row("교촌치킨", name.get_text(" ", strip=True), label)
+        for tr in table.select("tbody tr"):
+            tds = [clean(td.get_text(" ")) for td in tr.find_all("td")]
+            if len(tds) == 2 and tds[0] in labels:
+                row[labels[tds[0]]] = num(tds[1])
+            elif tds and tds[0].startswith("조리 전 중량"):
+                m = re.search(r"(\d[\d,]*)\s*g", tds[0])
+                row["weight_g"] = m.group(1).replace(",", "") if m else ""
+        basis = table.select_one("th span")
+        row["nutrition_basis"] = "per_100g" if basis and "100g" in basis.get_text() else "per_serving"
+        row["price_krw"] = prices.get(pid, "")
         if has_any_nutrient(row):
             rows.append(row)
         time.sleep(REQUEST_DELAY)
@@ -404,56 +407,45 @@ def crawl_kyochon():
 
 
 # --------------------------------------------------------------------------
-# 포케올데이 -- VERIFIED (survey: 9 nutrients, the richest of the 46 surveyed)
+# 포케올데이 -- VERIFIED (2026-08-23: /nutrition_info now carries all 9 nutrients)
 # --------------------------------------------------------------------------
-def crawl_pokeallday():
-    """Per-product cards across the category pages -- NOT /nutrition_info.
+POKEALLDAY_NUTRITION = "https://pokeallday.co.kr/nutrition_info"
+# `.nutrition_sort_item_wrap.wrapN` -> category, read off the page's section order.
+POKEALLDAY_WRAPS = {"wrap1": "베이스", "wrap2": "메인 토핑", "wrap3": "소스", "wrap4": "추가 토핑",
+                    "wrap5": "밸런스박스", "wrap6": "프로틴포케", "wrap10": "저당 덮밥",
+                    "wrap11": "메밀면 샐러드", "wrap9": "메밀면 샐러드", "wrap7": "사이드", "wrap8": "음료"}
 
-    The survey's URL was wrong: /nutrition_info holds exactly one row, the
-    daily %DV reference values (2,000kcal/300g carb/... ), not a per-product
-    table. It has no <table> at all with real data -- the "9 nutrients, the
-    richest of the 46 surveyed" claim was this single reference row mistaken
-    for a product. The real per-product nutrition lives in `.bh_item.item`
-    cards on each menu category page, as `.ds-f.mb-10` label/value pairs. Only
-    five nutrients are ever present there (중량/칼로리/탄수화물/단백질/지방) --
-    no 나트륨, no 당류, despite what the survey recorded. That means this
-    brand can't be scored by diet_score.py (REQUIRED_NUTRIENTS needs sugar and
-    sodium too) until/unless the brand publishes them elsewhere; the CSV still
-    carries calorie/protein/weight for display and comparison.
+
+def crawl_pokeallday():
+    """/nutrition_info embeds every item as inline JS:
+        { name: '곡물밥 <br> POKE', value: '원재료용량|열량|나트륨|탄수화물|당류|단백질|지방|콜레스테롤|포화지방산|트랜스지방' }
+    one `let itemInfoArr` block per category. This is the only place the brand
+    publishes 나트륨/당류/포화지방 -- the per-category menu cards (/poke etc.)
+    that the previous parser scraped only list 중량/칼로리/탄수화물/단백질/지방,
+    which is why this brand was unscorable until 2026-08-23. Values are per
+    serving (원재료 용량); non-gram servings ("1ea", "12oz") leave weight_g blank.
     """
-    pages = {
-        "포케": "https://pokeallday.co.kr/poke",
-        "라이스보울": "https://pokeallday.co.kr/rice_bowl",
-        "사이드": "https://pokeallday.co.kr/side",
-        "프로틴포케": "https://pokeallday.co.kr/protein_poke",
-        "밸런스박스": "https://pokeallday.co.kr/menu_balance_box",
-        "음료": "https://pokeallday.co.kr/drink",
-    }
-    label_map = {"칼로리": "calorie_kcal", "단백질": "protein_g", "중량": "weight_g"}
+    html = fetch(POKEALLDAY_NUTRITION)
     rows = []
-    for category, url in pages.items():
-        try:
-            html = fetch(url)
-        except Exception as e:
-            print(f"  [warn] 포케올데이 {category}: {e}")
-            continue
-        soup = BeautifulSoup(html, "html.parser")
-        for card in soup.select(".bh_item.item"):
-            title = card.select_one(".bh_title")
-            name = clean(title.get_text()) if title else ""
-            if not name:
+    for wrap, block in re.findall(r"nutrition_sort_item_wrap\.(wrap\d+)'\);\s*let itemInfoArr(.*?)</script>",
+                                  html, flags=re.S):
+        category = POKEALLDAY_WRAPS.get(wrap, "")
+        for name, value in re.findall(r"name:\s*'([^']*)',\s*value:\s*'([^']*)'", block):
+            parts = value.split("|")
+            if len(parts) != 10:
                 continue
-            row = blank_row("포케올데이", name, category)
-            for pair in card.select(".ds-f"):
-                label_el, val_el = pair.find("p"), pair.select_one(".ds-b")
-                if not label_el or not val_el:
-                    continue
-                column = label_map.get(clean(label_el.get_text()))
-                if column:
-                    row[column] = num(val_el.get_text())
+            weight, cal, sodium, _carb, sugar, protein, _fat, _chol, sat_fat, _trans = parts
+            row = blank_row("포케올데이", re.sub(r"<br\s*/?>", " ", name), category)
+            row["weight_g"] = num(weight) if re.fullmatch(r"[\d.]+", weight.strip()) else ""
+            row["calorie_kcal"] = num(cal)
+            row["sodium_mg"] = num(sodium)
+            row["sugar_g"] = num(sugar)
+            row["protein_g"] = num(protein)
+            row["saturated_fat_g"] = num(sat_fat)
+            row["nutrition_basis"] = "per_serving"
             if has_any_nutrient(row):
                 rows.append(row)
-        time.sleep(REQUEST_DELAY)
+    print(f"  포케올데이: 상품 {len(rows)}개")
     return _dedupe(rows), "pokeallday.csv"
 
 
@@ -779,12 +771,22 @@ def _grid_rows(table):
 
 
 # Column layouts are index-based, not header-matched, because 도미노's tables
-# mix a "/150g(or ml/1회분) 기준" block with a "/총중량(총용량)" block under
+# mix a "/150g(1회분) 기준" block with a "/총중량(총용량)" block under
 # near-identical header text (both say "열량 (kcal/...)"), and matching by
-# label alone would silently grab the per-basis number instead of the
-# per-total one. Total-weight values are used because they're what's
-# comparable to every other brand's per-serving figures.
+# label alone can't tell them apart.
+#
+# The pizza table's per-150g block is the one that's comparable to every other
+# brand: 총중량 is a whole L pizza (1,248g / 3,515kcal), which nobody eats as
+# one serving, so scoring it against a 275g 맥도날드 버거 made 도미노 look like
+# an order-of-magnitude outlier. 150g is 도미노's own declared 1회분.
 _DOMINOS_PIZZA_COLS = {  # 16 physical cols (제품명 header has colspan=3)
+    "name": 0, "variant": 1, "size": 2,
+    "calorie_kcal": 6, "protein_g": 7, "saturated_fat_g": 8,
+    "sodium_mg": 9, "sugar_g": 10,
+}
+# A handful of S-size Subzza rows leave the per-150g block as "-" (they weigh
+# under 300g, i.e. already one serving); those fall back to 총중량.
+_DOMINOS_PIZZA_TOTAL_COLS = {
     "name": 0, "variant": 1, "size": 2, "weight_g": 3,
     "calorie_kcal": 11, "protein_g": 12, "saturated_fat_g": 13,
     "sodium_mg": 14, "sugar_g": 15,
@@ -794,28 +796,39 @@ _DOMINOS_DRINK_COLS = {  # 14 cols, no name-group split
     "calorie_kcal": 9, "protein_g": 10, "saturated_fat_g": 11,
     "sodium_mg": 12, "sugar_g": 13,
 }
-_DOMINOS_SIDE_COLS = {  # 8 cols: name(rowspan) + size + weight + 5 nutrients
-    "name": 0, "size": 1, "weight_g": 2,
-    "calorie_kcal": 3, "protein_g": 4, "saturated_fat_g": 5,
-    "sodium_mg": 6, "sugar_g": 7,
+# Real 사이드디시 (스파게티/윙/샐러드). 15 cols: a per-1회분 block that only the
+# wing rows fill in (1회분 = one wing), then a 총중량 block. 총중량 is the right
+# one here -- a 395g 스파게티 or a 7-piece wing order *is* the serving, whereas
+# "one 33g wing" isn't a menu item anyone orders.
+_DOMINOS_SIDE_COLS = {
+    "name": 0, "weight_g": 1,
+    "calorie_kcal": 10, "protein_g": 11, "saturated_fat_g": 12,
+    "sodium_mg": 13, "sugar_g": 14,
 }
 
 
-def _dominos_rows_from_grid(grid, cols, category, table_index):
+def _dominos_rows_from_grid(grid, cols, category, table_index, fallback_cols=None,
+                            serving_g=None, default_basis="per_serving"):
     rows = []
     for i, cells in enumerate(grid):
         if i == 0 or len(cells) <= max(cols.values()):
             continue  # header row, or a stray row shorter than expected
+        active, basis = cols, default_basis
+        if fallback_cols and not num(cells[cols["calorie_kcal"]]):
+            active, basis = fallback_cols, "per_total"
         row = {c: "" for c in STANDARD_COLUMNS}
         row["restaurant"] = "도미노피자"
         row["menu_category"] = category
-        base = cells[cols["name"]]
-        variant = clean(cells[cols["variant"]]) if "variant" in cols else ""
-        size = clean(cells[cols["size"]]) if "size" in cols else ""
+        base = cells[active["name"]]
+        variant = clean(cells[active["variant"]]) if "variant" in active else ""
+        size = clean(cells[active["size"]]) if "size" in active else ""
         row["menu_name"] = " ".join(p for p in [base, variant, size] if p)
         for column in ("weight_g", "calorie_kcal", "protein_g",
                        "saturated_fat_g", "sodium_mg", "sugar_g"):
-            row[column] = num(cells[cols[column]])
+            row[column] = num(cells[active[column]]) if column in active else ""
+        if serving_g and active is cols:
+            row["weight_g"] = serving_g  # the block's own basis, not 총중량
+        row["nutrition_basis"] = basis
         if has_any_nutrient(row):
             rows.append(row)
     return rows
@@ -823,36 +836,40 @@ def _dominos_rows_from_grid(grid, cols, category, table_index):
 
 def crawl_dominos():
     """/contents/ingredient serves euc-kr (not utf-8, unlike every other
-    brand crawled so far) and holds several differently-shaped nutrition
-    tables rather than one -- 489-row pizza table (rowspan-nested), a
-    14-column drinks table, an 8-column sides table, plus a couple of small
-    2-13 row tables and several allergy-only tables with no nutrition at all.
+    brand crawled so far) and holds 17 differently-shaped tables rather than
+    one: a 466-row pizza table (rowspan-nested), a drinks table, a sides
+    table, an ingredient breakdown of what each pizza is *made of*, and
+    several allergy/origin-only tables with no nutrition at all.
     _generic_tables() found none of this: it only reads plain <table>s
-    without rowspan handling and has no notion of "prefer the per-total
-    column over the per-100g one when both exist under near-identical
-    labels", both of which are required here.
+    without rowspan handling and has no notion of picking one basis block
+    over another when both sit under near-identical labels.
 
-    Table indices (4/8/11) were found by dumping every <table>'s header row
-    once and are pinned by position, not searched for by header text, since
-    docomos's markup gives duplicate-looking headers no reliable way to
-    distinguish by string matching alone. Re-verify the indices with
-    inspect_page.py before re-running this if the page layout changes.
+    Only tables 4/7/8 are menu items. Deliberately NOT scraped:
+      5      하이 프로틴 도우 -- a crust option, per-100g, not an orderable item
+      6      콤보 -- calorie only, no other nutrient, so it can never be scored
+      9/10/11 도우 / 소스 / 치즈 -- the per-pizza ingredient breakdown. These
+              were previously loaded as "사이드" menu items, which is where
+              "더블 치즈 엣지L, 2,535kcal" came from: that's the cheese on a
+              whole L pizza, not a side dish, and it double-counts the pizza
+              rows it is already part of.
+
+    Indices are pinned by position, not searched by header text, since the
+    markup gives duplicate-looking headers no reliable way to distinguish by
+    string matching alone. Re-verify with inspect_page.py if the page moves.
     """
     html = fetch("https://web.dominos.co.kr/contents/ingredient", encoding="euc-kr")
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
 
     rows = []
-    rows += _dominos_rows_from_grid(_grid_rows(tables[4]), _DOMINOS_PIZZA_COLS, "피자", 4)
-    rows += _dominos_rows_from_grid(_grid_rows(tables[8]), _DOMINOS_DRINK_COLS, "음료", 8)
-    rows += _dominos_rows_from_grid(_grid_rows(tables[11]), _DOMINOS_SIDE_COLS, "사이드", 11)
-    # Tables 9/10 (사이드 소스류) are flat -- no rowspan, headers map 1:1 --
-    # so the shared table/row_from_headers path handles them directly.
-    for idx, category in ((9, "사이드"), (10, "사이드")):
-        for raw in parse_table(tables[idx]):
-            row = row_from_headers(raw, restaurant="도미노피자", category=category)
-            if row and has_any_nutrient(row):
-                rows.append(row)
+    rows += _dominos_rows_from_grid(_grid_rows(tables[4]), _DOMINOS_PIZZA_COLS, "피자", 4,
+                                    fallback_cols=_DOMINOS_PIZZA_TOTAL_COLS, serving_g=150)
+    rows += _dominos_rows_from_grid(_grid_rows(tables[7]), _DOMINOS_SIDE_COLS, "사이드", 7,
+                                    default_basis="per_total")
+    # 음료's per-150g block is entirely "-", so a 1.5L bottle is genuinely
+    # recorded per-container; label it rather than imply per-serving.
+    rows += _dominos_rows_from_grid(_grid_rows(tables[8]), _DOMINOS_DRINK_COLS, "음료", 8,
+                                    default_basis="per_total")
     return _dedupe(rows), "dominos.csv"
 
 

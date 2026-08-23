@@ -90,6 +90,13 @@ function page({ title, description, canonical, body }) {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="website">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B8QRKP6DTW"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-B8QRKP6DTW');
+</script>
 <style>${STYLE}</style>
 </head>
 <body>

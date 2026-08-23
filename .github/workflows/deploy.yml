@@ -1,0 +1,60 @@
+name: deploy
+# master push 시 변경된 쪽만 배포. 로컬 deploy.sh와 같은 스크립트를 쓴다.
+# 필요한 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_URL, ALLOWED_ORIGINS, VITE_API_BASE
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: # 수동 실행 (둘 다 강제 배포)
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      back: ${{ steps.f.outputs.back }}
+      front: ${{ steps.f.outputs.front }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            back: ['app/**', 'scripts/deploy_lambda.sh']
+            front: ['frontend-react/**', 'scripts/deploy_frontend.sh']
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.back == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ap-southeast-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: bash scripts/deploy_lambda.sh
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.front == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ap-southeast-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend-react/package-lock.json }
+      - run: npm ci && npm run lint
+        working-directory: frontend-react
+      - run: bash scripts/deploy_frontend.sh
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}

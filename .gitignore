@@ -4,6 +4,8 @@ __pycache__/
 # 시크릿이 들어가는 파일
 docker/.env
 frontend-react/.env
+.env.deploy
+diningmaps-accessKeys/
 
 # 프론트엔드 빌드 산출물 / 의존성
 frontend-react/node_modules/
@@ -17,3 +19,4 @@ data/raw/
 
 # Word 임시 잠금 파일
 ~$*
+build/

@@ -4,8 +4,51 @@
     {
       "name": "static-dist",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "frontend-react/dist"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4173",
+        "--directory",
+        "frontend-react/dist"
+      ],
       "port": 4173
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--port",
+        "8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend-react"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "vite-lambda",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend-react"
+      ],
+      "port": 5173,
+      "env": {
+        "VITE_API_BASE": "https://npedx3ncoyh2q6r6sdnnti2hni0ammuk.lambda-url.ap-southeast-2.on.aws"
+      }
     }
   ]
 }
