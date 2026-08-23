@@ -25,7 +25,7 @@ was an empty template, the other a single daily-%DV reference row);
 버거킹's recorded API had price but not nutrition (the real nutrition
 endpoint, BKR0347, wasn't in the survey at all, and burgerking.co.kr's WAF
 blocks urllib/curl outright -- see crawl_burgerking's docstring); 교촌치킨's
-recorded nutrients ("당류,포화지방") don't exist in its API at all. If a
+mobile API lacks 당류/포화지방 entirely (the PC site has them -- 2026-08-23). If a
 brand's row count or nutrient coverage looks surprising, check the parser's
 own docstring first -- most of them document exactly this kind of correction.
 
@@ -339,64 +339,67 @@ def _bhc_row(detail, entry, category):
 
 
 # --------------------------------------------------------------------------
-# 교촌치킨 -- VERIFIED via browser network inspection (survey's URL/format
-# were both wrong; see 2026-08-12 note in data/brand_survey.csv).
+# 교촌치킨 -- VERIFIED. Nutrition from the PC site, price from the mobile API.
 # --------------------------------------------------------------------------
+KYOCHON_PC = "http://kyochon.com/menu"
+KYOCHON_PC_CATEGORIES = {"chicken": "치킨", "side": "사이드", "drink": "음료",
+                         "burger": "버거", "dream": "치킨", "newmenu": "", "liquor": "음료"}
 KYOCHON_LIST_API = "https://m.kyochon.com/product/ProductSO/getProductListToMenu.do"
-KYOCHON_DETAIL_API = "https://m.kyochon.com/product/ProductSO/getProductDetailToMenu.do"
 
 
 def crawl_kyochon():
-    """List every product via the mobile site's own listing API, then fetch
-    each one's detail for nutrition.
-
-    Two corrections to what the survey recorded. First, the URL:
-    m.kyochon.com/menu/menu_view?product_id=N looks like a working per-product
-    page but is a client-rendered shell that always shows the same default
-    product ("교촌라이스세트") no matter what N is when fetched with plain
-    urllib -- the real data comes from POSTing to KYOCHON_DETAIL_API, found by
-    watching the network tab. Second, the nutrient set: the survey listed
-    "당류,단백질,포화지방,나트륨" (sugar, protein, saturated fat, sodium), but
-    the API's actual fields are CALORIE/FAT/PROTEIN/CARBOHYDRATE/NATRIUM --
-    there is no sugar or saturated-fat field anywhere in the response, across
-    every product checked. FAT here is *total* fat, not saturated, and mapping
-    it to saturated_fat_g would overstate every product's score. So this
-    brand's CSV only ever fills calorie/protein/sodium/weight/price --
-    diet_score.py's REQUIRED_NUTRIENTS will correctly skip it from scoring
-    (missing sugar/sat-fat, same as any brand that doesn't publish them)
-    rather than silently mis-scoring it.
-
-    Values are per 100g (see BEFORE_WEIGHT/WEIGHT on each product, and
-    docs/diet_score.md for why that's fine for grading but not for display).
+    """PC site (kyochon.com/menu/view.asp?id=N) publishes the full 5-nutrient
+    set -- 열량/당류/단백질/포화지방/나트륨 per 100g plus 조리 전 중량 -- which the
+    mobile API (CALORIE/FAT/PROTEIN/CARBOHYDRATE/NATRIUM) never did; that gap is
+    why this brand was unscorable until 2026-08-23. The PC detail page has no
+    price, so SELL_PRICE is joined from the mobile listing API by product ID
+    (both sites share the same IDs, e.g. 41363 = 간장윙박스20PCS).
     """
-    listing = fetch(KYOCHON_LIST_API, data={"DEPTH1": "", "DEPTH2": ""}, as_json=True,
-                    referer="https://m.kyochon.com/menu/menu_list")
-    products = listing["result"]["dataList"][0]["rows"]
-    print(f"  교촌치킨: 상품 {len(products)}개")
-
-    rows = []
-    for product in products:
-        pid = product.get("ID")
-        if not pid:
-            continue
+    ids = {}
+    for cat, label in KYOCHON_PC_CATEGORIES.items():
         try:
-            detail = fetch(KYOCHON_DETAIL_API, data={"product_id": pid}, as_json=True,
-                           referer=f"https://m.kyochon.com/menu/menu_view?product_id={pid}")
-            info = detail["result"]["dataList"][0]["rows"][0]
+            soup = BeautifulSoup(fetch(f"{KYOCHON_PC}/{cat}.asp"), "html.parser")
+        except Exception as e:
+            print(f"  [warn] 교촌치킨 {cat}: {e}")
+            continue
+        for a in soup.select('a[href*="view.asp"]'):
+            m = re.search(r"id=(\d+)&cg=(\d+)", a["href"])
+            if m:
+                ids.setdefault(m.group(1), (m.group(2), label))
+    print(f"  교촌치킨: 상품 {len(ids)}개")
+
+    prices = {}
+    try:
+        listing = fetch(KYOCHON_LIST_API, data={"DEPTH1": "", "DEPTH2": ""}, as_json=True,
+                        referer="https://m.kyochon.com/menu/menu_list")
+        prices = {str(p.get("ID")): num(p.get("SELL_PRICE")) for p in listing["result"]["dataList"][0]["rows"]}
+    except Exception as e:
+        print(f"  [warn] 교촌치킨 price listing: {e}")
+
+    labels = {"열량(Kcal)": "calorie_kcal", "당류(g)": "sugar_g", "단백질(g)": "protein_g",
+              "포화지방(g)": "saturated_fat_g", "나트륨(mg)": "sodium_mg"}
+    rows = []
+    for pid, (cg, label) in ids.items():
+        try:
+            soup = BeautifulSoup(fetch(f"{KYOCHON_PC}/view.asp?id={pid}&cg={cg}"), "html.parser")
         except Exception as e:
             print(f"  [warn] 교촌치킨 {pid}: {e}")
             continue
-
-        cal = num(info.get("CALORIE"))
-        if not cal:
-            continue  # sauces/add-ons with no disclosed nutrition
-        row = blank_row("교촌치킨", info.get("NAME"),
-                        {"2": "치킨", "3": "사이드", "4": "음료"}.get(str(info.get("DEPTH1")), ""))
-        row["calorie_kcal"] = cal
-        row["protein_g"] = num(info.get("PROTEIN"))
-        row["sodium_mg"] = num(info.get("NATRIUM"))
-        row["price_krw"] = num(info.get("SELL_PRICE"))
-        row["nutrition_basis"] = "per_100g"
+        name = soup.select_one("dl.tit dt")
+        table = soup.select_one(".linkCont table")
+        if not name or not table:
+            continue
+        row = blank_row("교촌치킨", name.get_text(" ", strip=True), label)
+        for tr in table.select("tbody tr"):
+            tds = [clean(td.get_text(" ")) for td in tr.find_all("td")]
+            if len(tds) == 2 and tds[0] in labels:
+                row[labels[tds[0]]] = num(tds[1])
+            elif tds and tds[0].startswith("조리 전 중량"):
+                m = re.search(r"(\d[\d,]*)\s*g", tds[0])
+                row["weight_g"] = m.group(1).replace(",", "") if m else ""
+        basis = table.select_one("th span")
+        row["nutrition_basis"] = "per_100g" if basis and "100g" in basis.get_text() else "per_serving"
+        row["price_krw"] = prices.get(pid, "")
         if has_any_nutrient(row):
             rows.append(row)
         time.sleep(REQUEST_DELAY)
@@ -404,56 +407,45 @@ def crawl_kyochon():
 
 
 # --------------------------------------------------------------------------
-# 포케올데이 -- VERIFIED (survey: 9 nutrients, the richest of the 46 surveyed)
+# 포케올데이 -- VERIFIED (2026-08-23: /nutrition_info now carries all 9 nutrients)
 # --------------------------------------------------------------------------
-def crawl_pokeallday():
-    """Per-product cards across the category pages -- NOT /nutrition_info.
+POKEALLDAY_NUTRITION = "https://pokeallday.co.kr/nutrition_info"
+# `.nutrition_sort_item_wrap.wrapN` -> category, read off the page's section order.
+POKEALLDAY_WRAPS = {"wrap1": "베이스", "wrap2": "메인 토핑", "wrap3": "소스", "wrap4": "추가 토핑",
+                    "wrap5": "밸런스박스", "wrap6": "프로틴포케", "wrap10": "저당 덮밥",
+                    "wrap11": "메밀면 샐러드", "wrap9": "메밀면 샐러드", "wrap7": "사이드", "wrap8": "음료"}
 
-    The survey's URL was wrong: /nutrition_info holds exactly one row, the
-    daily %DV reference values (2,000kcal/300g carb/... ), not a per-product
-    table. It has no <table> at all with real data -- the "9 nutrients, the
-    richest of the 46 surveyed" claim was this single reference row mistaken
-    for a product. The real per-product nutrition lives in `.bh_item.item`
-    cards on each menu category page, as `.ds-f.mb-10` label/value pairs. Only
-    five nutrients are ever present there (중량/칼로리/탄수화물/단백질/지방) --
-    no 나트륨, no 당류, despite what the survey recorded. That means this
-    brand can't be scored by diet_score.py (REQUIRED_NUTRIENTS needs sugar and
-    sodium too) until/unless the brand publishes them elsewhere; the CSV still
-    carries calorie/protein/weight for display and comparison.
+
+def crawl_pokeallday():
+    """/nutrition_info embeds every item as inline JS:
+        { name: '곡물밥 <br> POKE', value: '원재료용량|열량|나트륨|탄수화물|당류|단백질|지방|콜레스테롤|포화지방산|트랜스지방' }
+    one `let itemInfoArr` block per category. This is the only place the brand
+    publishes 나트륨/당류/포화지방 -- the per-category menu cards (/poke etc.)
+    that the previous parser scraped only list 중량/칼로리/탄수화물/단백질/지방,
+    which is why this brand was unscorable until 2026-08-23. Values are per
+    serving (원재료 용량); non-gram servings ("1ea", "12oz") leave weight_g blank.
     """
-    pages = {
-        "포케": "https://pokeallday.co.kr/poke",
-        "라이스보울": "https://pokeallday.co.kr/rice_bowl",
-        "사이드": "https://pokeallday.co.kr/side",
-        "프로틴포케": "https://pokeallday.co.kr/protein_poke",
-        "밸런스박스": "https://pokeallday.co.kr/menu_balance_box",
-        "음료": "https://pokeallday.co.kr/drink",
-    }
-    label_map = {"칼로리": "calorie_kcal", "단백질": "protein_g", "중량": "weight_g"}
+    html = fetch(POKEALLDAY_NUTRITION)
     rows = []
-    for category, url in pages.items():
-        try:
-            html = fetch(url)
-        except Exception as e:
-            print(f"  [warn] 포케올데이 {category}: {e}")
-            continue
-        soup = BeautifulSoup(html, "html.parser")
-        for card in soup.select(".bh_item.item"):
-            title = card.select_one(".bh_title")
-            name = clean(title.get_text()) if title else ""
-            if not name:
+    for wrap, block in re.findall(r"nutrition_sort_item_wrap\.(wrap\d+)'\);\s*let itemInfoArr(.*?)</script>",
+                                  html, flags=re.S):
+        category = POKEALLDAY_WRAPS.get(wrap, "")
+        for name, value in re.findall(r"name:\s*'([^']*)',\s*value:\s*'([^']*)'", block):
+            parts = value.split("|")
+            if len(parts) != 10:
                 continue
-            row = blank_row("포케올데이", name, category)
-            for pair in card.select(".ds-f"):
-                label_el, val_el = pair.find("p"), pair.select_one(".ds-b")
-                if not label_el or not val_el:
-                    continue
-                column = label_map.get(clean(label_el.get_text()))
-                if column:
-                    row[column] = num(val_el.get_text())
+            weight, cal, sodium, _carb, sugar, protein, _fat, _chol, sat_fat, _trans = parts
+            row = blank_row("포케올데이", re.sub(r"<br\s*/?>", " ", name), category)
+            row["weight_g"] = num(weight) if re.fullmatch(r"[\d.]+", weight.strip()) else ""
+            row["calorie_kcal"] = num(cal)
+            row["sodium_mg"] = num(sodium)
+            row["sugar_g"] = num(sugar)
+            row["protein_g"] = num(protein)
+            row["saturated_fat_g"] = num(sat_fat)
+            row["nutrition_basis"] = "per_serving"
             if has_any_nutrient(row):
                 rows.append(row)
-        time.sleep(REQUEST_DELAY)
+    print(f"  포케올데이: 상품 {len(rows)}개")
     return _dedupe(rows), "pokeallday.csv"
 
 

@@ -29,13 +29,15 @@ export default function RestaurantList({ onSelect }) {
           <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
             <div className="name">{r.name}</div>
             <div className="card-grade-slot">
-              {r.absolute_grade && (
+              {r.absolute_grade ? (
                 <>
                   <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} />
                   <span className="count">
                     다이어트 메뉴 {Math.round(r.good_menu_ratio * 100)}%
                   </span>
                 </>
+              ) : (
+                <span className="count">영양정보 부족 (등급 산출 불가)</span>
               )}
             </div>
           </div>
