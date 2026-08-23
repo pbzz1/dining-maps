@@ -127,12 +127,20 @@ def get_restaurant_menu(restaurant_id: int):
         (restaurant_id,),
     ).fetchall()
 
+    # 영양정보는 한 번에 가져와 메뉴별로 묶는다. 메뉴당 1쿼리(N+1)로 하면
+    # Lambda(시드니)→Neon(싱가포르) 왕복 ~90ms × 수백 건이라 30초 타임아웃에 걸렸다.
+    facts_by_item: dict[int, list] = {}
+    for f in conn.execute(
+        """SELECT nf.menu_item_id, nf.nutrient_name, nf.value, nf.unit
+           FROM nutrition_fact nf JOIN menu_item mi ON mi.id = nf.menu_item_id
+           WHERE mi.restaurant_id = %s""",
+        (restaurant_id,),
+    ):
+        facts_by_item.setdefault(f["menu_item_id"], []).append(f)
+
     result = []
     for item in items:
-        facts = conn.execute(
-            "SELECT nutrient_name, value, unit FROM nutrition_fact WHERE menu_item_id = %s",
-            (item["id"],),
-        ).fetchall()
+        facts = facts_by_item.get(item["id"], [])
         result.append(
             MenuItemOut(
                 id=item["id"],

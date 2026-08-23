@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchStores } from "../api";
 import { useKakaoMap } from "../useKakaoMap";
 import {
-  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, formatDistance,
+  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, ALL_GRADES, formatDistance,
 } from "../constants";
 
-export default function MapView({ onOpenMenu }) {
+export default function MapView({ onOpenMenu, visible = true }) {
   const containerRef = useRef(null);
   const overlaysRef = useRef([]);
   const popupRef = useRef(null);
@@ -16,8 +16,27 @@ export default function MapView({ onOpenMenu }) {
   const [stores, setStores] = useState([]);
   const [status, setStatus] = useState("");
   const [gradeType, setGradeType] = useState("relative");
-  const [minGrade, setMinGrade] = useState("");
+  const [activeGrades, setActiveGrades] = useState(() => new Set(ALL_GRADES));
   const [keyword, setKeyword] = useState("");
+
+  function toggleGrade(g) {
+    setActiveGrades((prev) => {
+      const next = new Set(prev);
+      next.has(g) ? next.delete(g) : next.add(g);
+      return next;
+    });
+  }
+
+  // A/B/C/D 온오프는 클라이언트에서 필터링한다 -- /api/stores의 min_grade는
+  // "이 등급 이상"만 지원해서 서버에서 임의 조합(예: A,C만 켜기)을 걸 수 없다.
+  const visibleStores = useMemo(
+    () =>
+      stores.filter((store) => {
+        const g = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
+        return g == null || activeGrades.has(g);
+      }),
+    [stores, gradeType, activeGrades]
+  );
 
   const clearOverlays = useCallback(() => {
     overlaysRef.current.forEach((o) => o.setMap(null));
@@ -72,26 +91,38 @@ export default function MapView({ onOpenMenu }) {
       clearOverlays();
       try {
         const params = { lat, lng, radius_m: SEARCH_RADIUS_M, grade_type: gradeType };
-        if (minGrade) params.min_grade = minGrade;
         const list = await fetchStores(params);
         setStores(list);
         setStatus(
           list.length === 0
-            ? "조건에 맞는 매장이 없습니다. (필터를 완화해보세요)"
+            ? "주변에 매장이 없습니다."
             : `주변 매장 ${list.length}곳 (거리순 정렬)`
         );
       } catch (e) {
         setStatus(`매장 정보를 불러오지 못했습니다: ${e.message}`);
       }
     },
-    [gradeType, minGrade, clearOverlays]
+    [gradeType, clearOverlays]
   );
 
-  // Initial load + reload whenever a filter changes (keeping the current center).
+  // The map is mounted inside a display:none wrapper when another tab is the
+  // first screen, so Kakao sizes it to 0x0 and only paints a few tiles. Tell it
+  // to re-measure each time the tab becomes visible.
   useEffect(() => {
-    if (!ready) return;
+    if (!visible || !map) return;
+    map.relayout();
+    map.setCenter(new window.kakao.maps.LatLng(centerRef.current.lat, centerRef.current.lng));
+  }, [visible, map]);
+
+  // No pins on first open -- 343 markers around the default center is noise.
+  // Stores load only after the user searches or taps "내 위치"; after that a
+  // grade-basis change refetches around the same center. Grade on/off toggles
+  // are client-side filtering, not a refetch -- see visibleStores.
+  const [searched, setSearched] = useState(false);
+  useEffect(() => {
+    if (!ready || !searched) return;
     loadStores(centerRef.current.lat, centerRef.current.lng);
-  }, [ready, gradeType, minGrade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, searched, gradeType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Draw pins for whatever store list is current.
   useEffect(() => {
@@ -99,12 +130,12 @@ export default function MapView({ onOpenMenu }) {
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
 
-    stores.forEach((store) => {
+    visibleStores.forEach((store) => {
       const displayGrade = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
       const el = document.createElement("div");
       el.className = "map-pin";
       el.style.background = GRADE_COLOR[displayGrade] ?? "#999";
-      el.innerHTML = `<span>${displayGrade ?? "?"}</span>`;
+      el.innerHTML = `<span>${store.restaurant_name}</span>`;
       el.addEventListener("click", () => showPopup(store));
 
       const overlay = new window.kakao.maps.CustomOverlay({
@@ -115,7 +146,7 @@ export default function MapView({ onOpenMenu }) {
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
     });
-  }, [stores, ready, map, gradeType, showPopup]);
+  }, [visibleStores, ready, map, gradeType, showPopup]);
 
   function handleSearch() {
     const q = keyword.trim();
@@ -129,6 +160,7 @@ export default function MapView({ onOpenMenu }) {
       const lat = parseFloat(data[0].y);
       const lng = parseFloat(data[0].x);
       map.setCenter(new window.kakao.maps.LatLng(lat, lng));
+      setSearched(true);
       loadStores(lat, lng);
     });
   }
@@ -143,6 +175,7 @@ export default function MapView({ onOpenMenu }) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         map.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
+        setSearched(true);
         loadStores(latitude, longitude);
       },
       () => setStatus("위치 권한이 거부되었습니다.")
@@ -156,20 +189,21 @@ export default function MapView({ onOpenMenu }) {
   }
 
   return (
-    <section>
-      <div className="map-controls">
-        <input
-          type="text"
-          placeholder="지역/주소 검색 (예: 강남역)"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-        />
-        <button onClick={handleSearch}>검색</button>
-        <button onClick={handleLocate}>내 위치</button>
-      </div>
+    <section className="map-view">
+      <div className="map-toolbar">
+        <div className="map-controls">
+          <input
+            type="text"
+            placeholder="지역/주소 검색 (예: 강남역)"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+          <button onClick={handleSearch}>검색</button>
+          <button onClick={handleLocate}>내 위치</button>
+        </div>
 
-      <div className="filter-controls">
+        <div className="filter-controls">
         <div className="filter-group">
           <span className="filter-label">등급 기준</span>
           {["relative", "absolute"].map((t) => (
@@ -183,22 +217,31 @@ export default function MapView({ onOpenMenu }) {
           ))}
         </div>
         <div className="filter-group">
-          <span className="filter-label">최소 등급</span>
-          <select value={minGrade} onChange={(e) => setMinGrade(e.target.value)}>
-            <option value="">전체</option>
-            <option value="A">A 이상</option>
-            <option value="B">B 이상</option>
-            <option value="C">C 이상</option>
-          </select>
+          <span className="filter-label">등급 표시</span>
+          {ALL_GRADES.map((g) => (
+            <button
+              key={g}
+              className={`grade-toggle-btn ${activeGrades.has(g) ? "active" : "off"}`}
+              style={activeGrades.has(g) ? { background: GRADE_COLOR[g], borderColor: GRADE_COLOR[g] } : undefined}
+              onClick={() => toggleGrade(g)}
+            >
+              {g}
+            </button>
+          ))}
         </div>
+        </div>
+        <span className="map-status">{sdkError ?? status}</span>
       </div>
-
-      <p className="loading">{sdkError ?? status}</p>
 
       <div className="map-layout">
         <div id="map-container" ref={containerRef} />
         <div className="store-list">
-          {stores.map((store) => {
+          {!searched && !sdkError && (
+            <p className="store-list-empty">
+              지역을 검색하거나 <b>내 위치</b>를 눌러 주변 매장을 불러오세요.
+            </p>
+          )}
+          {visibleStores.map((store) => {
             const g = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
             return (
               <div key={store.id} className="store-card" onClick={() => focusStore(store)}>
@@ -213,16 +256,14 @@ export default function MapView({ onOpenMenu }) {
               </div>
             );
           })}
+          <div className="map-legend">
+            {ALL_GRADES.map((g) => (
+              <span key={g}>
+                <span className={`grade-badge ${GRADE_CLASS[g]}`}>{g}</span>등급
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div className="map-legend">
-        {["A", "B", "C", "D"].map((g) => (
-          <span key={g}>
-            <span className={`grade-badge ${GRADE_CLASS[g]}`}>{g}</span>등급
-          </span>
-        ))}
-        <span>진한 배지=절대 기준(WHO) · 옅은 배지=상대 기준(현재 등록 매장 중 순위)</span>
       </div>
     </section>
   );

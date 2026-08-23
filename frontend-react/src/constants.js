@@ -12,6 +12,7 @@ export const NUTRIENT_LABELS = {
 export const GRADE_CLASS = { A: "grade-a", B: "grade-b", C: "grade-c", D: "grade-d" };
 export const GRADE_COLOR = { A: "#2f8f4e", B: "#6fa83d", C: "#d99a2b", D: "#c1440e" };
 export const GRADE_RANK = { A: 0, B: 1, C: 2, D: 3 };
+export const ALL_GRADES = ["A", "B", "C", "D"];
 
 export const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // 서울시청
 export const SEARCH_RADIUS_M = 3000;
