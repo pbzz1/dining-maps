@@ -5,6 +5,7 @@ __pycache__/
 docker/.env
 frontend-react/.env
 .env.deploy
+diningmaps-accessKeys/
 
 # 프론트엔드 빌드 산출물 / 의존성
 frontend-react/node_modules/
