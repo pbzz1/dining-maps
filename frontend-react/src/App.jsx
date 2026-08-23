@@ -59,7 +59,10 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <h1>Dining Maps</h1>
+        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(추천)으로 완전히 초기화한다. */}
+        <h1>
+          <a href="/" style={{ color: "inherit", textDecoration: "none" }}>Dining Maps</a>
+        </h1>
         <span className="subtitle">
           내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기
           {dataDate && ` · 브랜드 공식 영양정보 ${dataDate} 기준`}
