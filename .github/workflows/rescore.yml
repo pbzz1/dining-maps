@@ -1,0 +1,29 @@
+name: rescore
+# 메뉴/영양정보/채점 규칙이 바뀌었을 때만 diet_score 를 다시 계산한다.
+# 브랜드 상대등급(20/30/30/20)은 API 가 요청 시 실시간으로 순위를 매기므로 여기서 할 일이 없고,
+# 이 잡은 "새로 들어온 브랜드가 채점되는 것"과 메뉴 단위 백분위만 책임진다.
+# 필요한 Secrets: DATABASE_URL
+on:
+  schedule:
+    - cron: '0 18 * * *' # 매일 03:00 KST
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 변경 여부와 상관없이 재계산
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  rescore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q "psycopg[binary]" pandas
+      - run: python scripts/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
