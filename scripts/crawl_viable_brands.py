@@ -771,12 +771,22 @@ def _grid_rows(table):
 
 
 # Column layouts are index-based, not header-matched, because 도미노's tables
-# mix a "/150g(or ml/1회분) 기준" block with a "/총중량(총용량)" block under
+# mix a "/150g(1회분) 기준" block with a "/총중량(총용량)" block under
 # near-identical header text (both say "열량 (kcal/...)"), and matching by
-# label alone would silently grab the per-basis number instead of the
-# per-total one. Total-weight values are used because they're what's
-# comparable to every other brand's per-serving figures.
+# label alone can't tell them apart.
+#
+# The pizza table's per-150g block is the one that's comparable to every other
+# brand: 총중량 is a whole L pizza (1,248g / 3,515kcal), which nobody eats as
+# one serving, so scoring it against a 275g 맥도날드 버거 made 도미노 look like
+# an order-of-magnitude outlier. 150g is 도미노's own declared 1회분.
 _DOMINOS_PIZZA_COLS = {  # 16 physical cols (제품명 header has colspan=3)
+    "name": 0, "variant": 1, "size": 2,
+    "calorie_kcal": 6, "protein_g": 7, "saturated_fat_g": 8,
+    "sodium_mg": 9, "sugar_g": 10,
+}
+# A handful of S-size Subzza rows leave the per-150g block as "-" (they weigh
+# under 300g, i.e. already one serving); those fall back to 총중량.
+_DOMINOS_PIZZA_TOTAL_COLS = {
     "name": 0, "variant": 1, "size": 2, "weight_g": 3,
     "calorie_kcal": 11, "protein_g": 12, "saturated_fat_g": 13,
     "sodium_mg": 14, "sugar_g": 15,
@@ -786,28 +796,39 @@ _DOMINOS_DRINK_COLS = {  # 14 cols, no name-group split
     "calorie_kcal": 9, "protein_g": 10, "saturated_fat_g": 11,
     "sodium_mg": 12, "sugar_g": 13,
 }
-_DOMINOS_SIDE_COLS = {  # 8 cols: name(rowspan) + size + weight + 5 nutrients
-    "name": 0, "size": 1, "weight_g": 2,
-    "calorie_kcal": 3, "protein_g": 4, "saturated_fat_g": 5,
-    "sodium_mg": 6, "sugar_g": 7,
+# Real 사이드디시 (스파게티/윙/샐러드). 15 cols: a per-1회분 block that only the
+# wing rows fill in (1회분 = one wing), then a 총중량 block. 총중량 is the right
+# one here -- a 395g 스파게티 or a 7-piece wing order *is* the serving, whereas
+# "one 33g wing" isn't a menu item anyone orders.
+_DOMINOS_SIDE_COLS = {
+    "name": 0, "weight_g": 1,
+    "calorie_kcal": 10, "protein_g": 11, "saturated_fat_g": 12,
+    "sodium_mg": 13, "sugar_g": 14,
 }
 
 
-def _dominos_rows_from_grid(grid, cols, category, table_index):
+def _dominos_rows_from_grid(grid, cols, category, table_index, fallback_cols=None,
+                            serving_g=None, default_basis="per_serving"):
     rows = []
     for i, cells in enumerate(grid):
         if i == 0 or len(cells) <= max(cols.values()):
             continue  # header row, or a stray row shorter than expected
+        active, basis = cols, default_basis
+        if fallback_cols and not num(cells[cols["calorie_kcal"]]):
+            active, basis = fallback_cols, "per_total"
         row = {c: "" for c in STANDARD_COLUMNS}
         row["restaurant"] = "도미노피자"
         row["menu_category"] = category
-        base = cells[cols["name"]]
-        variant = clean(cells[cols["variant"]]) if "variant" in cols else ""
-        size = clean(cells[cols["size"]]) if "size" in cols else ""
+        base = cells[active["name"]]
+        variant = clean(cells[active["variant"]]) if "variant" in active else ""
+        size = clean(cells[active["size"]]) if "size" in active else ""
         row["menu_name"] = " ".join(p for p in [base, variant, size] if p)
         for column in ("weight_g", "calorie_kcal", "protein_g",
                        "saturated_fat_g", "sodium_mg", "sugar_g"):
-            row[column] = num(cells[cols[column]])
+            row[column] = num(cells[active[column]]) if column in active else ""
+        if serving_g and active is cols:
+            row["weight_g"] = serving_g  # the block's own basis, not 총중량
+        row["nutrition_basis"] = basis
         if has_any_nutrient(row):
             rows.append(row)
     return rows
@@ -815,36 +836,40 @@ def _dominos_rows_from_grid(grid, cols, category, table_index):
 
 def crawl_dominos():
     """/contents/ingredient serves euc-kr (not utf-8, unlike every other
-    brand crawled so far) and holds several differently-shaped nutrition
-    tables rather than one -- 489-row pizza table (rowspan-nested), a
-    14-column drinks table, an 8-column sides table, plus a couple of small
-    2-13 row tables and several allergy-only tables with no nutrition at all.
+    brand crawled so far) and holds 17 differently-shaped tables rather than
+    one: a 466-row pizza table (rowspan-nested), a drinks table, a sides
+    table, an ingredient breakdown of what each pizza is *made of*, and
+    several allergy/origin-only tables with no nutrition at all.
     _generic_tables() found none of this: it only reads plain <table>s
-    without rowspan handling and has no notion of "prefer the per-total
-    column over the per-100g one when both exist under near-identical
-    labels", both of which are required here.
+    without rowspan handling and has no notion of picking one basis block
+    over another when both sit under near-identical labels.
 
-    Table indices (4/8/11) were found by dumping every <table>'s header row
-    once and are pinned by position, not searched for by header text, since
-    docomos's markup gives duplicate-looking headers no reliable way to
-    distinguish by string matching alone. Re-verify the indices with
-    inspect_page.py before re-running this if the page layout changes.
+    Only tables 4/7/8 are menu items. Deliberately NOT scraped:
+      5      하이 프로틴 도우 -- a crust option, per-100g, not an orderable item
+      6      콤보 -- calorie only, no other nutrient, so it can never be scored
+      9/10/11 도우 / 소스 / 치즈 -- the per-pizza ingredient breakdown. These
+              were previously loaded as "사이드" menu items, which is where
+              "더블 치즈 엣지L, 2,535kcal" came from: that's the cheese on a
+              whole L pizza, not a side dish, and it double-counts the pizza
+              rows it is already part of.
+
+    Indices are pinned by position, not searched by header text, since the
+    markup gives duplicate-looking headers no reliable way to distinguish by
+    string matching alone. Re-verify with inspect_page.py if the page moves.
     """
     html = fetch("https://web.dominos.co.kr/contents/ingredient", encoding="euc-kr")
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
 
     rows = []
-    rows += _dominos_rows_from_grid(_grid_rows(tables[4]), _DOMINOS_PIZZA_COLS, "피자", 4)
-    rows += _dominos_rows_from_grid(_grid_rows(tables[8]), _DOMINOS_DRINK_COLS, "음료", 8)
-    rows += _dominos_rows_from_grid(_grid_rows(tables[11]), _DOMINOS_SIDE_COLS, "사이드", 11)
-    # Tables 9/10 (사이드 소스류) are flat -- no rowspan, headers map 1:1 --
-    # so the shared table/row_from_headers path handles them directly.
-    for idx, category in ((9, "사이드"), (10, "사이드")):
-        for raw in parse_table(tables[idx]):
-            row = row_from_headers(raw, restaurant="도미노피자", category=category)
-            if row and has_any_nutrient(row):
-                rows.append(row)
+    rows += _dominos_rows_from_grid(_grid_rows(tables[4]), _DOMINOS_PIZZA_COLS, "피자", 4,
+                                    fallback_cols=_DOMINOS_PIZZA_TOTAL_COLS, serving_g=150)
+    rows += _dominos_rows_from_grid(_grid_rows(tables[7]), _DOMINOS_SIDE_COLS, "사이드", 7,
+                                    default_basis="per_total")
+    # 음료's per-150g block is entirely "-", so a 1.5L bottle is genuinely
+    # recorded per-container; label it rather than imply per-serving.
+    rows += _dominos_rows_from_grid(_grid_rows(tables[8]), _DOMINOS_DRINK_COLS, "음료", 8,
+                                    default_basis="per_total")
     return _dedupe(rows), "dominos.csv"
 
 

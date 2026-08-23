@@ -6,6 +6,7 @@
 
 ponytail: 가중치는 상수. A/B 테스트가 필요해지면 그때 테이블로 뺀다.
 """
+import re
 
 GOALS = {
     "diet": {
@@ -37,14 +38,20 @@ MIN_CALORIE = 100
 
 # ponytail: category 값이 브랜드마다 제각각(130종)이라 정규화 대신 키워드로 음료를 판별한다.
 # 카테고리 정규화 컬럼이 생기면 그걸로 교체.
-DRINK_KEYWORDS = ("음료", "커피", "에스프레소", "티", "라떼", "브루", "프라푸치노", "블렌디드", "주스",
+DRINK_KEYWORDS = ("음료", "커피", "에스프레소", "라떼", "브루", "프라푸치노", "블렌디드", "주스",
                   "스무디", "스파클링", "피지오", "아이스샷", "리프레셔", "쉐이크", "아메리카노", "초코",
                   "드링크", "소다", "빙수", "할리치노")
+
+# "티"(차)만 한 글자라 부분일치로 쓰면 패**티**·스파게**티**·로**티**세리·**티**라미수·그린**티**가
+# 전부 음료로 잡힌다 (실제로 도미노 피자 23개가 음료 기준으로 채점되고 있었다). 앞뒤가 한글이
+# 아닐 때만 "티"로 인정한다 -- 스타벅스 "티(티바나)"·커피빈 "티" 카테고리와 "... 블랙 티" 같은
+# 이름은 그대로 잡히고, 위 오탐 36건은 전부 빠진다.
+DRINK_TEA_RE = re.compile(r"(?<![가-힣])티(?![가-힣])")
 
 
 def is_drink(category: str | None, name: str) -> bool:
     text = f"{category or ''} {name}"
-    return any(k in text for k in DRINK_KEYWORDS)
+    return any(k in text for k in DRINK_KEYWORDS) or bool(DRINK_TEA_RE.search(text))
 
 
 def score_item(goal: str, nutrients: dict, diet_score, limits: dict, drink: bool = False):
@@ -78,6 +85,12 @@ if __name__ == "__main__":
     assert score_item("diet", n, 72, {})[1].endswith("72/100")
     assert score_item("protein", {"calorie": 3, "protein": 1}, None, {}) is None  # 100kcal 미만 제외
     assert is_drink("에스프레소 음료", "아메리카노") and not is_drink("샌드위치", "로스트 치킨")
+    # "티" 한 글자 부분일치 오탐 (앞뒤가 한글이면 차가 아니다)
+    assert is_drink("티(티바나)", "얼 그레이 티") and is_drink("티", "Earl Grey 얼 그레이")
+    assert not is_drink("피자", "그릴드 패티 치즈 버거 씬 L")
+    assert not is_drink("사이드", "베이컨 까르보나라 스파게티")
+    assert not is_drink("푸드", "떠먹는 티라미수")
+    assert not is_drink("아이스크림", "Green Tea 그린티")
     assert score_item("diet", {"calorie": 5}, 100, {}, drink=True)[0] == 100  # 음료는 100kcal 미만도 OK
     assert score_item("protein", {"calorie": 5, "protein": 1}, None, {}, drink=True) is None
     print("ok")
