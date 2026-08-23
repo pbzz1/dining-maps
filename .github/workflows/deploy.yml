@@ -1,6 +1,6 @@
 name: deploy
 # master push 시 변경된 쪽만 배포. 로컬 deploy.sh와 같은 스크립트를 쓴다.
-# 필요한 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_URL, ALLOWED_ORIGINS, VITE_API_BASE
+# 필요한 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_URL, ALLOWED_ORIGINS, VITE_API_BASE, VITE_KAKAO_JS_KEY
 on:
   push:
     branches: [master]
@@ -58,3 +58,4 @@ jobs:
       - run: bash scripts/deploy_frontend.sh
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+          VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }} # 없으면 지도 탭이 빈 화면
