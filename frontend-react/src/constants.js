@@ -14,6 +14,14 @@ export const GRADE_COLOR = { A: "#2f8f4e", B: "#6fa83d", C: "#d99a2b", D: "#c144
 export const GRADE_RANK = { A: 0, B: 1, C: 2, D: 3 };
 export const ALL_GRADES = ["A", "B", "C", "D"];
 
+// Short sub-label under each tier's grade letter -- what the letter actually
+// means differs by mode (a rank slice vs. a fixed score band), so the caption
+// has to switch with the toggle too, not just the grade itself.
+export const TIER_CAPTION = {
+  relative: { A: "상위 25%", B: "26~50%", C: "51~75%", D: "하위 25%" },
+  absolute: { A: "80점 이상", B: "60~79점", C: "40~59점", D: "40점 미만" },
+};
+
 // Faint tint/border for a tier-list card -- alpha appended as hex, GRADE_COLOR
 // entries are always 6-digit hex so this is safe.
 export function gradeTint(grade) {

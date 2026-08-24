@@ -5,13 +5,15 @@ import MenuView from "./components/MenuView";
 import Dashboard from "./components/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
 import { fetchStatsQuality } from "./api";
+import LogoMark from "./components/Logo";
+import { IconDashboard, IconStar, IconPin, IconList } from "./components/NavIcons";
 import "./App.css";
 
 const NAV = [
-  { key: "dashboard", label: "대시보드", icon: "▦" },
-  { key: "recommend", label: "맞춤 추천", icon: "★" },
-  { key: "map", label: "지도", icon: "◎" },
-  { key: "list", label: "매장 목록", icon: "☰" },
+  { key: "dashboard", label: "대시보드", Icon: IconDashboard },
+  { key: "recommend", label: "맞춤 추천", Icon: IconStar },
+  { key: "map", label: "지도", Icon: IconPin },
+  { key: "list", label: "매장 목록", Icon: IconList },
 ];
 
 const VIEWS = new Set(NAV.map((n) => n.key));
@@ -59,8 +61,11 @@ export default function App() {
     <div className="shell">
       <header className="topbar">
         {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(대시보드)으로 완전히 초기화한다. */}
-        <h1>
-          <a href="/" style={{ color: "inherit", textDecoration: "none" }}>Dining Maps</a>
+        <h1 className="brand">
+          <a href="/">
+            <LogoMark size={34} />
+            <span className="wordmark">Dining Maps</span>
+          </a>
         </h1>
         <span className="subtitle">
           내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기
@@ -75,7 +80,7 @@ export default function App() {
             className={`nav-btn ${activeNav === n.key ? "active" : ""}`}
             onClick={() => setView(n.key)}
           >
-            <span className="nav-icon" aria-hidden="true">{n.icon}</span>
+            <span className="nav-icon"><n.Icon /></span>
             {n.label}
           </button>
         ))}

@@ -17,13 +17,21 @@ function initials(name) {
 
 // Renders /logos/<slug>.png when one exists (drop the file in and it just
 // works, no code change) and falls back to a colored monogram otherwise --
-// covers brands nobody's sourced a logo image for yet.
-export default function BrandAvatar({ name, slug }) {
+// covers brands nobody's sourced a logo image for yet. `ring`, when given,
+// draws a colored ring around the avatar (e.g. the tier it's grouped under)
+// with a card-colored gap so it doesn't collide with the monogram fill.
+export default function BrandAvatar({ name, slug, ring }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showImage = slug && !imgFailed;
 
   return (
-    <div className="brand-avatar" style={showImage ? undefined : { background: colorFor(name) }}>
+    <div
+      className="brand-avatar"
+      style={{
+        ...(showImage ? undefined : { background: colorFor(name) }),
+        boxShadow: ring ? `0 0 0 3px var(--card-bg), 0 0 0 5px ${ring}` : undefined,
+      }}
+    >
       {showImage ? (
         <img src={`/logos/${slug}.png`} alt="" onError={() => setImgFailed(true)} />
       ) : (

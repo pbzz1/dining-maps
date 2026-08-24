@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchRestaurants } from "../api";
-import { GradeBadges, GradeLegend } from "./GradeBadges";
+import { GradeLegend } from "./GradeBadges";
 import BrandAvatar from "./BrandAvatar";
-import { BRAND_SLUGS, ALL_GRADES, GRADE_CLASS, gradeTint, gradeBorder } from "../constants";
+import { BRAND_SLUGS, ALL_GRADES, GRADE_CLASS, GRADE_COLOR, TIER_CAPTION, gradeTint, gradeBorder } from "../constants";
 
 export default function RestaurantList({ onSelect }) {
   const [restaurants, setRestaurants] = useState([]);
@@ -56,7 +56,10 @@ export default function RestaurantList({ onSelect }) {
       {restaurants.length === 0 && <p className="loading">불러오는 중...</p>}
       {tiers.map(({ grade, items }) => (
         <div key={grade} className="tier-row">
-          <div className={`tier-label ${GRADE_CLASS[grade]}`}>{grade}</div>
+          <div className={`tier-label ${GRADE_CLASS[grade]}`}>
+            <span className="tier-letter">{grade}</span>
+            <span className="tier-caption">{TIER_CAPTION[gradeMode][grade]}</span>
+          </div>
           <div className="card-grid">
             {items.map((r) => (
               <div
@@ -65,11 +68,8 @@ export default function RestaurantList({ onSelect }) {
                 style={{ background: gradeTint(grade), borderColor: gradeBorder(grade) }}
                 onClick={() => onSelect(r)}
               >
-                <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} />
+                <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} ring={GRADE_COLOR[grade]} />
                 <div className="name">{r.name}</div>
-                <div className="card-grade-slot">
-                  <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} mode={gradeMode} />
-                </div>
               </div>
             ))}
           </div>
@@ -77,7 +77,10 @@ export default function RestaurantList({ onSelect }) {
       ))}
       {ungraded.length > 0 && (
         <div className="tier-row">
-          <div className="tier-label tier-label-none">-</div>
+          <div className="tier-label tier-label-none">
+            <span className="tier-letter">-</span>
+            <span className="tier-caption">정보 부족</span>
+          </div>
           <div className="card-grid">
             {ungraded.map((r) => (
               <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
