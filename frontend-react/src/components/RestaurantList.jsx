@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchRestaurants } from "../api";
 import { GradeBadges, GradeLegend } from "./GradeBadges";
+import BrandAvatar from "./BrandAvatar";
+import { BRAND_SLUGS } from "../constants";
 
 export default function RestaurantList({ onSelect }) {
   const [restaurants, setRestaurants] = useState([]);
@@ -47,15 +49,11 @@ export default function RestaurantList({ onSelect }) {
         {restaurants.length === 0 && <p className="loading">불러오는 중...</p>}
         {restaurants.map((r) => (
           <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
+            <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} />
             <div className="name">{r.name}</div>
             <div className="card-grade-slot">
               {r.absolute_grade ? (
-                <>
-                  <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} mode={gradeMode} />
-                  <span className="count">
-                    다이어트 메뉴 {Math.round(r.good_menu_ratio * 100)}%
-                  </span>
-                </>
+                <GradeBadges absolute={r.absolute_grade} relative={r.relative_grade} mode={gradeMode} />
               ) : (
                 <span className="count">영양정보 부족 (등급 산출 불가)</span>
               )}

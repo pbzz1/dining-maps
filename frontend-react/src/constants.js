@@ -14,6 +14,27 @@ export const GRADE_COLOR = { A: "#2f8f4e", B: "#6fa83d", C: "#d99a2b", D: "#c144
 export const GRADE_RANK = { A: 0, B: 1, C: 2, D: 3 };
 export const ALL_GRADES = ["A", "B", "C", "D"];
 
+// Matches each brand's CSV basename under data/ (same slug load_data.py uses),
+// so a real logo just has to land at /logos/<slug>.png -- no code change needed.
+export const BRAND_SLUGS = {
+  버거킹: "burgerking",
+  빽다방: "paikdabang",
+  샐러디: "salady",
+  이디야: "ediya",
+  커피빈: "coffeebean",
+  할리스: "hollys",
+  교촌치킨: "kyochon",
+  롯데리아: "lotteria",
+  맘스터치: "momstouch",
+  맥도날드: "mcdonalds",
+  서브웨이: "subway",
+  스타벅스: "starbucks",
+  도미노피자: "dominos",
+  포케올데이: "pokeallday",
+  배스킨라빈스: "baskinrobbins",
+  BHC: "bhc",
+};
+
 export const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // 서울시청
 export const SEARCH_RADIUS_M = 3000;
 
