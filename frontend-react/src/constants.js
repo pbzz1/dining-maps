@@ -14,6 +14,15 @@ export const GRADE_COLOR = { A: "#2f8f4e", B: "#6fa83d", C: "#d99a2b", D: "#c144
 export const GRADE_RANK = { A: 0, B: 1, C: 2, D: 3 };
 export const ALL_GRADES = ["A", "B", "C", "D"];
 
+// Faint tint/border for a tier-list card -- alpha appended as hex, GRADE_COLOR
+// entries are always 6-digit hex so this is safe.
+export function gradeTint(grade) {
+  return grade ? `${GRADE_COLOR[grade]}17` : undefined;
+}
+export function gradeBorder(grade) {
+  return grade ? `${GRADE_COLOR[grade]}55` : undefined;
+}
+
 // Matches each brand's CSV basename under data/ (same slug load_data.py uses),
 // so a real logo just has to land at /logos/<slug>.png -- no code change needed.
 export const BRAND_SLUGS = {
