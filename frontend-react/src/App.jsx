@@ -16,8 +16,7 @@ const NAV = [
 
 const VIEWS = new Set(NAV.map((n) => n.key));
 // URL 해시가 곧 현재 뷰 -- "#map" 같은 링크를 공유하면 그 탭으로 바로 열린다.
-// 첫 화면은 추천: 처음 온 사람이 차트가 아니라 "뭘 먹을지"부터 보게 한다.
-const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "recommend");
+const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "dashboard");
 
 export default function App() {
   const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend
@@ -59,7 +58,7 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(추천)으로 완전히 초기화한다. */}
+        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(대시보드)으로 완전히 초기화한다. */}
         <h1>
           <a href="/" style={{ color: "inherit", textDecoration: "none" }}>Dining Maps</a>
         </h1>
