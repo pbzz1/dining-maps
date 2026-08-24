@@ -31,9 +31,9 @@ def absolute_grade_for(score: float) -> str:
 
 
 # Brand-level relative grade: rank every scored brand by avg menu score and
-# cut the ranking 20/30/30/20 -> A/B/C/D. "A" literally means "top 20% of
-# brands in the DB right now", so it moves as brands are added.
-BRAND_BANDS = ((0.2, "A"), (0.5, "B"), (0.8, "C"), (1.0, "D"))
+# cut the ranking into even quarters -> A/B/C/D. "A" literally means "top 25%
+# of brands in the DB right now", so it moves as brands are added.
+BRAND_BANDS = ((0.25, "A"), (0.5, "B"), (0.75, "C"), (1.0, "D"))
 
 
 def brand_relative_grades(conn) -> dict[int, str]:

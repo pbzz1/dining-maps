@@ -41,7 +41,7 @@ export function GradeBadges({ absolute, relative, basis, mode }) {
 const MODE_LEGEND = {
   relative: (
     <>
-      <span className="grade-badge grade-b">B</span> 상대 기준: 등록 브랜드 중 순위 — 상위 20% A · 30% B · 30% C · 하위 20% D
+      <span className="grade-badge grade-b">B</span> 상대 기준: 등록 브랜드 중 순위 — 상위 25%씩 A/B/C/D 4등분
     </>
   ),
   absolute: (
@@ -64,7 +64,7 @@ export function GradeLegend({ mode }) {
           <span className="grade-badge grade-b" style={{ opacity: 0.65 }}>
             B
           </span>{" "}
-          상대 기준(등록 브랜드 중 순위 — 상위 20% A · 30% B · 30% C · 하위 20% D)
+          상대 기준(등록 브랜드 중 순위 — 상위 25%씩 A/B/C/D 4등분)
         </>
       )}
       <br />

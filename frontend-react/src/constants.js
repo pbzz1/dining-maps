@@ -23,6 +23,18 @@ export function gradeBorder(grade) {
   return grade ? `${GRADE_COLOR[grade]}55` : undefined;
 }
 
+// Plain-language recommendation for a menu item, from its *absolute* (WHO/
+// 논문 fixed) grade -- relative grade shifts as the catalog changes, so it's
+// the wrong basis for "should I eat this". A/B -> 추천 (already the "다이어트
+// 메뉴" cutoff used for good_menu_ratio elsewhere), C -> 보통, D -> 비추천.
+export function recommendLabel(absoluteGrade) {
+  if (absoluteGrade === "A" || absoluteGrade === "B") return "추천";
+  if (absoluteGrade === "C") return "보통";
+  if (absoluteGrade === "D") return "비추천";
+  return null;
+}
+export const RECOMMEND_COLOR = { 추천: GRADE_COLOR.A, 보통: GRADE_COLOR.C, 비추천: GRADE_COLOR.D };
+
 // Matches each brand's CSV basename under data/ (same slug load_data.py uses),
 // so a real logo just has to land at /logos/<slug>.png -- no code change needed.
 export const BRAND_SLUGS = {
