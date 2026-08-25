@@ -12,6 +12,7 @@ only thing that needs a scheduled refresh is the per-menu diet_score table
 Run by .github/workflows/rescore.yml daily; `--force` skips the check.
 """
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -45,7 +46,16 @@ def main(force: bool = False) -> bool:
         # one place a schema.sql column added after the last manual load_data.py
         # run would otherwise silently drift from production -- see the 'basis'
         # column incident (compute_diet_score.py wrote it, prod didn't have it).
-        conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        # One statement per execute() -- sending the whole file as a single
+        # multi-statement blob crashed the pooled Neon connection outright
+        # (psycopg.errors.ProtocolViolation: server conn crashed?) once schema.sql
+        # grew to include the CREATE MATERIALIZED VIEW blocks. Comments are
+        # stripped first because they contain their own ';' (e.g. "Append-only;
+        # never UPDATEd.") which would otherwise split a statement in half.
+        sql = re.sub(r"--.*", "", SCHEMA_PATH.read_text(encoding="utf-8"))
+        for statement in sql.split(";"):
+            if statement.strip():
+                conn.execute(statement)
         conn.execute(
             "CREATE TABLE IF NOT EXISTS diet_score_run (fingerprint TEXT NOT NULL, ran_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
