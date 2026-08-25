@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchStats, fetchMenu, fetchDietGrade } from "../api";
-import { NUTRIENT_LABELS, GRADE_RANK, SORT_OPTIONS, formatValue } from "../constants";
+import { NUTRIENT_LABELS, GRADE_RANK, SORT_OPTIONS, formatValue, recommendLabel, RECOMMEND_COLOR } from "../constants";
 import { GradeBadges, GradeLegend } from "./GradeBadges";
 
 function nutrientValue(item, name) {
@@ -106,12 +106,21 @@ export default function MenuView({ restaurant, onBack }) {
                 item.weight_g && `${item.weight_g}g`,
                 item.price_krw && `${item.price_krw.toLocaleString()}원`,
               ].filter(Boolean);
+              const reco = recommendLabel(item.absolute_grade);
               return (
                 <div key={item.id} className="menu-item">
                   <div className="menu-item-head">
                     <span className="menu-item-name">
                       <GradeBadges absolute={item.absolute_grade} relative={item.relative_grade} basis={item.grade_basis} />{" "}
                       {item.name}
+                      {reco && (
+                        <span
+                          className="reco-chip"
+                          style={{ background: `${RECOMMEND_COLOR[reco]}22`, color: RECOMMEND_COLOR[reco] }}
+                        >
+                          {reco}
+                        </span>
+                      )}
                     </span>
                     <span className="menu-item-meta">{meta.join(" · ")}</span>
                   </div>
