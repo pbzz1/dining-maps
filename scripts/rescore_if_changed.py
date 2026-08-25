@@ -21,6 +21,7 @@ from app.db import connect  # noqa: E402
 from scripts import compute_diet_score  # noqa: E402
 
 SCORER = ROOT / "scripts" / "compute_diet_score.py"
+SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 
 def fingerprint(conn) -> str:
@@ -40,6 +41,11 @@ def fingerprint(conn) -> str:
 def main(force: bool = False) -> bool:
     """Returns True if scores were recomputed."""
     with connect() as conn:
+        # This is the only writer that runs unattended (daily cron), so it's the
+        # one place a schema.sql column added after the last manual load_data.py
+        # run would otherwise silently drift from production -- see the 'basis'
+        # column incident (compute_diet_score.py wrote it, prod didn't have it).
+        conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
         conn.execute(
             "CREATE TABLE IF NOT EXISTS diet_score_run (fingerprint TEXT NOT NULL, ran_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
