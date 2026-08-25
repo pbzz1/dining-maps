@@ -56,6 +56,12 @@ def main(force: bool = False) -> bool:
         for statement in sql.split(";"):
             if statement.strip():
                 conn.execute(statement)
+        # compute_diet_score.main() opens its OWN connection (it's also run
+        # standalone), so without an explicit commit here the schema changes
+        # above are invisible to it -- a separate session can't see another
+        # session's uncommitted DDL. This is what actually caused "column
+        # basis does not exist" even though the ALTER ran moments earlier.
+        conn.commit()
         conn.execute(
             "CREATE TABLE IF NOT EXISTS diet_score_run (fingerprint TEXT NOT NULL, ran_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
