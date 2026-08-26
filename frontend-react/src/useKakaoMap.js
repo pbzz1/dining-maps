@@ -18,9 +18,18 @@ export function useKakaoMap(containerRef, center) {
       return;
     }
 
+    // kakao.maps.load 콜백은 비동기라, 언마운트된(StrictMode/HMR) 인스턴스의
+    // 콜백이 나중에 실행되어 살아있는 지도를 밀어내지 않게 막는다.
+    let cancelled = false;
+
     function init() {
       window.kakao.maps.load(() => {
-        if (!containerRef.current || mapRef.current) return;
+        if (cancelled || !containerRef.current || mapRef.current) return;
+        // 컨테이너당 지도는 1개여야 한다. StrictMode/HMR로 이 훅이 새 인스턴스로
+        // 다시 마운트되면 이전 인스턴스가 만든 지도 DOM이 컨테이너에 남는데,
+        // 그 위에 또 만들면 지도가 겹겹이 쌓이고 이 인스턴스의 map 참조가
+        // 화면에 없는(detached) 지도를 가리켜 오버레이(핀)가 보이지 않게 된다.
+        containerRef.current.replaceChildren();
         mapRef.current = new window.kakao.maps.Map(containerRef.current, {
           center: new window.kakao.maps.LatLng(center.lat, center.lng),
           level: 5,
@@ -32,7 +41,7 @@ export function useKakaoMap(containerRef, center) {
 
     if (window.kakao?.maps) {
       init();
-      return;
+      return () => { cancelled = true; };
     }
 
     let script = document.getElementById(SDK_ID);
@@ -46,7 +55,10 @@ export function useKakaoMap(containerRef, center) {
     script.addEventListener("error", () =>
       setError("카카오맵 SDK를 불러오지 못했습니다. API 키/도메인 등록을 확인하세요.")
     );
-    return () => script.removeEventListener("load", init);
+    return () => {
+      cancelled = true;
+      script.removeEventListener("load", init);
+    };
     // center is only the *initial* center; later moves go through map.setCenter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
