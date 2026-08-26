@@ -59,10 +59,10 @@ def main(force: bool = False) -> bool:
         compute_diet_score.main()
         conn.execute("INSERT INTO diet_score_run (fingerprint) VALUES (%s)", (fp,))
     # 점수가 바뀌었을 때만 LLM 추천도 재생성 (키 없으면 스스로 건너뜀)
-    from scripts import generate_menu_reco, generate_new_menu_reviews
+    from scripts import generate_menu_reco
     generate_menu_reco.main()
-    # 신메뉴는 곧 데이터 변경이므로 이 경로에서만 돌려도 빠지지 않는다
-    generate_new_menu_reviews.main()
+    # 신메뉴 LLM 리뷰는 화면에서 뺐다 -- 다시 켜려면 여기서
+    # generate_new_menu_reviews.main() 호출을 복구하면 된다.
     return True
 
 
