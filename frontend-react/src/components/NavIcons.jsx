@@ -30,6 +30,15 @@ export function IconPin({ size = 18 }) {
   );
 }
 
+export function IconSparkle({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...common}>
+      <path d="M11 4l1.7 4.3L17 10l-4.3 1.7L11 16l-1.7-4.3L5 10l4.3-1.7z" />
+      <path d="M18 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+    </svg>
+  );
+}
+
 export function IconList({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...common}>
