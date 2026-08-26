@@ -83,6 +83,7 @@ def recommend_menus(
                 protein=n.get("protein"),
                 sodium=n.get("sodium"),
                 sugar=n.get("sugar"),
+                saturated_fat=n.get("saturated_fat"),
                 goal_score=round(score, 2),
                 reason=reason,
                 nearest_store=NearestStoreOut(
