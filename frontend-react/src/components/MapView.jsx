@@ -13,6 +13,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const overlaysRef = useRef([]);
   const popupRef = useRef(null);
   const centerRef = useRef(DEFAULT_CENTER);
+  const myLocRef = useRef(null); // 현 위치 파란 점 -- 매장 핀과 별개로 유지
 
   const { map, places, ready, error: sdkError } = useKakaoMap(containerRef, DEFAULT_CENTER);
 
@@ -101,6 +102,25 @@ export default function MapView({ onOpenMenu, visible = true }) {
     [map, onOpenMenu]
   );
 
+  // 실제 위치 파악에 성공했을 때만 호출된다 -- 기본 중심(서울시청) 폴백에는
+  // 점을 찍지 않는다. 거기 있지 않은 사용자에게 거짓 위치를 보여주게 되니까.
+  const showMyLocation = useCallback(
+    (lat, lng) => {
+      if (myLocRef.current) myLocRef.current.setMap(null);
+      const el = document.createElement("div");
+      el.className = "my-location";
+      el.innerHTML = `<span class="my-location-pulse"></span><span class="my-location-dot"></span>`;
+      myLocRef.current = new window.kakao.maps.CustomOverlay({
+        position: new window.kakao.maps.LatLng(lat, lng),
+        content: el,
+        yAnchor: 0.5,
+        zIndex: 2,
+      });
+      myLocRef.current.setMap(map);
+    },
+    [map]
+  );
+
   const loadStores = useCallback(
     async (lat, lng) => {
       centerRef.current = { lat, lng };
@@ -147,6 +167,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       (pos) => {
         centerRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         map.setCenter(new window.kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
+        showMyLocation(pos.coords.latitude, pos.coords.longitude);
         setSearched(true);
       },
       () => setSearched(true) // 권한 거부 -> 기본 중심(서울시청) 주변으로라도 보여준다.
@@ -214,6 +235,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         map.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
+        showMyLocation(latitude, longitude);
         setSearched(true);
         loadStores(latitude, longitude);
       },

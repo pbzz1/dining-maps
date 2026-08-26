@@ -468,6 +468,36 @@ main {
   flex-shrink: 0;
 }
 
+/* 현 위치 파란 점 + 퍼지는 링 */
+.my-location {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.my-location-dot {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: #2b6cf0;
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+}
+
+.my-location-pulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: rgba(43, 108, 240, 0.25);
+  animation: my-loc-pulse 2s ease-out infinite;
+}
+
+@keyframes my-loc-pulse {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
 .store-popup {
   position: relative;
   background: var(--card-bg);
