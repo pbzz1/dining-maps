@@ -93,6 +93,20 @@ CREATE TABLE IF NOT EXISTS store (
 
 CREATE INDEX IF NOT EXISTS idx_store_restaurant ON store(restaurant_id);
 
+-- LLM이 브랜드별로 미리 뽑아둔 "다이어트 추천 메뉴 + 한 문장 이유"
+-- (scripts/generate_menu_reco.py, 크롤/재채점 후 배치로 갱신). 지도 팝업과
+-- 매장 카드가 그대로 읽는다 -- 런타임에 LLM을 호출하지 않기 위한 캐시.
+-- menu_name이 아니라 menu_item_id를 저장하는 이유: 배치 스크립트가 LLM 응답을
+-- 실제 메뉴 목록과 대조해 환각을 걸러낸 뒤의 결과만 들어오게 강제하고,
+-- 표시용 이름·영양정보는 조인으로 얻는다.
+CREATE TABLE IF NOT EXISTS brand_menu_reco (
+    restaurant_id INTEGER PRIMARY KEY REFERENCES restaurant(id),
+    menu_item_id  INTEGER NOT NULL REFERENCES menu_item(id),
+    reason        TEXT NOT NULL,     -- 한 문장 추천 이유 (한국어)
+    model         TEXT NOT NULL,     -- 생성에 쓴 모델 ID (재현/디버깅용)
+    generated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------------------
 -- History + data quality (scripts/snapshot_and_validate.py)
 --
