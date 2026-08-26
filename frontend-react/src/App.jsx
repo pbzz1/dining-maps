@@ -5,6 +5,7 @@ import MenuView from "./components/MenuView";
 import Dashboard from "./components/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
 import { fetchStatsQuality } from "./api";
+import { track } from "./constants";
 import LogoMark from "./components/Logo";
 import { IconDashboard, IconStar, IconPin, IconList } from "./components/NavIcons";
 import "./App.css";
@@ -21,6 +22,24 @@ const VIEWS = new Set(NAV.map((n) => n.key));
 // 기본 화면은 지도: Dining Maps니까.
 const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "map");
 
+function useScrollDepthTracking(view) {
+  useEffect(() => {
+    const fired = new Set();
+    function onScroll() {
+      const doc = document.documentElement;
+      const pct = Math.round((window.scrollY / Math.max(doc.scrollHeight - window.innerHeight, 1)) * 100);
+      for (const t of [25, 50, 75]) {
+        if (pct >= t && !fired.has(t)) {
+          fired.add(t);
+          track("scroll_depth", { view, percent: t });
+        }
+      }
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [view]);
+}
+
 export default function App() {
   const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend
   const [selected, setSelected] = useState(null);
@@ -28,7 +47,7 @@ export default function App() {
 
   // GA4 custom event; gtag is absent under ad-blockers, hence the optional call.
   function setView(v) {
-    window.gtag?.("event", "view_change", { view: v });
+    track("view_change", { view: v });
     setViewRaw(v);
     if (VIEWS.has(v) && location.hash !== `#${v}`) history.pushState(null, "", `#${v}`);
   }
@@ -50,13 +69,14 @@ export default function App() {
   }, []);
 
   function openMenu(restaurant) {
-    window.gtag?.("event", "select_restaurant", { name: restaurant.name });
+    track("select_restaurant", { name: restaurant.name });
     setSelected(restaurant);
     setView("menu");
   }
 
   // "menu" is a drill-down from the list, so the list item stays highlighted.
   const activeNav = view === "menu" ? "list" : view;
+  useScrollDepthTracking(activeNav);
 
   return (
     <div className="shell">

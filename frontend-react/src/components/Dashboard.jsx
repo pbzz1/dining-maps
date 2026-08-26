@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { track } from "../constants";
 import { fetchStatsBrands, fetchStatsQuality } from "../api";
 
 // 대시보드. 원천은 /api/stats/* (mart 머티리얼라이즈드 뷰라 요청 비용이 거의 없다).
@@ -225,7 +226,7 @@ export default function Dashboard() {
             <button
               key={t.key}
               className={`dash-tab ${t.key === nutrient.key ? "active" : ""}`}
-              onClick={() => setNutrient(t)}
+              onClick={() => { track("dashboard_nutrient_tab", { nutrient: t.key }); setNutrient(t); }}
             >
               {t.label}
             </button>

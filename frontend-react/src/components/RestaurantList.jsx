@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { track } from "../constants";
 import { fetchRestaurants } from "../api";
 import { GradeLegend } from "./GradeBadges";
 import BrandAvatar from "./BrandAvatar";
@@ -40,14 +41,14 @@ export default function RestaurantList({ onSelect }) {
         <button
           type="button"
           className={gradeMode === "relative" ? "active" : ""}
-          onClick={() => setGradeMode("relative")}
+          onClick={() => { track("list_grade_mode", { mode: "relative" }); setGradeMode("relative"); }}
         >
           상대 기준
         </button>
         <button
           type="button"
           className={gradeMode === "absolute" ? "active" : ""}
-          onClick={() => setGradeMode("absolute")}
+          onClick={() => { track("list_grade_mode", { mode: "absolute" }); setGradeMode("absolute"); }}
         >
           절대 기준
         </button>

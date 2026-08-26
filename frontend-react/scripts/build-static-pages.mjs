@@ -97,6 +97,13 @@ function page({ title, description, canonical, body }) {
   gtag('js', new Date());
   gtag('config', 'G-B8QRKP6DTW');
 </script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "y8c5l2er6s");
+</script>
 <style>${STYLE}</style>
 </head>
 <body>

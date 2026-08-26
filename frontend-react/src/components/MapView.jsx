@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { track } from "../constants";
 import { fetchStores } from "../api";
 import { useKakaoMap } from "../useKakaoMap";
 import {
@@ -260,8 +261,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
-          <button className="btn-search" onClick={handleSearch}>검색</button>
-          <button onClick={handleLocate}>내 위치</button>
+          <button className="btn-search" onClick={() => { track("map_search", { keyword }); handleSearch(); }}>검색</button>
+          <button onClick={() => { track("map_locate"); handleLocate(); }}>내 위치</button>
         </div>
 
         <div className="filter-controls">
@@ -270,7 +271,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
               <button
                 key={t}
                 className={gradeType === t ? "active" : ""}
-                onClick={() => setGradeType(t)}
+                onClick={() => { track("map_grade_type", { type: t }); setGradeType(t); }}
               >
                 {t === "relative" ? "상대 기준" : "절대 기준(WHO)"}
               </button>
@@ -283,7 +284,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
                 key={g}
                 className={`grade-toggle-btn ${activeGrades.has(g) ? "active" : "off"}`}
                 style={activeGrades.has(g) ? { background: GRADE_COLOR[g], borderColor: GRADE_COLOR[g] } : undefined}
-                onClick={() => toggleGrade(g)}
+                onClick={() => { track("map_grade_filter", { grade: g }); toggleGrade(g); }}
                 title={`${g}등급 ${activeGrades.has(g) ? "숨기기" : "표시"}`}
               >
                 {g}
@@ -314,7 +315,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
           {visibleStores.map((store) => {
             const g = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
             return (
-              <div key={store.id} className="store-card" onClick={() => focusStore(store)}>
+              <div key={store.id} className="store-card" onClick={() => { track("map_store_focus", { name: store.name }); focusStore(store); }}>
                 <div className="store-card-head">
                   <span className={`grade-badge ${GRADE_CLASS[g] ?? ""}`}>{g ?? "?"}</span>
                   <span className="store-card-name">

@@ -85,3 +85,7 @@ export function formatDistance(m) {
   if (m == null) return "";
   return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 }
+
+export function track(name, params) {
+  window.gtag?.("event", name, params);
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { track } from "../constants";
 import { fetchStats, fetchMenu, fetchDietGrade } from "../api";
 import { NUTRIENT_LABELS, GRADE_RANK, SORT_OPTIONS, formatValue, recommendLabel, RECOMMEND_COLOR } from "../constants";
 import { GradeBadges, GradeLegend } from "./GradeBadges";
@@ -92,7 +93,7 @@ export default function MenuView({ restaurant, onBack }) {
 
           <div className="menu-toolbar">
             <span className="filter-label">정렬</span>
-            <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+            <select value={sortKey} onChange={(e) => { track("menu_sort", { sort: e.target.value }); setSortKey(e.target.value); }}>
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
