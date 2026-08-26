@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { track } from "../constants";
 import { fetchStatsBrands, fetchStatsQuality } from "../api";
 import MenuExplorer from "./MenuExplorer";
+import BrandExplorer from "./BrandExplorer";
 
 // 대시보드. 원천은 /api/stats/* (mart 머티리얼라이즈드 뷰라 요청 비용이 거의 없다).
 //
@@ -80,6 +81,7 @@ export default function Dashboard() {
   const [brands, setBrands] = useState(null);
   const [quality, setQuality] = useState(null);
   const [nutrient, setNutrient] = useState(NUTRIENT_TABS[1]); // 나트륨이 이 서비스의 주제
+  const [view, setView] = useState("brand"); // brand(매장) / menu(메뉴)
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -124,6 +126,27 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* 매장(브랜드) 분석 / 메뉴 분석 전환. 지도의 상대/절대 토글과 같은 세그먼트 컨트롤. */}
+      <div className="grade-mode-toggle dash-view-toggle">
+        <button
+          className={view === "brand" ? "active" : ""}
+          onClick={() => { track("dashboard_view", { view: "brand" }); setView("brand"); }}
+        >
+          매장 분석
+        </button>
+        <button
+          className={view === "menu" ? "active" : ""}
+          onClick={() => { track("dashboard_view", { view: "menu" }); setView("menu"); }}
+        >
+          메뉴 분석
+        </button>
+      </div>
+
+      {view === "menu" && <MenuExplorer brands={brands} />}
+
+      {view === "brand" && <>
+      <BrandExplorer brands={brands} />
 
       <section className="dash-card">
         <h2>
@@ -247,9 +270,9 @@ export default function Dashboard() {
           예: BHC·교촌치킨은 100g 기준, 도미노피자는 1회분(피자 150g) 기준이다.
         </p>
       </section>
+      </>}
 
-      <MenuExplorer brands={brands} />
-
+      {/* 데이터 품질은 매장/메뉴 어느 쪽 숫자든 근거가 되므로 탭 밖에 둔다 */}
       <section className="dash-card">
         <h2>
           데이터 품질 (크롤 회차별)

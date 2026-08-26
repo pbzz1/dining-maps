@@ -961,6 +961,15 @@ h2 {
 .dash-fail-n { color: #a03714; }
 .dash-footnote { margin: 0.8rem 0 0; font-size: 0.78rem; color: var(--muted); }
 
+/* 대시보드 매장/메뉴 전환. grade-mode-toggle 재사용, 여백만 조정 */
+.dash-view-toggle { margin: 0; align-self: flex-start; }
+.dash-view-toggle button { padding: 6px 18px; font-weight: 600; }
+
+/* --- 매장 탐색기: 정렬 가능한 헤더 --- */
+.bx-sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.bx-sortable:hover { color: var(--text); }
+.bx-table { min-width: 40rem; }
+
 /* --- 메뉴 탐색기 --- */
 .mx-filters {
   display: flex;
