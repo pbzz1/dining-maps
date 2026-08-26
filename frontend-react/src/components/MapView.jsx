@@ -226,42 +226,42 @@ export default function MapView({ onOpenMenu, visible = true }) {
       <div className="map-toolbar">
         <div className="map-controls">
           <input
-            type="text"
+            type="search"
             placeholder="지역/주소 검색 (예: 강남역)"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
-          <button onClick={handleSearch}>검색</button>
+          <button className="btn-search" onClick={handleSearch}>검색</button>
           <button onClick={handleLocate}>내 위치</button>
         </div>
 
         <div className="filter-controls">
-        <div className="filter-group">
-          <span className="filter-label">등급 기준</span>
-          {["relative", "absolute"].map((t) => (
-            <button
-              key={t}
-              className={`grade-type-btn ${gradeType === t ? "active" : ""}`}
-              onClick={() => setGradeType(t)}
-            >
-              {t === "relative" ? "상대 기준" : "절대 기준(WHO)"}
-            </button>
-          ))}
-        </div>
-        <div className="filter-group">
-          <span className="filter-label">등급 표시</span>
-          {ALL_GRADES.map((g) => (
-            <button
-              key={g}
-              className={`grade-toggle-btn ${activeGrades.has(g) ? "active" : "off"}`}
-              style={activeGrades.has(g) ? { background: GRADE_COLOR[g], borderColor: GRADE_COLOR[g] } : undefined}
-              onClick={() => toggleGrade(g)}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
+          <div className="grade-mode-toggle" role="group" aria-label="등급 기준 선택">
+            {["relative", "absolute"].map((t) => (
+              <button
+                key={t}
+                className={gradeType === t ? "active" : ""}
+                onClick={() => setGradeType(t)}
+              >
+                {t === "relative" ? "상대 기준" : "절대 기준(WHO)"}
+              </button>
+            ))}
+          </div>
+          <div className="filter-group" role="group" aria-label="표시할 등급">
+            <span className="filter-label">등급</span>
+            {ALL_GRADES.map((g) => (
+              <button
+                key={g}
+                className={`grade-toggle-btn ${activeGrades.has(g) ? "active" : "off"}`}
+                style={activeGrades.has(g) ? { background: GRADE_COLOR[g], borderColor: GRADE_COLOR[g] } : undefined}
+                onClick={() => toggleGrade(g)}
+                title={`${g}등급 ${activeGrades.has(g) ? "숨기기" : "표시"}`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
         </div>
         <span className="map-status">{sdkError ?? status}</span>
       </div>

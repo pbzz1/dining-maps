@@ -149,24 +149,39 @@ main {
   border-bottom: 1px solid var(--border);
 }
 
+/* 검색창은 화면이 넓어도 적당한 폭에서 멈춘다 -- 전체 폭으로 늘어나면
+   버튼·필터가 양끝으로 흩어져 한 덩어리로 안 읽힌다. */
 .map-controls {
   display: flex;
   gap: 8px;
-  flex: 1 1 320px;
+  flex: 0 1 440px;
+  min-width: 260px;
 }
 
 .map-status {
   font-size: 12px;
   color: var(--muted);
   margin-left: auto;
+  padding: 7px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .map-controls input {
   flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 14px;
+}
+
+.map-controls input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .map-controls button {
@@ -180,6 +195,19 @@ main {
   cursor: pointer;
   white-space: nowrap;
 }
+
+.map-controls button:hover { background: var(--bg); }
+
+.map-controls .btn-search {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.map-controls .btn-search:hover { background: #a83a0c; }
+
+/* 툴바 안에서는 배경이 카드색이라, 세그먼트 컨트롤을 살짝 가라앉혀 구분한다. */
+.map-toolbar .grade-mode-toggle { margin: 0; background: var(--bg); }
 
 .filter-controls {
   display: flex;
