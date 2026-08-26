@@ -17,6 +17,7 @@ export default function RecommendView() {
   const [profile, setProfile] = useLocalStorage("recommend.profile", DEFAULT_PROFILE);
   const [showProfile, setShowProfile] = useState(false);
   const [items, setItems] = useState([]);
+  const [openId, setOpenId] = useState(null); // 펼쳐진 메뉴 (영양정보 표시)
   const [status, setStatus] = useState("");
 
   const update = (patch) => setPrefs((p) => ({ ...p, ...patch }));
@@ -177,12 +178,32 @@ export default function RecommendView() {
       <div className="menu-list" style={{ marginTop: 16 }}>
         {items.map((m, i) => (
           <div key={m.menu_item_id} className="menu-item">
-            <div className="menu-item-head">
+            <div
+              className="menu-item-head"
+              style={{ cursor: "pointer" }}
+              onClick={() => {
+                window.gtag?.("event", "toggle_nutrition", { menu: m.name, goal: prefs.goal });
+                setOpenId(openId === m.menu_item_id ? null : m.menu_item_id);
+              }}
+            >
               <span className="menu-item-name">
                 {i + 1}. {m.restaurant_name} · {m.name}
               </span>
-              <span className="menu-item-meta">{m.category}</span>
+              <span className="menu-item-meta">
+                {m.category} {openId === m.menu_item_id ? "▲" : "▼"}
+              </span>
             </div>
+            {openId === m.menu_item_id && (
+              <div className="nutrition-row">
+                {[["열량", m.calorie, "kcal"], ["단백질", m.protein, "g"], ["당류", m.sugar, "g"], ["나트륨", m.sodium, "mg"]].map(
+                  ([label, v, unit]) => (
+                    <span key={label} className="nutrient-badge">
+                      {label} <b>{v == null ? "-" : `${Math.round(v)}${unit}`}</b>
+                    </span>
+                  )
+                )}
+              </div>
+            )}
             <div className="nutrition-row">
               <span className="nutrient-badge">
                 <b>{m.reason}</b>
