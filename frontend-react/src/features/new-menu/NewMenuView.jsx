@@ -10,7 +10,6 @@ const num = (v, digits = 0) =>
   v == null ? "-" : v.toLocaleString("ko-KR", { maximumFractionDigits: digits });
 
 const BASIS_LABEL = { per_100g: "100g당", per_total: "전체", per_serving: "" };
-const VERDICT_CLASS = { 추천: "good", 무난: "mid", 비추천: "bad" };
 
 const youtubeUrl = (m) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(
@@ -116,7 +115,6 @@ export default function NewMenuView() {
                 {th("sodium")}
                 <th title="같은 브랜드·같은 카테고리 메뉴들 사이에서의 위치">브랜드 내</th>
                 {th("score")}
-                <th>AI 판정</th>
                 <th>리뷰</th>
               </tr>
             </thead>
@@ -157,18 +155,6 @@ export default function NewMenuView() {
                         : `${m.diet_score.toFixed(0)}${m.absolute_grade ? ` (${m.absolute_grade})` : ""}`}
                     </td>
                     <td>
-                      {m.diet_verdict ? (
-                        <span
-                          className={`nm-verdict ${VERDICT_CLASS[m.diet_verdict] ?? "mid"}`}
-                          title={`${m.diet_comment ?? ""}\n예상 맛 — ${m.taste_note ?? ""}`}
-                        >
-                          {m.diet_verdict}
-                        </span>
-                      ) : (
-                        <span className="nm-pending" title="AI 분석은 파이프라인에서 생성됩니다">준비 중</span>
-                      )}
-                    </td>
-                    <td>
                       <a
                         className="nm-yt"
                         href={youtubeUrl(m)}
@@ -190,7 +176,6 @@ export default function NewMenuView() {
       <p className="dash-footnote">
         영양정보는 브랜드 공식 공개값 그대로다. '브랜드 내' 위치는 같은 브랜드의 같은
         카테고리 메뉴들 사이 백분위(칼로리는 낮을수록, 단백질은 높을수록 좋은 편).
-        AI 판정은 영양 수치·메뉴명 기반 참고 의견이며(마우스를 올리면 근거·예상 맛),
         실제 맛·구성은 유튜브 리뷰로 확인하세요.
       </p>
     </div>
