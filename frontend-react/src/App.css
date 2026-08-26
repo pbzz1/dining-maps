@@ -507,6 +507,10 @@ main {
   width: 220px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   font-size: 12px;
+  /* 카카오 CustomOverlay 래퍼가 nowrap을 걸어 텍스트가 박스 밖으로
+     한 줄로 뻗어나간다 -- 팝업 안에서는 일반 줄바꿈으로 되돌린다. */
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .store-popup-close {
