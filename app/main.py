@@ -403,6 +403,7 @@ def list_menus(
     sort: str = "calorie_desc",
     category: str | None = None,
     restaurant_id: int | None = None,
+    q: str | None = None,
     limit: int = 30,
 ):
     if sort not in MENU_SORTS:
@@ -418,6 +419,11 @@ def list_menus(
     if restaurant_id is not None:
         where.append("mi.restaurant_id = %s")
         params.append(restaurant_id)
+    if q and q.strip():
+        # 메뉴 이름 부분일치. LIKE 와일드카드(%/_)는 검색어가 아니라 문자로 취급한다.
+        escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where.append("mi.name ILIKE %s")
+        params.append(f"%{escaped}%")
 
     conn = get_connection()
     rows = conn.execute(

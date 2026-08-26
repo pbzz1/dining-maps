@@ -35,8 +35,16 @@ export default function MenuExplorer({ brands }) {
   const [sort, setSort] = useState(SORTS[0]);
   const [category, setCategory] = useState(null); // null = 전체
   const [restaurantId, setRestaurantId] = useState(null);
+  const [query, setQuery] = useState(""); // 입력창 값 그대로
+  const [q, setQ] = useState(""); // 디바운스된 실제 검색어
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
+
+  // 타이핑마다 요청하지 않게 300ms 디바운스
+  useEffect(() => {
+    const t = setTimeout(() => setQ(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
     setError(null);
@@ -45,10 +53,11 @@ export default function MenuExplorer({ brands }) {
       limit: 20,
       ...(category ? { category } : {}),
       ...(restaurantId ? { restaurant_id: restaurantId } : {}),
+      ...(q ? { q } : {}),
     })
       .then(setRows)
       .catch((e) => setError(e.message));
-  }, [sort, category, restaurantId]);
+  }, [sort, category, restaurantId, q]);
 
   // 정렬 기준 컬럼만 강조한다 -- 어떤 기준으로 줄 세웠는지가 표에서 바로 보이게.
   const hi = (col) => (sort.col === col ? "dash-td-hi" : undefined);
@@ -106,6 +115,14 @@ export default function MenuExplorer({ brands }) {
         </div>
 
         <div className="mx-selects">
+          <input
+            type="search"
+            className="mx-search"
+            placeholder="메뉴 이름 검색"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="메뉴 이름 검색"
+          />
           <label>
             <span>정렬</span>
             <select
@@ -136,8 +153,9 @@ export default function MenuExplorer({ brands }) {
       {!error && rows === null && <p className="dash-status">불러오는 중…</p>}
       {rows?.length === 0 && (
         <p className="dash-status">
-          조건에 맞는 메뉴가 없습니다. 이 정렬 기준에 필요한 영양정보·중량을 공개하지 않았거나,
-          비율 정렬이라 100kcal 미만 메뉴가 전부 제외됐을 수 있습니다 (음료 대부분이 여기 해당).
+          조건에 맞는 메뉴가 없습니다. {q ? `"${q}" 검색 결과가 없거나, ` : ""}이 정렬 기준에
+          필요한 영양정보·중량을 공개하지 않았거나, 비율 정렬이라 100kcal 미만 메뉴가 전부
+          제외됐을 수 있습니다 (음료 대부분이 여기 해당).
         </p>
       )}
 

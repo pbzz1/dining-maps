@@ -972,6 +972,20 @@ h2 {
 .mx-selects { display: flex; flex-wrap: wrap; gap: 0.8rem; }
 .mx-selects label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; }
 .mx-selects label span { color: var(--muted); }
+.mx-search {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  width: 11rem;
+}
+.mx-search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 .mx-selects select {
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
