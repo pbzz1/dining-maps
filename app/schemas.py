@@ -123,6 +123,9 @@ class MenuRankOut(BaseModel):
     saturated_fat_g: float | None
     sodium_mg: float | None
     weight_g: float | None
+    # 이 행의 영양정보가 무엇을 기준으로 적힌 값인지. 브랜드마다 달라서(BHC·교촌은
+    # 100g, 도미노 병음료는 용기 전체) 절대값 정렬은 이걸 같이 봐야 읽을 수 있다.
+    nutrition_basis: str | None = None
     diet_score: float | None
     absolute_grade: str | None
     # 정렬에 쓴 파생값. 화면이 "무엇으로 줄 세웠는지"를 그대로 보여주기 위한 것이라

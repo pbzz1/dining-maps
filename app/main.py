@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db import get_connection
 from app.geo import haversine_m
 from app.menu_category import is_drink
-from app.recommend.goals import DRINK_SERVING_ML, serving_ratio
+from app.recommend.goals import DRINK_SERVING_ML, MIN_CALORIE, serving_ratio
 from app.recommend.router import router as recommend_router
 from app.schemas import (
     BrandNutritionOut,
@@ -367,6 +367,11 @@ def list_stores(
 # '왜 nutrition_fact 를 매번 피벗하나': 메뉴 2천여 건 x 영양소 5종이라 인덱스가 걸린
 # 조인 한 번이면 끝난다. mart 로 뺄 만큼 무겁지 않고, 뺐다면 필터 조합마다 뷰가
 # 하나씩 생겼을 것이다.
+#
+# 비율 정렬(100kcal당·그램당)에는 goals.MIN_CALORIE 하한을 그대로 쓴다. 안 걸면
+# 3kcal 짜리 우롱티(단백질 0.8g)가 100kcal당 23g으로 단백질 1위를 한다 -- 브랜드가
+# 단백질을 g 단위로 반올림해 공개하기 때문에, 분모가 한 자릿수면 반올림 오차가
+# 비율을 통째로 지배한다. goals.score_item 이 같은 이유로 같은 하한을 쓰고 있다.
 MENU_SORTS = {
     "calorie_desc":    ("n.calorie DESC",            "n.calorie IS NOT NULL",   None,                          None),
     "calorie_asc":     ("n.calorie ASC",             "n.calorie IS NOT NULL",   None,                          None),
@@ -377,12 +382,16 @@ MENU_SORTS = {
     "protein_desc":    ("n.protein DESC",            "n.protein IS NOT NULL",   None,                          None),
     # 그램 대비 단백질: 중량을 공개한 메뉴만 줄 세울 수 있다. 중량 없는 메뉴를 0으로
     # 두면 전부 꼴찌로 붙어 순위가 거짓말이 되므로 아예 제외한다.
+    # per_100g 브랜드(BHC·교촌)는 제외한다 -- 단백질은 100g당인데 weight_g 는 제품 전체
+    # 중량이라, 둘을 나누면 아무 의미 없는 수가 나온다 (해당 40건).
     "protein_per_100g_desc": ("n.protein / mi.weight_g * 100 DESC",
-                              "n.protein IS NOT NULL AND mi.weight_g > 0",
+                              f"n.protein IS NOT NULL AND mi.weight_g > 0"
+                              f" AND n.calorie >= {MIN_CALORIE}"
+                              f" AND mi.nutrition_basis IS DISTINCT FROM 'per_100g'",
                               "n.protein / mi.weight_g * 100", "g/100g"),
     # 100kcal 당 단백질: 중량을 안 밝힌 브랜드도 줄 세울 수 있는 대안.
     "protein_per_100kcal_desc": ("n.protein / n.calorie * 100 DESC",
-                                 "n.protein IS NOT NULL AND n.calorie > 0",
+                                 f"n.protein IS NOT NULL AND n.calorie >= {MIN_CALORIE}",
                                  "n.protein / n.calorie * 100", "g/100kcal"),
     "score_desc":      ("ds.score DESC",             "ds.score IS NOT NULL",    None,                          None),
     "score_asc":       ("ds.score ASC",              "ds.score IS NOT NULL",    None,                          None),
@@ -424,7 +433,7 @@ def list_menus(
             SELECT mi.id, mi.name, r.name AS restaurant_name,
                    COALESCE(mi.category_group, '기타') AS category_group,
                    n.calorie, n.protein, n.sugar, n.saturated_fat, n.sodium,
-                   mi.weight_g, ds.score AS diet_score, ds.absolute_grade,
+                   mi.weight_g, mi.nutrition_basis, ds.score AS diet_score, ds.absolute_grade,
                    {sort_expr or 'NULL'} AS sort_value
             FROM menu_item mi
             JOIN restaurant r    ON r.id = mi.restaurant_id
@@ -449,6 +458,7 @@ def list_menus(
             saturated_fat_g=r["saturated_fat"],
             sodium_mg=r["sodium"],
             weight_g=r["weight_g"],
+            nutrition_basis=r["nutrition_basis"],
             diet_score=r["diet_score"],
             absolute_grade=r["absolute_grade"],
             sort_value=round(r["sort_value"], 1) if r["sort_value"] is not None else None,

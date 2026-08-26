@@ -990,6 +990,18 @@ h2 {
 .mx-rank { color: var(--muted); width: 2rem; }
 .mx-name { white-space: normal; min-width: 12rem; }
 .mx-cat { text-align: left; color: var(--muted); font-size: 0.78rem; }
+/* 영양정보 표기 기준 배지 (100g당 / 전체). 1인분이면 표시하지 않는다. */
+.mx-basis {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  font-size: 0.68rem;
+  color: var(--muted);
+  vertical-align: middle;
+  white-space: nowrap;
+}
 /* 지금 무엇으로 줄 세웠는지 -- 해당 컬럼만 강조 */
 .dash-td-hi { background: var(--accent-soft); font-weight: 600; }
 th.dash-td-hi { color: var(--accent); }

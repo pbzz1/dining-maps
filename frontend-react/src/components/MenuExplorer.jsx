@@ -27,6 +27,10 @@ const CATEGORIES = ["버거", "치킨", "피자", "샐러드·샌드위치", "�
 const num = (v, digits = 0) =>
   v == null ? "-" : v.toLocaleString("ko-KR", { maximumFractionDigits: digits });
 
+// 영양정보 표기 기준. 브랜드마다 달라서 칼로리·나트륨 같은 절대값을 나란히 세울 때
+// 이걸 안 보여주면 "100g당 315kcal"과 "1인분 1,812kcal"이 같은 줄에서 비교된다.
+const BASIS_LABEL = { per_100g: "100g당", per_total: "전체", per_serving: "" };
+
 export default function MenuExplorer({ brands }) {
   const [sort, setSort] = useState(SORTS[0]);
   const [category, setCategory] = useState(null); // null = 전체
@@ -65,8 +69,18 @@ export default function MenuExplorer({ brands }) {
             분류를 함께 보고 8개 그룹으로 다시 묶었다. 어디에도 안 맞으면 '기타'다.
             <br />
             <br />
-            <strong>그램 대비 단백질</strong> — 중량을 공개한 메뉴만 줄 세울 수 있어 목록이
-            짧아진다. 중량을 안 밝힌 브랜드까지 보려면 '100kcal당 단백질'을 쓰면 된다.
+            <strong>비율 정렬은 100kcal 이상만</strong> — '100kcal당 단백질'·'그램 대비
+            단백질'은 100kcal 미만 메뉴를 제외한다. 브랜드가 단백질을 g 단위로 반올림해
+            공개하기 때문에, 3kcal짜리 차의 '단백질 1g'을 비율로 바꾸면 반올림 오차가
+            그대로 100kcal당 23g이 되어 1위를 차지한다. 중량을 공개한 메뉴만 줄 세울 수
+            있는 '그램 대비'는 목록이 더 짧고, BHC·교촌처럼 100g 기준으로 공개하는
+            브랜드는 계산이 성립하지 않아 빠진다.
+            <br />
+            <br />
+            <strong>표기 기준</strong> — 메뉴 이름 옆의 <span className="mx-basis">100g당</span>
+            {" "}·<span className="mx-basis">전체</span> 표시는 그 브랜드가 영양정보를 적은
+            기준이다. 아무 표시가 없으면 1인분 기준. 칼로리·나트륨 같은 절대값을 브랜드끼리
+            비교할 때는 이 표시를 함께 봐야 한다.
           </div>
         </details>
       </h2>
@@ -122,8 +136,8 @@ export default function MenuExplorer({ brands }) {
       {!error && rows === null && <p className="dash-status">불러오는 중…</p>}
       {rows?.length === 0 && (
         <p className="dash-status">
-          조건에 맞는 메뉴가 없습니다. 이 정렬 기준에 필요한 영양정보나 중량을 공개하지 않은
-          브랜드일 수 있습니다.
+          조건에 맞는 메뉴가 없습니다. 이 정렬 기준에 필요한 영양정보·중량을 공개하지 않았거나,
+          비율 정렬이라 100kcal 미만 메뉴가 전부 제외됐을 수 있습니다 (음료 대부분이 여기 해당).
         </p>
       )}
 
@@ -148,7 +162,12 @@ export default function MenuExplorer({ brands }) {
               {rows.map((m, i) => (
                 <tr key={m.id}>
                   <td className="mx-rank">{i + 1}</td>
-                  <td className="mx-name">{m.name}</td>
+                  <td className="mx-name">
+                    {m.name}
+                    {BASIS_LABEL[m.nutrition_basis] && (
+                      <span className="mx-basis">{BASIS_LABEL[m.nutrition_basis]}</span>
+                    )}
+                  </td>
                   <td>{m.restaurant_name}</td>
                   <td className="mx-cat">{m.category_group}</td>
                   {sort.col === "sort" && (
