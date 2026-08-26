@@ -164,18 +164,23 @@ export default function MapView({ onOpenMenu, visible = true }) {
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
 
-    visibleStores.forEach((store) => {
+    // visibleStores는 이미 추천순 정렬 -- 앞 3곳만 순위를 달아 크게 강조한다.
+    visibleStores.forEach((store, rank) => {
       const displayGrade = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
+      const isTop = rank < 3;
       const el = document.createElement("div");
-      el.className = "map-pin";
+      el.className = `map-pin${isTop ? " map-pin-top" : ""}`;
       el.style.background = GRADE_COLOR[displayGrade] ?? "#999";
-      el.innerHTML = `<span>${store.restaurant_name}</span>`;
+      el.innerHTML =
+        (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
+        `<b class="pin-grade">${displayGrade ?? "?"}</b><span>${store.restaurant_name}</span>`;
       el.addEventListener("click", () => showPopup(store));
 
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(store.lat, store.lng),
         content: el,
         yAnchor: 1,
+        zIndex: isTop ? 3 : 1, // 상위 3곳이 다른 핀에 가려지지 않게
       });
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
@@ -269,6 +274,15 @@ export default function MapView({ onOpenMenu, visible = true }) {
 
       <div className="map-layout">
         <div id="map-container" ref={containerRef} />
+        {/* 등급 색의 의미를 첫 화면에서 바로 알 수 있게 지도 위에 상시 표시 */}
+        <div className="map-grade-legend" aria-hidden="true">
+          {ALL_GRADES.map((g) => (
+            <span key={g}>
+              <i style={{ background: GRADE_COLOR[g] }} />
+              {g} {{ A: "아주 좋음", B: "좋음", C: "보통", D: "주의" }[g]}
+            </span>
+          ))}
+        </div>
         <div className="store-list">
           {!searched && !sdkError && (
             <p className="store-list-empty">
@@ -296,13 +310,6 @@ export default function MapView({ onOpenMenu, visible = true }) {
               </div>
             );
           })}
-          <div className="map-legend">
-            {ALL_GRADES.map((g) => (
-              <span key={g}>
-                <span className={`grade-badge ${GRADE_CLASS[g]}`}>{g}</span>등급
-              </span>
-            ))}
-          </div>
         </div>
       </div>
     </section>
