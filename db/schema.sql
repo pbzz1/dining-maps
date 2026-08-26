@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS menu_item (
     UNIQUE (restaurant_id, name)
 );
 
+-- What one row of nutrition_fact actually covers. Brands don't agree:
+--   per_serving -- one item as sold (맥도날드 버거, 스타벅스 tall). The default.
+--   per_total   -- the whole container/pizza (도미노 1.5L 병, S 사이즈 Subzza)
+--   per_100g    -- BHC/교촌's published basis
+-- NULL means unrecorded, treated as per_serving. Needed because a 1.5L bottle's
+-- 660kcal is not comparable to a 355ml cup's, and the drink score is per-cup.
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS nutrition_basis TEXT;
+
 -- Key-value nutrition facts. Needed because McDonald's/Lotteria/Momstouch/Subway
 -- only publish calorie+protein+sugar+saturated_fat+sodium, while Salady also
 -- publishes total carbs and total fat. Fixed columns would leave most brands

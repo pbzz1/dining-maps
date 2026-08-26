@@ -187,16 +187,23 @@ def load_file(conn, config):
             origin_info = row.get(config.get("origin_col", ""), None) or None
             data_source = config.get("data_source") or row.get(config.get("data_source_col", ""), None)
 
+            # 크롤러가 행별로 기록해둔 기준(per_serving/per_total/per_100g). 빈 값은 NULL로
+            # 넣어 "미기록 = per_serving 취급"과 "빈 문자열"이 갈리지 않게 한다.
+            nutrition_basis = (row.get("nutrition_basis") or "").strip() or None
+
             menu_item_id = conn.execute(
                 """INSERT INTO menu_item
-                       (restaurant_id, name, category, price_krw, weight_g, allergy_info, origin_info, data_source)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                       (restaurant_id, name, category, price_krw, weight_g, allergy_info, origin_info,
+                        data_source, nutrition_basis)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT (restaurant_id, name) DO UPDATE SET
                        category=excluded.category, price_krw=excluded.price_krw,
                        weight_g=excluded.weight_g, allergy_info=excluded.allergy_info,
-                       origin_info=excluded.origin_info, data_source=excluded.data_source
+                       origin_info=excluded.origin_info, data_source=excluded.data_source,
+                       nutrition_basis=excluded.nutrition_basis
                    RETURNING id""",
-                (restaurant_id, menu_name, category, price_krw, weight_g, allergy_info, origin_info, data_source),
+                (restaurant_id, menu_name, category, price_krw, weight_g, allergy_info, origin_info,
+                 data_source, nutrition_basis),
             ).fetchone()["id"]
             item_count += 1
 

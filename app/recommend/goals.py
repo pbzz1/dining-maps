@@ -54,6 +54,24 @@ def is_drink(category: str | None, name: str) -> bool:
     return any(k in text for k in DRINK_KEYWORDS) or bool(DRINK_TEA_RE.search(text))
 
 
+# 식약처 「식품등의 표시기준」 1회 섭취참고량: 음료류 200ml. 도미노는 병 음료 영양성분을
+# 용기 전체(스프라이트 1.5L = 660kcal, 당류 165g) 기준으로만 공개해서, 그대로 두면
+# 스타벅스 355ml 한 잔과 나란히 비교된다. 음료 점수는 "한 잔" 기준이므로 환산해서 채점하고,
+# 화면에는 환산값과 용기 전체 값을 함께 보여준다.
+DRINK_SERVING_ML = 200
+
+
+def serving_ratio(basis: str | None, weight_g: float | None) -> float | None:
+    """용기 전체 기준으로 적힌 음료를 1회분(200ml)으로 줄이는 배율.
+
+    환산이 필요 없으면(이미 1회분이거나, 용량이 200ml 이하라 그 자체가 한 잔이거나,
+    용량을 모르면) None. 음료가 아닌 메뉴에는 호출하지 않는다 -- 피자 한 판을 200g으로
+    나누는 건 근거가 없다."""
+    if basis != "per_total" or not weight_g or weight_g <= DRINK_SERVING_ML:
+        return None
+    return DRINK_SERVING_ML / weight_g
+
+
 def score_item(goal: str, nutrients: dict, diet_score, limits: dict, drink: bool = False):
     """해당 goal 로 점수를 낼 수 있으면 (score, reason), 아니면 None."""
     g = GOALS[goal]

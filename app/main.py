@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import get_connection
 from app.geo import haversine_m
+from app.recommend.goals import DRINK_SERVING_ML, is_drink, serving_ratio
 from app.recommend.router import router as recommend_router
 from app.schemas import (
     BrandNutritionOut,
@@ -116,7 +117,7 @@ def get_restaurant_menu(restaurant_id: int):
 
     items = conn.execute(
         """SELECT mi.id, mi.name, mi.category, mi.price_krw, mi.weight_g, mi.allergy_info,
-                  mi.origin_info, mi.data_source, ds.score AS diet_score,
+                  mi.origin_info, mi.data_source, mi.nutrition_basis, ds.score AS diet_score,
                   ds.absolute_grade, ds.relative_grade, ds.percentile, ds.basis
            FROM menu_item mi
            LEFT JOIN diet_score ds ON ds.menu_item_id = mi.id
@@ -138,6 +139,13 @@ def get_restaurant_menu(restaurant_id: int):
     result = []
     for item in items:
         facts = facts_by_item.get(item["id"], [])
+        # 용기 전체 기준으로만 공개된 병 음료(도미노 1.5L 등)는 1회분 환산값을 함께 내린다.
+        # 나트륨·mg 단위까지 같은 배율이라 값만 곱하면 되고, 단위는 그대로다.
+        ratio = (
+            serving_ratio(item["nutrition_basis"], item["weight_g"])
+            if is_drink(item["category"], item["name"])
+            else None
+        )
         result.append(
             MenuItemOut(
                 id=item["id"],
@@ -157,6 +165,16 @@ def get_restaurant_menu(restaurant_id: int):
                 relative_grade=item["relative_grade"],
                 percentile=item["percentile"],
                 grade_basis=item["basis"],
+                nutrition_basis=item["nutrition_basis"],
+                serving_ml=DRINK_SERVING_ML if ratio else None,
+                nutrition_per_serving=[
+                    NutritionFactOut(
+                        nutrient_name=f["nutrient_name"],
+                        value=round(f["value"] * ratio, 1),
+                        unit=f["unit"],
+                    )
+                    for f in facts
+                ] if ratio else None,
             )
         )
     conn.close()

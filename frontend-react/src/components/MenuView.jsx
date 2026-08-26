@@ -8,6 +8,17 @@ function nutrientValue(item, name) {
   return item.nutrition.find((n) => n.nutrient_name === name)?.value ?? null;
 }
 
+function NutrientBadges({ facts }) {
+  return facts.map((n) => (
+    <span key={n.nutrient_name} className="nutrient-badge">
+      {NUTRIENT_LABELS[n.nutrient_name] ?? n.nutrient_name} <b>{formatValue(n.value, n.unit)}</b>
+    </span>
+  ));
+}
+
+// 병 음료 용량 표기. weight_g 에 ml 이 들어있다 (도미노 1.5L 병 = 1500).
+const volumeLabel = (ml) => (ml >= 1000 ? `${(ml / 1000).toLocaleString()}L` : `${ml}ml`);
+
 function sortItems(items, key) {
   const sorted = [...items];
   // Ungraded / unreported items always sink to the bottom rather than sorting
@@ -104,7 +115,8 @@ export default function MenuView({ restaurant, onBack }) {
             {sorted.map((item) => {
               const meta = [
                 item.category,
-                item.weight_g && `${item.weight_g}g`,
+                // 병 음료는 weight_g 에 ml 이 들어있다 -- "1500g" 로 보이면 안 된다.
+                item.weight_g && (item.serving_ml ? volumeLabel(item.weight_g) : `${item.weight_g}g`),
                 item.price_krw && `${item.price_krw.toLocaleString()}원`,
               ].filter(Boolean);
               const reco = recommendLabel(item.absolute_grade);
@@ -125,18 +137,28 @@ export default function MenuView({ restaurant, onBack }) {
                     </span>
                     <span className="menu-item-meta">{meta.join(" · ")}</span>
                   </div>
-                  <div className="nutrition-row">
-                    {item.nutrition.length === 0 ? (
+                  {item.nutrition.length === 0 ? (
+                    <div className="nutrition-row">
                       <span className="menu-item-meta">영양정보 없음</span>
-                    ) : (
-                      item.nutrition.map((n) => (
-                        <span key={n.nutrient_name} className="nutrient-badge">
-                          {NUTRIENT_LABELS[n.nutrient_name] ?? n.nutrient_name}{" "}
-                          <b>{formatValue(n.value, n.unit)}</b>
-                        </span>
-                      ))
-                    )}
-                  </div>
+                    </div>
+                  ) : item.nutrition_per_serving ? (
+                    // 도미노처럼 용기 전체 기준으로만 공개된 병 음료. 등급은 1회분 기준으로
+                    // 매기므로 그쪽을 먼저 보여주고, 브랜드가 실제로 표기한 전체 값도 함께 남긴다.
+                    <>
+                      <div className="nutrition-row">
+                        <span className="basis-chip">1회분 {item.serving_ml}ml</span>
+                        <NutrientBadges facts={item.nutrition_per_serving} />
+                      </div>
+                      <div className="nutrition-row nutrition-row-total">
+                        <span className="basis-chip">전체 {volumeLabel(item.weight_g)}</span>
+                        <NutrientBadges facts={item.nutrition} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="nutrition-row">
+                      <NutrientBadges facts={item.nutrition} />
+                    </div>
+                  )}
                 </div>
               );
             })}

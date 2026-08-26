@@ -19,7 +19,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from app.db import connect  # noqa: E402
-from app.recommend.goals import is_drink  # noqa: E402
+from app.recommend.goals import DRINK_SERVING_ML, is_drink, serving_ratio  # noqa: E402
 
 # Only nutrients every brand publishes -- see docs/diet_score.md for why.
 REQUIRED_NUTRIENTS = ["calorie", "protein", "sugar", "saturated_fat", "sodium"]
@@ -171,11 +171,19 @@ def main():
                WHERE nf.nutrient_name = ANY(%s)""",
             (REQUIRED_NUTRIENTS,),
         ).fetchall()
-        kinds = {
-            r["id"]: "drink" if is_drink(r["category"], r["name"]) else "meal"
-            for r in conn.execute("SELECT id, name, category FROM menu_item").fetchall()
-        }
-        _score_and_store(conn, rows, kinds)
+        kinds, scales = {}, {}
+        for r in conn.execute(
+            "SELECT id, name, category, weight_g, nutrition_basis FROM menu_item"
+        ).fetchall():
+            drink = is_drink(r["category"], r["name"])
+            kinds[r["id"]] = "drink" if drink else "meal"
+            # 음료 점수는 "한 잔" 기준이므로, 용기 전체로 적힌 병 음료는 1회분으로 환산해
+            # 채점한다. 식사(meal)는 100kcal당 밀도라 배율이 상쇄돼 환산할 필요가 없다.
+            if drink:
+                ratio = serving_ratio(r["nutrition_basis"], r["weight_g"])
+                if ratio:
+                    scales[r["id"]] = ratio
+        _score_and_store(conn, rows, kinds, scales)
 
 
 def score_frame(wide: pd.DataFrame) -> pd.DataFrame:
@@ -202,7 +210,7 @@ def score_frame(wide: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _score_and_store(conn, rows, kinds):
+def _score_and_store(conn, rows, kinds, scales=None):
     facts = pd.DataFrame(rows, columns=["menu_item_id", "nutrient_name", "value"])
     if facts.empty:
         print("No nutrition facts found; nothing to score.")
@@ -210,6 +218,12 @@ def _score_and_store(conn, rows, kinds):
 
     wide = facts.pivot(index="menu_item_id", columns="nutrient_name", values="value")
     wide = wide.dropna(subset=REQUIRED_NUTRIENTS)
+    if scales:
+        # nutrition_fact 는 공개된 그대로(용기 전체) 두고, 채점할 때만 1회분으로 환산한다.
+        # 원본을 나눠 저장하면 화면에 "전체 기준"을 같이 못 보여준다.
+        factor = wide.index.map(lambda i: scales.get(i, 1.0))
+        wide[REQUIRED_NUTRIENTS] = wide[REQUIRED_NUTRIENTS].mul(factor, axis=0)
+        print(f"음료 {len(scales)}건을 1회분({DRINK_SERVING_ML}ml) 기준으로 환산해 채점")
     wide["basis"] = wide.index.map(lambda i: kinds.get(i, "meal"))
     out = score_frame(wide)
     if out.empty:

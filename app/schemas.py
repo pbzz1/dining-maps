@@ -31,6 +31,12 @@ class MenuItemOut(BaseModel):
     relative_grade: str | None  # A/B/C/D from percentile rank among current catalog -- B is the largest band
     percentile: float | None  # 0-100, this item's percentile rank of diet_score (within the same basis)
     grade_basis: str | None = None  # 'meal' (per-100kcal, protein counts) / 'drink' (per-serving, no protein/sodium)
+    # `nutrition` 이 무엇을 담고 있는지: per_serving(기본) / per_total(용기·한 판 전체) / per_100g.
+    nutrition_basis: str | None = None
+    # per_total 로 적힌 병 음료만 채워진다. 위 `nutrition` 은 용기 전체 값 그대로 두고,
+    # 1회분(200ml) 환산값을 따로 내려서 화면이 둘 다 보여줄 수 있게 한다.
+    serving_ml: float | None = None
+    nutrition_per_serving: list[NutritionFactOut] | None = None
 
 
 class NutrientAverageOut(BaseModel):
