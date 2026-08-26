@@ -282,6 +282,15 @@ def list_stores(
         for r in grade_rows
     }
 
+    # LLM 배치 추천 (scripts/generate_menu_reco.py) -- 없는 브랜드는 그냥 None
+    reco_by_restaurant = {
+        r["restaurant_id"]: r
+        for r in conn.execute(
+            """SELECT br.restaurant_id, mi.name AS reco_menu, br.reason AS reco_reason
+               FROM brand_menu_reco br JOIN menu_item mi ON mi.id = br.menu_item_id"""
+        ).fetchall()
+    }
+
     stores = conn.execute(
         """SELECT s.id, s.restaurant_id, r.name AS restaurant_name, s.branch_name, s.address, s.lat, s.lng
            FROM store s
@@ -298,6 +307,7 @@ def list_stores(
                 continue
 
         grades = grade_by_restaurant.get(s["restaurant_id"])
+        reco = reco_by_restaurant.get(s["restaurant_id"])
         if min_grade is not None:
             grade_to_check = grades[f"{grade_type}_grade"] if grades else None
             if grade_to_check is None or GRADE_RANK[grade_to_check] > GRADE_RANK[min_grade]:
@@ -317,6 +327,8 @@ def list_stores(
                 absolute_grade=grades["absolute_grade"] if grades else None,
                 relative_grade=grades["relative_grade"] if grades else None,
                 good_menu_ratio=grades["good_menu_ratio"] if grades else None,
+                reco_menu=reco["reco_menu"] if reco else None,
+                reco_reason=reco["reco_reason"] if reco else None,
             )
         )
 

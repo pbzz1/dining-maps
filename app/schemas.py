@@ -71,6 +71,8 @@ class StoreOut(BaseModel):
     absolute_grade: str | None
     relative_grade: str | None
     good_menu_ratio: float | None
+    reco_menu: str | None = None  # LLM이 뽑은 브랜드 대표 다이어트 추천 메뉴 (brand_menu_reco)
+    reco_reason: str | None = None  # 한 문장 추천 이유
 
 
 # --- 대시보드 mart (app/main.py /api/stats/*, db/schema.sql의 MV와 1:1) ---

@@ -371,6 +371,23 @@ main {
   margin-top: 4px;
 }
 
+/* LLM 추천 한 줄 (카드/팝업 공용) -- "🤖 메뉴명" 다음 줄에 이유 */
+.store-reco {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.store-reco b { color: var(--accent); }
+
+.store-reco span {
+  display: block;
+  color: var(--muted);
+}
+
 .map-legend {
   margin-top: auto;
   padding-top: 12px;

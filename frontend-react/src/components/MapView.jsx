@@ -76,6 +76,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         <div class="store-popup-title">${store.restaurant_name} ${store.branch_name}</div>
         <div class="store-popup-meta">절대 ${store.absolute_grade ?? "-"} · 상대 ${store.relative_grade ?? "-"} · 도움 메뉴 ${ratio}</div>
         <div class="store-popup-meta">${formatDistance(store.distance_m)}${store.address ? " · " + store.address : ""}</div>
+        ${store.reco_menu ? `<div class="store-reco">🤖 <b>${store.reco_menu}</b><span>${store.reco_reason ?? ""}</span></div>` : ""}
         <button class="store-popup-menu-btn" type="button">이 브랜드 메뉴 보기</button>
       `;
       el.querySelector(".store-popup-close").addEventListener("click", () => {
@@ -286,6 +287,12 @@ export default function MapView({ onOpenMenu, visible = true }) {
                   <span className="store-card-distance">{formatDistance(store.distance_m)}</span>
                 </div>
                 <div className="store-card-address">{store.address}</div>
+                {store.reco_menu && (
+                  <div className="store-reco">
+                    🤖 <b>{store.reco_menu}</b>
+                    <span>{store.reco_reason}</span>
+                  </div>
+                )}
               </div>
             );
           })}

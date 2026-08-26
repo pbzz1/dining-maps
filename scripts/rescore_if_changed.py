@@ -73,6 +73,9 @@ def main(force: bool = False) -> bool:
         print(f"inputs changed -> rescoring ({fp[:12]}…)")
         compute_diet_score.main()
         conn.execute("INSERT INTO diet_score_run (fingerprint) VALUES (%s)", (fp,))
+    # 점수가 바뀌었을 때만 LLM 추천도 재생성 (키 없으면 스스로 건너뜀)
+    from scripts import generate_menu_reco
+    generate_menu_reco.main()
     return True
 
 
