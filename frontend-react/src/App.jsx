@@ -4,15 +4,17 @@ import RestaurantList from "./components/RestaurantList";
 import MenuView from "./components/MenuView";
 import Dashboard from "./components/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
+import NewMenuView from "./features/new-menu/NewMenuView";
 import { fetchStatsQuality } from "./api";
 import { track } from "./constants";
 import LogoMark from "./components/Logo";
-import { IconDashboard, IconStar, IconPin, IconList } from "./components/NavIcons";
+import { IconDashboard, IconStar, IconPin, IconList, IconSparkle } from "./components/NavIcons";
 import "./App.css";
 
 const NAV = [
   { key: "map", label: "지도", Icon: IconPin },
   { key: "recommend", label: "맞춤 추천", Icon: IconStar },
+  { key: "new", label: "신메뉴", Icon: IconSparkle },
   { key: "dashboard", label: "대시보드", Icon: IconDashboard },
   { key: "list", label: "매장 목록", Icon: IconList },
 ];
@@ -116,6 +118,7 @@ export default function App() {
         </div>
         {view === "dashboard" && <Dashboard />}
         {view === "recommend" && <RecommendView />}
+        {view === "new" && <NewMenuView />}
         {view === "list" && <RestaurantList onSelect={openMenu} />}
         {view === "menu" && selected && (
           <MenuView restaurant={selected} onBack={() => setView("list")} />

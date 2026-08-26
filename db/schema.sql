@@ -121,6 +121,27 @@ CREATE TABLE IF NOT EXISTS brand_menu_reco (
     generated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 실제 출시일. 크롤 diff의 첫 발견일(menu_change_log 'added')은 "우리가 처음 본 날"
+-- 이지 출시일이 아니라서, 보도자료·기사에서 확인된 날짜를 여기 둔다.
+-- scripts/seed_released_at.py 가 1회성 백필로 채우고, 이후 신메뉴는 크롤 diff가
+-- 하루 이내로 잡으므로 첫 발견일이 충분한 근사치다 (NULL = 미확인, 피드가
+-- COALESCE(released_at, 첫 발견일)로 처리).
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
+
+-- 신메뉴 LLM 리뷰 캐시 (scripts/generate_new_menu_reviews.py).
+-- "신메뉴"의 원천은 menu_change_log(change_type='added') -- 별도 감지 로직 없음.
+-- brand_menu_reco와 같은 이유로 menu_item_id FK 저장: 환각 방지 + 표시용
+-- 정보는 조인으로. 리뷰는 메뉴당 1회 생성되면 갱신하지 않는다 (신메뉴는
+-- 출시 시점 분석이면 충분).
+CREATE TABLE IF NOT EXISTS new_menu_review (
+    menu_item_id INTEGER PRIMARY KEY REFERENCES menu_item(id),
+    diet_verdict TEXT NOT NULL,   -- 추천 / 무난 / 비추천
+    diet_comment TEXT NOT NULL,   -- 한 문장, 영양 수치 근거
+    taste_note   TEXT NOT NULL,   -- 한 문장, 메뉴명·구성 기반 예상 맛 (추정임을 명시)
+    model        TEXT NOT NULL,
+    generated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------------------
 -- History + data quality (scripts/snapshot_and_validate.py)
 --

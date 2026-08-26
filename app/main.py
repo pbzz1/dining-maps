@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db import get_connection
 from app.geo import haversine_m
 from app.menu_category import is_drink
+from app.new_menu.router import router as new_menu_router
 from app.recommend.goals import DRINK_SERVING_ML, MIN_CALORIE, serving_ratio
 from app.recommend.router import router as recommend_router
 from app.schemas import (
@@ -70,6 +71,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(recommend_router)
+app.include_router(new_menu_router)
 
 
 def get_restaurant_or_404(conn, restaurant_id: int):

@@ -19,3 +19,5 @@ export const fetchStatsBrands = () => get("/stats/brands");
 export const fetchStatsQuality = () => get("/stats/quality");
 // 메뉴 탐색기. params: { sort, category?, restaurant_id?, limit? }
 export const fetchMenus = (params) => get("/menus", params);
+// 신메뉴 피드: 최근 크롤에서 새로 발견된 메뉴 + LLM 리뷰
+export const fetchNewMenus = () => get("/new-menus");
