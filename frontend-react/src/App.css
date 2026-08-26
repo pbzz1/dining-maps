@@ -631,7 +631,7 @@ h2 {
   width: 56px;
   height: 56px;
   margin: 0 auto 10px;
-  border-radius: 50%;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,12 +639,22 @@ h2 {
   color: #fff;
   font-size: 18px;
   font-weight: 700;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  padding: 7px;
 }
 
 .brand-avatar img {
+  /* contain, not cover -- each brand's own icon has wildly different built-in
+     padding and aspect ratio (some are full-bleed color blocks, some are a
+     small mark on lots of transparent margin). cover crops to fill the frame,
+     which sliced text off full-bleed logos (BHC) while making sparse ones look
+     fine -- the exact "sizes look inconsistent" this was reported as. contain
+     always shows the whole mark, so the tile's built-in padding is what
+     equalizes the visual weight instead. */
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .restaurant-card .name {
