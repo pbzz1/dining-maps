@@ -12,17 +12,15 @@ only thing that needs a scheduled refresh is the per-menu diet_score table
 Run by .github/workflows/rescore.yml daily; `--force` skips the check.
 """
 import hashlib
-import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from app.db import connect  # noqa: E402
+from app.db import apply_schema, connect  # noqa: E402
 from scripts import compute_diet_score  # noqa: E402
 
 SCORER = ROOT / "scripts" / "compute_diet_score.py"
-SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 
 def fingerprint(conn) -> str:
@@ -42,20 +40,7 @@ def fingerprint(conn) -> str:
 def main(force: bool = False) -> bool:
     """Returns True if scores were recomputed."""
     with connect() as conn:
-        # This is the only writer that runs unattended (daily cron), so it's the
-        # one place a schema.sql column added after the last manual load_data.py
-        # run would otherwise silently drift from production -- see the 'basis'
-        # column incident (compute_diet_score.py wrote it, prod didn't have it).
-        # One statement per execute() -- sending the whole file as a single
-        # multi-statement blob crashed the pooled Neon connection outright
-        # (psycopg.errors.ProtocolViolation: server conn crashed?) once schema.sql
-        # grew to include the CREATE MATERIALIZED VIEW blocks. Comments are
-        # stripped first because they contain their own ';' (e.g. "Append-only;
-        # never UPDATEd.") which would otherwise split a statement in half.
-        sql = re.sub(r"--.*", "", SCHEMA_PATH.read_text(encoding="utf-8"))
-        for statement in sql.split(";"):
-            if statement.strip():
-                conn.execute(statement)
+        apply_schema(conn)
         # compute_diet_score.main() opens its OWN connection (it's also run
         # standalone), so without an explicit commit here the schema changes
         # above are invisible to it -- a separate session can't see another

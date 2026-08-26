@@ -5,10 +5,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from app.db import connect  # noqa: E402
+from app.db import apply_schema, connect  # noqa: E402
 
 DATA_DIR = ROOT / "data"
-SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 # Per-CSV column mapping. Every brand publishes a different subset of
 # nutrients, so each entry lists only the columns that actually exist
@@ -219,7 +218,7 @@ def load_file(conn, config):
 
 def main():
     with connect() as conn:
-        conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+        apply_schema(conn)
 
         # load_file issues one round trip per statement (menu_item insert +
         # one per nutrient), which is ~7 round trips per row. Against a local

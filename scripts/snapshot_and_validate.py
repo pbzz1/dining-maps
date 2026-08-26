@@ -20,11 +20,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
-from app.db import get_connection  # noqa: E402
+from app.db import apply_schema, get_connection  # noqa: E402
 from load_data import FILES, to_float, to_int  # noqa: E402  (per-brand column mapping)
 
 DATA_DIR = ROOT / "data"
-SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
 # --- validation thresholds (see docs/data_quality.md for how these were picked) ---
 ROW_DROP_FAIL_PCT = 0.50   # brand lost >50% of its items vs last run -> almost certainly broken
@@ -290,7 +289,7 @@ def main():
     args = parser.parse_args()
 
     conn = get_connection()
-    conn.execute(SCHEMA_PATH.read_text(encoding="utf-8"))
+    apply_schema(conn)
 
     prev_run = conn.execute(
         "SELECT id FROM crawl_run WHERE status = 'passed' ORDER BY id DESC LIMIT 1"

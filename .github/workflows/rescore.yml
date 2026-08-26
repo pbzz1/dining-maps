@@ -1,7 +1,10 @@
 name: rescore
-# 메뉴/영양정보/채점 규칙이 바뀌었을 때만 diet_score 를 다시 계산한다.
-# 브랜드 상대등급(20/30/30/20)은 API 가 요청 시 실시간으로 순위를 매기므로 여기서 할 일이 없고,
-# 이 잡은 "새로 들어온 브랜드가 채점되는 것"과 메뉴 단위 백분위만 책임진다.
+# data/*.csv를 DB로 반영(load_data.py)한 뒤, 메뉴/영양정보/채점 규칙이 바뀌었을 때만
+# diet_score 를 다시 계산한다(rescore_if_changed.py). load_data.py는 매번 돌지만 매번 쓰기가
+# 아니라 ON CONFLICT UPSERT라 CSV가 그대로면 사실상 no-op -- 실제 DB 반영 여부와 무관하게
+# "커밋된 CSV가 곧 운영 DB 상태"를 매일 보장하는 게 이 스텝의 역할.
+# 브랜드 상대등급(25/25/25/25)은 API 가 요청 시 실시간으로 순위를 매기므로 여기서 할 일이 없고,
+# rescore_if_changed.py 는 "새로 들어온 브랜드가 채점되는 것"과 메뉴 단위 백분위만 책임진다.
 # 필요한 Secrets: DATABASE_URL
 on:
   schedule:
@@ -24,6 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install -q "psycopg[binary]" pandas
+      - run: python scripts/load_data.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python scripts/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
