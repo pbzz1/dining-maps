@@ -949,16 +949,6 @@ h2 {
 }
 .dash-table th:first-child, .dash-table td:first-child { text-align: left; }
 .dash-table th { color: var(--muted); font-weight: 600; }
-.dash-chip {
-  display: inline-block;
-  padding: 0.05rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-.dash-chip.ok { background: #e8f3ea; color: #2f6b3a; }
-.dash-chip.fail { background: #fbe9e0; color: #a03714; }
-.dash-fail-n { color: #a03714; }
 .dash-footnote { margin: 0.8rem 0 0; font-size: 0.78rem; color: var(--muted); }
 
 /* 대시보드 매장/메뉴 전환. grade-mode-toggle 재사용, 여백만 조정 */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { track } from "../constants";
-import { fetchStatsBrands, fetchStatsQuality } from "../api";
+import { fetchStatsBrands } from "../api";
 import MenuExplorer from "./MenuExplorer";
 import BrandExplorer from "./BrandExplorer";
 
@@ -79,17 +79,13 @@ function GradeStackRow({ b }) {
 
 export default function Dashboard() {
   const [brands, setBrands] = useState(null);
-  const [quality, setQuality] = useState(null);
   const [nutrient, setNutrient] = useState(NUTRIENT_TABS[1]); // 나트륨이 이 서비스의 주제
   const [view, setView] = useState("brand"); // brand(매장) / menu(메뉴)
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([fetchStatsBrands(), fetchStatsQuality()])
-      .then(([b, q]) => {
-        setBrands(b);
-        setQuality(q);
-      })
+    fetchStatsBrands()
+      .then(setBrands)
       .catch((e) => setError(e.message));
   }, []);
 
@@ -271,60 +267,6 @@ export default function Dashboard() {
         </p>
       </section>
       </>}
-
-      {/* 데이터 품질은 매장/메뉴 어느 쪽 숫자든 근거가 되므로 탭 밖에 둔다 */}
-      <section className="dash-card">
-        <h2>
-          데이터 품질 (크롤 회차별)
-          <InfoPop>
-            <strong>무엇을 보여주나</strong> — 위 차트들이 <em>무엇을</em> 보여주는가라면, 이
-            표는 그 숫자를 <em>믿어도 되는가</em>에 대한 기록이다. 크롤을 돌릴 때마다 검증
-            체크를 걸고, 통과한 회차만 화면에 쓰는 서빙 테이블에 반영한다.
-            <br />
-            <br />
-            <strong>열 읽는 법</strong> — <em>실행</em>은 수동(manual)인지 스케줄러(airflow)인지.{" "}
-            <em>검증</em>은 통과/전체 체크 수. <em>파서 이상 의심</em>은 값이 튀어 크롤러
-            버그로 의심되는 항목 수다.
-            <br />
-            <br />
-            <strong>차단된 회차</strong> — ✗ 표시는 실패한 크롤이 <em>막힌</em> 기록이지 나쁜
-            데이터가 들어간 기록이 아니다. 게이트가 일한 흔적.
-          </InfoPop>
-        </h2>
-        <p className="dash-sub">
-          검증 게이트를 통과해야만 서빙 테이블에 반영된다. 실패한 회차는 데이터에 반영되지 않은 기록이다.
-        </p>
-        <table className="dash-table">
-          <thead>
-            <tr><th>회차</th><th>시각</th><th>실행</th><th>결과</th><th>검증</th><th>파서 이상 의심</th></tr>
-          </thead>
-          <tbody>
-            {quality.map((q) => (
-              <tr key={q.run_id}>
-                <td>#{q.run_id}</td>
-                <td>{q.started_at.slice(0, 16).replace("T", " ")}</td>
-                <td>{q.source}</td>
-                <td>
-                  <span className={`dash-chip ${q.status === "passed" ? "ok" : "fail"}`}>
-                    {q.status === "passed" ? "✓ 통과" : "✗ 차단"}
-                  </span>
-                </td>
-                <td>
-                  {q.checks_pass}/{q.checks_total}
-                  {q.checks_fail > 0 && <strong className="dash-fail-n"> (fail {q.checks_fail})</strong>}
-                </td>
-                <td>{q.suspected_parser_bugs || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* ponytail: 월별 영양 추이 차트는 아직 안 그린다. mart_nutrient_trend의
-            5개 회차가 전부 같은 날이라 선 하나짜리 가짜 추이가 된다. 크롤 회차가
-            두 달치 이상 쌓이면 여기에 회차별 라인 차트를 추가할 것. */}
-        <p className="dash-footnote">
-          월별 영양 변화 추이는 크롤 회차가 쌓이는 대로 이 자리에 표시됩니다.
-        </p>
-      </section>
     </div>
   );
 }
