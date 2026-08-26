@@ -42,6 +42,30 @@ SEED = [
     ("롯데리아", "통다리크리스피치킨버거", "2026-01-06"),
 ]
 
+# 메뉴 이미지 (브랜드 공식 CDN, 2026-08-26 각 사이트에서 직접 확인. 핫링크 200 확인).
+# 구체적 패턴이 먼저 오도록 정렬 -- image_url IS NULL 가드와 함께 라지세트/세트가
+# 기본 패턴에 덮이지 않게 한다. 포케올데이·도미노 치킨박스는 공식 이미지 URL을
+# 못 찾아 비워둠 -- 프론트는 이미지 없이 렌더링한다.
+BK_IMG = "https://mob-prd.burgerking.co.kr/images/menu/web/thumb"
+IMAGE_SEED = [
+    ("버거킹", "데리야킹크리스퍼라지세트", f"{BK_IMG}/2026/08/06/a16cf30d-a981-4116-9597-12ed0e76908f.png"),
+    ("버거킹", "데리야킹크리스퍼세트", f"{BK_IMG}/2026/08/06/eb7a3e96-2c76-457a-b647-fe0714483209.png"),
+    ("버거킹", "데리야킹크리스퍼", f"{BK_IMG}/2026/08/06/d6d2d8aa-7b14-4c60-bb94-0ec8fb14690c.png"),
+    ("버거킹", "오믈렛크루아상위치세트", f"{BK_IMG}/2026/07/27/ae64b357-3f2e-4025-8077-49058d247a01.png"),
+    ("버거킹", "오믈렛크루아상위치콤보", f"{BK_IMG}/2026/07/27/e29de508-c45b-4f93-9230-c0fad7e3614a.png"),
+    ("버거킹", "BLT오믈렛크루아상위치콤보", f"{BK_IMG}/2026/07/27/da8939dc-b1a0-4e73-8cba-d2b04d094e7e.png"),
+    ("버거킹", "BLT오믈렛크루아상위치세트", f"{BK_IMG}/2026/07/27/d89387bd-2506-4ce1-88c9-f83f37be2c91.png"),
+    ("버거킹", "BLT오믈렛크루아상위치", f"{BK_IMG}/2026/07/27/e3802bf0-5bd4-4da0-ab73-bf162e2239f5.png"),
+    ("버거킹", "잠봉햄&치즈오믈렛크루아상위치", f"{BK_IMG}/2026/07/27/af989a08-8f50-4a93-a6a5-c7385272fbee.png"),
+    ("버거킹", "잠봉햄&치즈크루아상위치콤보", f"{BK_IMG}/2026/07/27/e4ad65c8-8b27-4add-9478-378539a197f0.png"),
+    ("버거킹", "잠봉햄&치즈크루아상위치세트", f"{BK_IMG}/2026/07/27/fa5bcdff-5da5-4ff0-8fca-c6442041c09a.png"),
+    ("버거킹", "오믈렛크루아상위치", f"{BK_IMG}/2026/07/27/aca61b90-cfc4-477c-8550-5978f0cc466d.png"),
+    ("도미노피자", "무진장슈림프스테이크+랍스터", "https://cdn.dominos.co.kr/admin/upload/goods/20260706_gN8CXaTO.jpg"),
+    ("도미노피자", "무진장슈림프스테이크+포테이토", "https://cdn.dominos.co.kr/admin/upload/goods/20260706_aWrcsy8I.jpg"),
+    ("도미노피자", "무진장슈림프스테이크", "https://cdn.dominos.co.kr/admin/upload/goods/20260821_BGZcKnxb.jpg"),
+    ("배스킨라빈스", "산딸기가끌리는연유", "https://www.baskinrobbins.co.kr/upload/product/main/e97152372159daa503e512f139644e1f.png"),
+]
+
 
 def main() -> None:
     with connect() as conn:
@@ -60,6 +84,20 @@ def main() -> None:
             total += len(rows)
             print(f"  {brand} {pattern} -> {date}: {len(rows)}건")
         print(f"released_at 백필 완료: {total}건")
+
+        img_total = 0
+        for brand, pattern, url in IMAGE_SEED:
+            rows = conn.execute(
+                """UPDATE menu_item mi SET image_url = %s
+                   FROM restaurant r
+                   WHERE r.id = mi.restaurant_id AND r.name = %s
+                     AND replace(mi.name, ' ', '') ILIKE %s
+                     AND mi.image_url IS NULL
+                   RETURNING mi.name""",
+                (url, brand, f"%{pattern}%"),
+            ).fetchall()
+            img_total += len(rows)
+        print(f"image_url 백필 완료: {img_total}건")
 
 
 if __name__ == "__main__":
