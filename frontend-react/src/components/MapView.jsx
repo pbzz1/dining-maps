@@ -5,6 +5,10 @@ import {
   DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, formatDistance,
 } from "../constants";
 
+// 추천 TOP 3 왕관 (범례 설명과 핀 장식에 공용)
+const CROWN_PATH = "M3.5 8.5 L8 12 L12 5.5 L16 12 L20.5 8.5 L18.5 17.5 Q12 19 5.5 17.5 Z";
+const CROWN_SVG = `<svg class="pin-crown" width="24" height="24" viewBox="0 0 24 24"><path d="${CROWN_PATH}" fill="#FFC53D" stroke="#B8860B" stroke-width="1.2" stroke-linejoin="round"></path></svg>`;
+
 // 주변 매장 전부가 아니라 "다이어트로 그나마 추천할 만한" 상위 N곳만 보여준다.
 const RECOMMEND_LIMIT = 15;
 
@@ -193,7 +197,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       el.className = `map-pin${isTop ? " map-pin-top" : ""}`;
       el.style.background = GRADE_COLOR[displayGrade] ?? "#999";
       el.innerHTML =
-        (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
+        (isTop ? `${CROWN_SVG}<em class="pin-rank">${rank + 1}</em>` : "") +
         `<b class="pin-grade">${displayGrade ?? "?"}</b><span>${store.restaurant_name}</span>`;
       el.addEventListener("click", () => showPopup(store));
 
@@ -311,6 +315,13 @@ export default function MapView({ onOpenMenu, visible = true }) {
               {g} {{ A: "아주 좋음", B: "좋음", C: "보통", D: "주의" }[g]}
             </span>
           ))}
+          <span className="legend-divider" />
+          <span>
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path d={CROWN_PATH} fill="#FFC53D" stroke="#B8860B" strokeWidth="1.2" strokeLinejoin="round" />
+            </svg>
+            1·2·3 = 다이어트 추천 순위
+          </span>
         </div>
         <div className="store-list">
           {!searched && !sdkError && (
