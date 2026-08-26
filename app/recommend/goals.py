@@ -25,7 +25,7 @@ GOALS = {
     },
     "low_sodium": {
         "label": "저나트륨",
-        "requires": ("calorie", "sodium"),
+        "requires": ("calorie", "sodium", "sugar"),
         "score": lambda n, _: -n["sodium"],
         # WHO 1일 권장 2000mg 대비 비율 -- "좋다"는 주장 대신 사실만 적는다.
         "reason": lambda n, _: f"나트륨 {n['sodium']:.0f}mg (WHO 1일 권장량의 {n['sodium'] / 2000 * 100:.0f}%)",
@@ -68,6 +68,10 @@ def score_item(goal: str, nutrients: dict, diet_score, limits: dict, drink: bool
     # 안 하면 비율 기반 goal 에서 3kcal 차가 단백질 1등을 한다.
     if not drink and nutrients["calorie"] < MIN_CALORIE:
         return None
+    # 저나트륨은 나트륨만 보면 케이크·아이스크림이 1등을 한다 -- 당류가 WHO 상한
+    # (총에너지 10%E = 2.5g/100kcal, docs/diet_score.md) 이내인 메뉴만 남긴다.
+    if goal == "low_sodium" and nutrients["sugar"] > nutrients["calorie"] * 0.025:
+        return None
     for param, nutrient in LIMITS.items():
         cap = limits.get(param)
         # 상한이 걸렸는데 값이 없으면 모른다 -> 보수적으로 제외.
@@ -93,4 +97,8 @@ if __name__ == "__main__":
     assert not is_drink("아이스크림", "Green Tea 그린티")
     assert score_item("diet", {"calorie": 5}, 100, {}, drink=True)[0] == 100  # 음료는 100kcal 미만도 OK
     assert score_item("protein", {"calorie": 5, "protein": 1}, None, {}, drink=True) is None
+    cake = {"calorie": 400, "sodium": 60, "sugar": 35}  # 저나트륨이지만 당 10%E 초과 -> 제외
+    assert score_item("low_sodium", cake, None, {}) is None
+    assert score_item("low_sodium", {"calorie": 400, "sodium": 60, "sugar": 8}, None, {})[0] == -60
+    assert score_item("low_sodium", {"calorie": 400, "sodium": 60}, None, {}) is None  # 당류 결측 -> 모름 -> 제외
     print("ok")
