@@ -6,7 +6,7 @@
 
 ponytail: 가중치는 상수. A/B 테스트가 필요해지면 그때 테이블로 뺀다.
 """
-import re
+from app.menu_category import is_drink  # noqa: F401  (기존 import 경로 유지)
 
 GOALS = {
     "diet": {
@@ -35,24 +35,6 @@ GOALS = {
 # 하드 제약: 점수 매기기 전에 먼저 걸러낸다. 쿼리 파라미터 이름 -> 영양소.
 LIMITS = {"max_calorie": "calorie", "max_sodium": "sodium", "max_sugar": "sugar"}
 MIN_CALORIE = 100
-
-# ponytail: category 값이 브랜드마다 제각각(130종)이라 정규화 대신 키워드로 음료를 판별한다.
-# 카테고리 정규화 컬럼이 생기면 그걸로 교체.
-DRINK_KEYWORDS = ("음료", "커피", "에스프레소", "라떼", "브루", "프라푸치노", "블렌디드", "주스",
-                  "스무디", "스파클링", "피지오", "아이스샷", "리프레셔", "쉐이크", "아메리카노", "초코",
-                  "드링크", "소다", "빙수", "할리치노")
-
-# "티"(차)만 한 글자라 부분일치로 쓰면 패**티**·스파게**티**·로**티**세리·**티**라미수·그린**티**가
-# 전부 음료로 잡힌다 (실제로 도미노 피자 23개가 음료 기준으로 채점되고 있었다). 앞뒤가 한글이
-# 아닐 때만 "티"로 인정한다 -- 스타벅스 "티(티바나)"·커피빈 "티" 카테고리와 "... 블랙 티" 같은
-# 이름은 그대로 잡히고, 위 오탐 36건은 전부 빠진다.
-DRINK_TEA_RE = re.compile(r"(?<![가-힣])티(?![가-힣])")
-
-
-def is_drink(category: str | None, name: str) -> bool:
-    text = f"{category or ''} {name}"
-    return any(k in text for k in DRINK_KEYWORDS) or bool(DRINK_TEA_RE.search(text))
-
 
 # 식약처 「식품등의 표시기준」 1회 섭취참고량: 음료류 200ml. 도미노는 병 음료 영양성분을
 # 용기 전체(스프라이트 1.5L = 660kcal, 당류 165g) 기준으로만 공개해서, 그대로 두면

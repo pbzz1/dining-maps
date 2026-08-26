@@ -783,6 +783,21 @@ h2 {
 
 .nutrient-badge b { color: var(--accent); }
 
+/* 용기 전체로만 영양성분을 공개하는 병 음료(도미노 1.5L 등)는 1회분 환산과 전체를
+   두 줄로 같이 보여준다. 아래줄(전체)은 참고값이라 눌러서 표시한다. */
+.basis-chip {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 3px 0;
+  min-width: 72px;
+}
+
+.nutrition-row-total {
+  margin-top: 4px;
+  opacity: 0.62;
+}
+
 .card-grade-slot {
   margin-top: 8px;
   display: flex;
@@ -945,6 +960,40 @@ h2 {
 .dash-chip.fail { background: #fbe9e0; color: #a03714; }
 .dash-fail-n { color: #a03714; }
 .dash-footnote { margin: 0.8rem 0 0; font-size: 0.78rem; color: var(--muted); }
+
+/* --- 메뉴 탐색기 --- */
+.mx-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1.2rem;
+}
+.mx-filters .dash-tabs { margin-bottom: 0; }
+.mx-selects { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+.mx-selects label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; }
+.mx-selects label span { color: var(--muted); }
+.mx-selects select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+/* 표가 넓어도 페이지 전체가 가로로 밀리지 않게, 표만 자기 안에서 스크롤한다. */
+.dash-table-scroll { overflow-x: auto; }
+.mx-table { min-width: 44rem; }
+.mx-table td { white-space: nowrap; }
+/* 이름·브랜드는 글자라 왼쪽, 나머지 수치는 dash-table 기본대로 오른쪽 정렬 */
+.mx-table th:nth-child(-n + 3), .mx-table td:nth-child(-n + 3) { text-align: left; }
+.mx-rank { color: var(--muted); width: 2rem; }
+.mx-name { white-space: normal; min-width: 12rem; }
+.mx-cat { text-align: left; color: var(--muted); font-size: 0.78rem; }
+/* 지금 무엇으로 줄 세웠는지 -- 해당 컬럼만 강조 */
+.dash-td-hi { background: var(--accent-soft); font-weight: 600; }
+th.dash-td-hi { color: var(--accent); }
+
 @media (max-width: 640px) {
   .dash-bar-row { grid-template-columns: 5rem 1fr 4rem; }
 }

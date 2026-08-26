@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { track } from "../constants";
 import { fetchStatsBrands, fetchStatsQuality } from "../api";
+import MenuExplorer from "./MenuExplorer";
 
 // 대시보드. 원천은 /api/stats/* (mart 머티리얼라이즈드 뷰라 요청 비용이 거의 없다).
 //
@@ -217,8 +218,8 @@ export default function Dashboard() {
             길다고 나쁜 메뉴라는 뜻은 아니다 — 양이 많은 메뉴일 수도 있다.
             <br />
             <br />
-            <strong>주의</strong> — 브랜드마다 판매 단위가 다르다. 도미노피자는 피자 한 판
-            기준이라 1인분 기준 브랜드와 직접 비교하면 안 된다.
+            <strong>주의</strong> — 브랜드마다 표기 기준이 다르다. BHC·교촌치킨은 100g 기준,
+            도미노피자는 1회분(피자 150g) 기준이라 1인분 그대로인 브랜드와 직접 비교하면 안 된다.
           </InfoPop>
         </h2>
         <div className="dash-tabs">
@@ -242,10 +243,12 @@ export default function Dashboard() {
           />
         ))}
         <p className="dash-footnote">
-          메뉴 1개당 평균. 브랜드마다 판매 단위가 다른 점에 주의 --
-          예: 도미노피자는 피자 한 판 기준이라 1인분 기준인 브랜드보다 값이 크게 나온다.
+          메뉴 1개당 평균. 브랜드마다 표기 기준이 다른 점에 주의 --
+          예: BHC·교촌치킨은 100g 기준, 도미노피자는 1회분(피자 150g) 기준이다.
         </p>
       </section>
+
+      <MenuExplorer brands={brands} />
 
       <section className="dash-card">
         <h2>

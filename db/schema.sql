@@ -52,7 +52,13 @@ CREATE TABLE IF NOT EXISTS nutrition_fact (
     UNIQUE (menu_item_id, nutrient_name)
 );
 
+-- category 는 브랜드가 준 원본 그대로(버거킹은 메뉴 이름이 그대로 들어있고 맥도날드는
+-- 아예 비어 있다)라 필터로 못 쓴다. app/menu_category.py 가 category+name 을 보고
+-- 정규화한 결과를 load_data.py 가 여기 채운다 -- 대시보드 메뉴 탐색기가 이걸로 거른다.
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS category_group TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_menu_item_restaurant ON menu_item(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_menu_item_category_group ON menu_item(category_group);
 CREATE INDEX IF NOT EXISTS idx_nutrition_fact_item ON nutrition_fact(menu_item_id);
 CREATE INDEX IF NOT EXISTS idx_nutrition_fact_name ON nutrition_fact(nutrient_name);
 

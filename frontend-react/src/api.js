@@ -17,3 +17,5 @@ export const fetchMenu = (id) => get(`/restaurants/${id}/menu`);
 export const fetchStores = (params) => get("/stores", params);
 export const fetchStatsBrands = () => get("/stats/brands");
 export const fetchStatsQuality = () => get("/stats/quality");
+// 메뉴 탐색기. params: { sort, category?, restaurant_id?, limit? }
+export const fetchMenus = (params) => get("/menus", params);
