@@ -94,7 +94,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         position: new window.kakao.maps.LatLng(store.lat, store.lng),
         content: el,
         yAnchor: 1.4,
-        zIndex: 10,
+        zIndex: 300000, // 호버로 끌어올린 핀(200000)보다도 항상 위
       });
       overlay.setMap(map);
       popupRef.current = overlay;
@@ -197,12 +197,19 @@ export default function MapView({ onOpenMenu, visible = true }) {
         `<b class="pin-grade">${displayGrade ?? "?"}</b><span>${store.restaurant_name}</span>`;
       el.addEventListener("click", () => showPopup(store));
 
+      // 겹칠 때 아래 핀의 글자가 위 핀 뒤로 삐져나와 보이는 문제:
+      // 화면상 아래(남쪽)에 있는 핀이 위에 오도록 위도 기반으로 쌓아
+      // 자연스러운 층으로 보이게 하고, 상위 3곳은 항상 그 위에 둔다.
+      const baseZ = isTop ? 100000 + (3 - rank) : Math.round((90 - store.lat) * 1000);
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(store.lat, store.lng),
         content: el,
         yAnchor: 1,
-        zIndex: isTop ? 3 : 1, // 상위 3곳이 다른 핀에 가려지지 않게
+        zIndex: baseZ,
       });
+      // 호버한 핀은 맨 앞으로 -- 가려진 핀도 커서만 대면 전체가 보인다.
+      el.addEventListener("mouseenter", () => overlay.setZIndex(200000));
+      el.addEventListener("mouseleave", () => overlay.setZIndex(baseZ));
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
     });
