@@ -1033,60 +1033,52 @@ th.dash-td-hi { color: var(--accent); }
   .dash-bar-row { grid-template-columns: 5rem 1fr 4rem; }
 }
 
-/* --- 신메뉴 피드 --- */
-.nm-page { max-width: 900px; margin: 0 auto; padding: 1.2rem; }
+/* --- 신메뉴 표 --- */
+.nm-page { max-width: 1100px; margin: 0 auto; padding: 1.2rem; }
 .nm-title { margin: 0 0 0.2rem; font-size: 1.15rem; }
-.nm-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.9rem;
-  margin-top: 1rem;
-}
-.nm-card {
-  background: var(--card-bg);
+.nm-table td { white-space: nowrap; }
+.nm-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.nm-th:hover { color: var(--accent); }
+.nm-arrow { margin-left: 0.2rem; font-size: 0.65rem; }
+.nm-cell-date { color: var(--muted); font-size: 0.8rem; }
+.nm-detected {
+  margin-left: 0.3rem;
+  padding: 0 0.3rem;
   border: 1px solid var(--border);
-  border-radius: 0.7rem;
-  padding: 0.9rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+  border-radius: 0.3rem;
+  font-size: 0.65rem;
 }
-.nm-head { display: flex; justify-content: space-between; font-size: 0.78rem; }
-.nm-brand { font-weight: 600; color: var(--accent); }
-.nm-date { color: var(--muted); }
-.nm-name { margin: 0; font-size: 1rem; }
-.nm-nutrition {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.7rem;
-  font-size: 0.78rem;
-  color: var(--muted);
+.nm-cell-name { text-align: left; font-weight: 600; }
+.nm-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  background: var(--bg);
 }
-.nm-nutrition b { color: var(--text); font-weight: 600; }
-.nm-review { font-size: 0.82rem; margin: 0; }
-.nm-review p { margin: 0 0 0.35rem; }
+.nm-cell-brandpos { display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
 .nm-verdict {
   display: inline-block;
-  margin-right: 0.4rem;
   padding: 0.05rem 0.45rem;
   border-radius: 0.35rem;
   font-size: 0.72rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 .nm-verdict.good { background: #e3f2e6; color: #1d7a33; }
 .nm-verdict.mid  { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .nm-verdict.bad  { background: var(--accent-soft); color: var(--accent); }
-.nm-taste { color: var(--muted); }
-.nm-pending { color: var(--muted); font-style: italic; }
+.nm-pending { color: var(--muted); font-style: italic; font-size: 0.78rem; }
 .nm-yt {
-  margin-top: auto;
-  align-self: flex-start;
-  padding: 0.3rem 0.7rem;
+  padding: 0.2rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 0.45rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text);
   text-decoration: none;
+  white-space: nowrap;
 }
 .nm-yt:hover { border-color: var(--accent); color: var(--accent); }

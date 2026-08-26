@@ -128,6 +128,11 @@ CREATE TABLE IF NOT EXISTS brand_menu_reco (
 -- COALESCE(released_at, 첫 발견일)로 처리).
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
 
+-- 메뉴 이미지 URL (브랜드 공식 CDN). 크롤러가 자동 수집하지 않는다 -- 브랜드마다
+-- API가 달라 비용이 커서, 신메뉴 등 필요한 것만 seed_released_at.py 계열이 채운다.
+-- NULL이면 프론트가 이미지 없이 렌더링.
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 -- 신메뉴 LLM 리뷰 캐시 (scripts/generate_new_menu_reviews.py).
 -- "신메뉴"의 원천은 menu_change_log(change_type='added') -- 별도 감지 로직 없음.
 -- brand_menu_reco와 같은 이유로 menu_item_id FK 저장: 환각 방지 + 표시용

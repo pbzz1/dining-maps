@@ -19,6 +19,11 @@ class NewMenuOut(BaseModel):
     nutrition_basis: str | None
     diet_score: float | None
     absolute_grade: str | None
+    image_url: str | None  # 브랜드 공식 CDN. 크롤 자동수집 아님 -- 시드로만 채워짐
+    # 같은 브랜드·같은 카테고리 안에서의 백분위 (0=최저, 100=최고).
+    # 칼로리는 낮을수록, 단백질은 높을수록 좋은 편.
+    calorie_brand_pct: float | None
+    protein_brand_pct: float | None
     # LLM 리뷰 (new_menu_review). 배치가 아직 안 돌았으면 None -- 프론트는 영양정보만 보여준다.
     diet_verdict: str | None
     diet_comment: str | None

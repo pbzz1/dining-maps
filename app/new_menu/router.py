@@ -60,11 +60,25 @@ WITH added_events AS (
     LEFT JOIN added a ON a.restaurant_name = r.name AND a.menu_name = mi.name
     WHERE COALESCE(mi.released_at, a.first_seen_at::date)
           > (now() - interval '{WINDOW_DAYS} days')::date
+), brand_pct AS (
+    -- "이 신메뉴가 그 브랜드의 같은 카테고리 안에서 칼로리·단백질이 어느 위치인가".
+    -- 브랜드 전체와 비교하면 버거 브랜드의 음료가 늘 '저칼로리 1위'가 되므로
+    -- 같은 category_group 안에서만 줄 세운다. 0 = 최저, 100 = 최고.
+    SELECT nf2.menu_item_id, nf2.nutrient_name,
+           ROUND((PERCENT_RANK() OVER (
+               PARTITION BY mi2.restaurant_id, mi2.category_group, nf2.nutrient_name
+               ORDER BY nf2.value
+           ) * 100)::numeric, 0) AS pct
+    FROM nutrition_fact nf2
+    JOIN menu_item mi2 ON mi2.id = nf2.menu_item_id
+    WHERE nf2.nutrient_name IN ('calorie', 'protein')
 )
 SELECT mi.id, mi.name, r.id AS restaurant_id, r.name AS restaurant_name,
-       mi.category_group, mi.weight_g, mi.nutrition_basis,
+       mi.category_group, mi.weight_g, mi.nutrition_basis, mi.image_url,
        f.event_date, mi.released_at, f.first_seen_at,
        ds.score AS diet_score, ds.absolute_grade,
+       MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'calorie') AS calorie_brand_pct,
+       MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'protein') AS protein_brand_pct,
        MAX(nf.value) FILTER (WHERE nf.nutrient_name = 'calorie')       AS calorie,
        MAX(nf.value) FILTER (WHERE nf.nutrient_name = 'protein')       AS protein,
        MAX(nf.value) FILTER (WHERE nf.nutrient_name = 'sugar')         AS sugar,
@@ -76,11 +90,13 @@ JOIN menu_item mi  ON mi.id = f.id
 JOIN restaurant r  ON r.id = mi.restaurant_id
 LEFT JOIN diet_score ds      ON ds.menu_item_id = mi.id
 LEFT JOIN nutrition_fact nf  ON nf.menu_item_id = mi.id
+LEFT JOIN brand_pct bp       ON bp.menu_item_id = mi.id
 LEFT JOIN new_menu_review rv ON rv.menu_item_id = mi.id
 WHERE f.brand_rank <= {PER_BRAND_CAP}
 GROUP BY mi.id, mi.name, r.id, r.name, mi.category_group, mi.weight_g,
-         mi.nutrition_basis, f.event_date, mi.released_at, f.first_seen_at,
-         ds.score, ds.absolute_grade, rv.diet_verdict, rv.diet_comment, rv.taste_note
+         mi.nutrition_basis, mi.image_url, f.event_date, mi.released_at,
+         f.first_seen_at, ds.score, ds.absolute_grade,
+         rv.diet_verdict, rv.diet_comment, rv.taste_note
 ORDER BY f.event_date DESC, r.name, mi.id
 LIMIT %s
 """
