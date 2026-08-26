@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchStores } from "../api";
 import { useKakaoMap } from "../useKakaoMap";
 import {
-  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, ALL_GRADES, formatDistance,
+  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, formatDistance,
 } from "../constants";
+
+// 주변 매장 전부가 아니라 "다이어트로 그나마 추천할 만한" 상위 N곳만 보여준다.
+const RECOMMEND_LIMIT = 15;
 
 export default function MapView({ onOpenMenu, visible = true }) {
   const containerRef = useRef(null);
@@ -29,14 +32,27 @@ export default function MapView({ onOpenMenu, visible = true }) {
 
   // A/B/C/D 온오프는 클라이언트에서 필터링한다 -- /api/stores의 min_grade는
   // "이 등급 이상"만 지원해서 서버에서 임의 조합(예: A,C만 켜기)을 걸 수 없다.
-  const visibleStores = useMemo(
-    () =>
-      stores.filter((store) => {
-        const g = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
-        return g == null || activeGrades.has(g);
-      }),
-    [stores, gradeType, activeGrades]
-  );
+  // 그 다음 브랜드당 최근접 매장 1곳으로 추리고, 등급 좋은순 → 가까운순으로
+  // 상위 15곳만 남긴다 -- 같은 브랜드 지점 15개를 "추천"이라고 줄세우지 않기 위해.
+  const visibleStores = useMemo(() => {
+    const gradeOf = (s) => (gradeType === "absolute" ? s.absolute_grade : s.relative_grade);
+    const nearestPerBrand = new Map();
+    for (const s of stores) {
+      const g = gradeOf(s);
+      if (g != null && !activeGrades.has(g)) continue;
+      const prev = nearestPerBrand.get(s.restaurant_id);
+      if (!prev || (s.distance_m ?? Infinity) < (prev.distance_m ?? Infinity)) {
+        nearestPerBrand.set(s.restaurant_id, s);
+      }
+    }
+    return [...nearestPerBrand.values()]
+      .sort(
+        (a, b) =>
+          (GRADE_RANK[gradeOf(a)] ?? 9) - (GRADE_RANK[gradeOf(b)] ?? 9) ||
+          (a.distance_m ?? 0) - (b.distance_m ?? 0)
+      )
+      .slice(0, RECOMMEND_LIMIT);
+  }, [stores, gradeType, activeGrades]);
 
   const clearOverlays = useCallback(() => {
     overlaysRef.current.forEach((o) => o.setMap(null));
@@ -96,7 +112,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         setStatus(
           list.length === 0
             ? "주변에 매장이 없습니다."
-            : `주변 매장 ${list.length}곳 (거리순 정렬)`
+            : `주변 매장 ${list.length}곳 중 다이어트 추천 상위 ${Math.min(RECOMMEND_LIMIT, new Set(list.map((s) => s.restaurant_id)).size)}곳`
         );
       } catch (e) {
         setStatus(`매장 정보를 불러오지 못했습니다: ${e.message}`);
@@ -114,11 +130,28 @@ export default function MapView({ onOpenMenu, visible = true }) {
     map.setCenter(new window.kakao.maps.LatLng(centerRef.current.lat, centerRef.current.lng));
   }, [visible, map]);
 
-  // No pins on first open -- 343 markers around the default center is noise.
-  // Stores load only after the user searches or taps "내 위치"; after that a
-  // grade-basis change refetches around the same center. Grade on/off toggles
-  // are client-side filtering, not a refetch -- see visibleStores.
+  // 접속하자마자 내 위치(거부/미지원이면 기본 중심) 주변의 추천 매장을 보여준다.
+  // searched가 켜지면 아래 effect가 centerRef 기준으로 로드하고, 이후 등급 기준
+  // 변경 시 같은 중심으로 refetch한다. 등급 온오프는 refetch 없이 클라이언트
+  // 필터링 -- see visibleStores.
   const [searched, setSearched] = useState(false);
+  useEffect(() => {
+    if (!ready) return;
+    if (!navigator.geolocation) {
+      setSearched(true);
+      return;
+    }
+    setStatus("내 위치 확인 중...");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        centerRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        map.setCenter(new window.kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
+        setSearched(true);
+      },
+      () => setSearched(true) // 권한 거부 -> 기본 중심(서울시청) 주변으로라도 보여준다.
+    );
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!ready || !searched) return;
     loadStores(centerRef.current.lat, centerRef.current.lng);

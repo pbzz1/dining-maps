@@ -10,15 +10,16 @@ import { IconDashboard, IconStar, IconPin, IconList } from "./components/NavIcon
 import "./App.css";
 
 const NAV = [
-  { key: "dashboard", label: "대시보드", Icon: IconDashboard },
-  { key: "recommend", label: "맞춤 추천", Icon: IconStar },
   { key: "map", label: "지도", Icon: IconPin },
+  { key: "recommend", label: "맞춤 추천", Icon: IconStar },
+  { key: "dashboard", label: "대시보드", Icon: IconDashboard },
   { key: "list", label: "매장 목록", Icon: IconList },
 ];
 
 const VIEWS = new Set(NAV.map((n) => n.key));
-// URL 해시가 곧 현재 뷰 -- "#map" 같은 링크를 공유하면 그 탭으로 바로 열린다.
-const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "dashboard");
+// URL 해시가 곧 현재 뷰 -- "#list" 같은 링크를 공유하면 그 탭으로 바로 열린다.
+// 기본 화면은 지도: Dining Maps니까.
+const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "map");
 
 export default function App() {
   const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend
@@ -60,7 +61,7 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(대시보드)으로 완전히 초기화한다. */}
+        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(지도)으로 완전히 초기화한다. */}
         <h1 className="brand">
           <a href="/">
             <LogoMark size={34} />

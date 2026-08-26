@@ -16,7 +16,8 @@ export default defineConfig({
   plugins: [react()],
   envPrefix: ["VITE_", "SITE_URL"],
   server: {
-    port: 5173,
+    port: Number(process.env.PORT) || 5173, // PORT는 워크트리 등 5173이 점유된 환경용
+
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",
