@@ -24,20 +24,23 @@ crawl_*.py      snapshot_and_    load_       compute_        FastAPI
 | 영역 | 기술 |
 |---|---|
 | 수집·가공 | Python, BeautifulSoup, pandas |
-| 저장 | SQLite |
+| 저장 | PostgreSQL 17 (로컬 Docker / 배포 Neon) |
 | API | FastAPI, Pydantic |
 | 프론트 | React, Vite, 카카오맵 JS SDK |
-| 오케스트레이션 | Airflow 3.3.0, PostgreSQL 17, Docker Compose |
+| 오케스트레이션 | Airflow 3.3.0, Docker Compose |
+| CI/CD | GitHub Actions (master push 시 변경된 쪽만 배포) |
 
 ## 현재 데이터
 
 | 항목 | 수치 |
 |---|---|
-| 브랜드 | 5 (맥도날드·롯데리아·맘스터치·서브웨이·샐러디) |
-| 메뉴 | 316 |
-| 영양정보 | 2,011 |
-| 매장 위치 | **4,063** (전국) |
-| 브랜드 조사 대장 | 46곳 (확보 가능 15곳) |
+| 브랜드 | 16 (버거·치킨·커피·샐러드·피자·아이스크림) |
+| 메뉴 | 2,220 |
+| 영양정보 | 12,152 |
+| 매장 위치 | **18,321** (전국) |
+| 브랜드 조사 대장 | 46곳 (그중 확보 완료 16곳) |
+
+자동화 수준은 신뢰도에 따라 다르다 — 안정 파서 4곳(맥도날드·롯데리아·서브웨이·샐러디)은 Airflow가 매월 자동 재크롤, 나머지는 `crawl_viable_brands.py`로 온디맨드 실행(버거킹은 WAF 차단으로 수동, 맘스터치는 이미지 공개라 수기 관리).
 
 ## 설계에서 신경 쓴 것
 
@@ -70,7 +73,7 @@ cd docker && docker compose up airflow-init && docker compose up -d   # localhos
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 
-`db/dining.db`가 리포에 포함되어 있어 크롤링 없이 바로 실행해볼 수 있다.
+DB는 PostgreSQL이 필요하다 — `docker compose up -d postgres-app`(localhost:5432)을 띄우고 `data/*.csv`를 `python scripts/load_data.py`로 적재하면 크롤링 없이 바로 실행해볼 수 있다. (`db/dining.db`는 SQLite 시절 산출물로 더 이상 서빙에 쓰지 않는다.)
 
 ## 배포
 
@@ -119,6 +122,6 @@ VITE_API_BASE=https://<function-url> bash scripts/deploy_frontend.sh
 
 ## 다음 작업
 
-1. 확보 가능한 브랜드 10곳 크롤러 구현
+1. ~~확보 가능한 브랜드 10곳 크롤러 구현~~ → 16개 브랜드 확보 완료
 2. ~~클라우드 배포~~ → CloudFront + Lambda + Neon 으로 완료
 3. 사용자 행동 로그 설계·수집 → KPI 집계
