@@ -106,7 +106,8 @@ MANUAL_FINDINGS = {
         category="버거", status="unknown", nutrition="unknown", nutrition_format="js_rendered",
         nutrients="", price="Y",
         source="https://www.kfckorea.com/menu/detail/N/{id}",
-        notes="주문 페이지라 가격 표시됨(예: 복버켓 16,400). '영양정보표 및 원산지 정보' 링크가 있으나 내용 미확인 - 재조사 필요",
+        notes="주문 페이지라 가격 표시됨(예: 복버켓 16,400). '영양정보표 및 원산지 정보' 링크가 있으나 내용 미확인 - 재조사 필요"
+              " (2026-09-01: 메뉴 상세로 이동 시 앱 딥링크로 리다이렉트되어 브라우저로는 확인 불가, PC와 다른 접근 경로 필요)",
     ),
     "메가커피": dict(
         category="커피", status="rejected", nutrition="N", nutrition_format="none",
@@ -115,10 +116,11 @@ MANUAL_FINDINGS = {
         notes="메뉴 페이지에 이름·영문명·설명만 존재. 별도 영양 페이지 경로도 전부 404",
     ),
     "투썸플레이스": dict(
-        category="커피", status="rejected", nutrition="N", nutrition_format="none",
-        nutrients="", price="N",
-        source="https://www.twosome.co.kr/mn/menuInfoList.do",
-        notes="PC/모바일 모두 영양정보 노출 없음",
+        category="커피", status="unknown", nutrition="unknown", nutrition_format="js_rendered",
+        nutrients="", price="unknown",
+        source="https://www.twosome.co.kr",
+        notes="2026-09-01: 기존 조사 URL(mn/menuInfoList.do)이 사이트 개편으로 없어짐(리다이렉트 안내 페이지). "
+              "새 홈페이지의 '전체메뉴' 버튼이 JS 오버레이라 자동으로 못 열어봄 - 새 메뉴 URL부터 재조사 필요",
     ),
     "노브랜드버거": dict(
         category="버거", status="rejected", nutrition="N", nutrition_format="none",
@@ -142,25 +144,161 @@ MANUAL_FINDINGS = {
         category="한식", status="unknown", nutrition="unknown", nutrition_format="unknown",
         nutrients="", price="unknown",
         source="https://www.bonif.co.kr",
-        notes="SSL 인증서 검증 실패로 접근 불가 - 재조사 필요",
+        notes="2026-09-01: 본아이에프 그룹 랜딩페이지는 열림(SSL 문제 재현 안 됨). 본도시락 서브사이트는 "
+              "따로 안 들어가봄 - 개별 메뉴 URL 확인 필요",
     ),
     "슬로우캘리": dict(
         category="샐러드", status="unknown", nutrition="unknown", nutrition_format="unknown",
         nutrients="", price="unknown",
         source="slowcalorie.co.kr",
-        notes="도메인 연결 거부 - 정확한 도메인 재확인 필요",
+        notes="도메인 연결 거부 - 정확한 도메인 재확인 필요 (2026-09-01 재확인: 이 환경 IP에서 connection refused, "
+              "국내 IP에서 재시도 필요)",
     ),
     "에그드랍": dict(
         category="샌드위치", status="unknown", nutrition="unknown", nutrition_format="unknown",
         nutrients="", price="unknown",
         source="eggdrop.co.kr",
-        notes="SSL 인증서 검증 실패 - 재조사 필요",
+        notes="SSL 인증서 검증 실패 - 재조사 필요 (2026-09-01 재확인: 이 환경 IP에서 connection refused, "
+              "국내 IP에서 재시도 필요)",
     ),
     "BBQ": dict(
+        category="치킨", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="Y",
+        source="https://www.bbq.co.kr/categories/17",
+        notes="2026-09-01: 메뉴 목록 페이지 찾음(가격·조리전 중량 표기 있음, 예: 황금올리브치킨 23,000원/10호 951~1050g). "
+              "영양정보 링크·페이지는 못 찾음",
+    ),
+    # -------------------------------------------------------------------
+    # 2026-09-01 브랜드 조사 대장 전수 재조사 (30개: unknown 25 + rejected 5).
+    # 이 세션 IP가 한국 밖이라 다수 사이트가 connection refused로 막힘(WAF/CDN
+    # 지역 차단으로 추정, curl -v로 TCP 단계에서 거부되는 것 확인 -- 브라우저
+    # denied/failed 도 같은 원인). "접속 불가"로 적힌 건 사이트 자체 문제가
+    # 아니라 이 환경의 한계이니, 국내 IP에서 재확인해야 결론이 난다.
+    # -------------------------------------------------------------------
+    "설빙": dict(
+        category="디저트", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="N",
+        source="https://sulbing.com/menu",
+        notes="메뉴 이름만 나열, 가격·영양정보·상세페이지 링크 전혀 없음",
+    ),
+    "쉐이크쉑": dict(
+        category="버거", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.shakeshack.kr/menu/",
+        notes="이 환경에서 connection refused (TCP 단계 거부, 지역 차단 추정) - 국내 IP에서 재조사 필요",
+    ),
+    "타코벨": dict(
+        category="버거", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.tacobell.co.kr/menu/",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "프랭크버거": dict(
+        category="버거", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="N",
+        source="https://frankburger.co.kr",
+        notes="본사 브랜드 소개 페이지만 있고 실제 메뉴/영양정보 사이트로 가는 링크가 죽어있음(클릭 안 됨)",
+    ),
+    "뚜레쥬르": dict(
+        category="베이커리", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://tlj.co.kr/menu/menu_list",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요. 파리바게뜨(경쟁사)가 "
+              "상품 상세페이지에 영양정보를 서버 렌더링으로 공개하니, 뚜레쥬르도 비슷한 구조일 가능성 있음",
+    ),
+    "파리바게뜨": dict(
+        category="베이커리", status="viable", nutrition="Y", nutrition_format="server_html",
+        nutrients="열량,나트륨,당류,포화지방,단백질", price="unknown",
+        source="https://www.paris.co.kr/product/{slug}/",
+        notes="상품 상세페이지에 '영양정보' 섹션이 curl로도 그대로 잡힘(JS 불필요, 완전 서버 렌더링) - "
+              "예: 감자쫀떡(1개입) 38g/160kcal/나트륨140mg/당류13g/포화지방5g/단백질2g, 알레르기 정보도 같이 있음. "
+              "단 목록 페이지(/products/?cat1=...)는 상품 링크가 JS로 주입돼 curl로는 안 보임 -- "
+              "브라우저 1회로 slug 목록만 수집하면(카테고리별 42개 안팎) 이후 상세페이지는 requests만으로 충분",
+    ),
+    "신전떡볶이": dict(
+        category="분식", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.sinjeon.co.kr/menu",
+        notes="도메인이 호스팅사 404 페이지로 감(사이트 자체가 내려간 것으로 보임) - 정확한 현재 도메인 재확인 필요",
+    ),
+    "죠스떡볶이": dict(
+        category="분식", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://jawstteokbokki.com/menu",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "이삭토스트": dict(
+        category="샌드위치", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.isaac-toast.co.kr/menu",
+        notes="403 Forbidden (봇 차단으로 추정, connection refused와 다름 -- 사이트는 살아있음) - "
+              "일반 브라우저 User-Agent/헤더로 재조사 필요",
+    ),
+    "네네치킨": dict(
+        category="치킨", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="N",
+        source="https://nenechicken.com",
+        notes="메인 페이지에 영양정보 관련 링크·언급 전혀 없음",
+    ),
+    "노랑통닭": dict(
         category="치킨", status="unknown", nutrition="unknown", nutrition_format="unknown",
         nutrients="", price="unknown",
-        source="https://www.bbq.co.kr",
-        notes="메뉴 페이지 경로를 찾지 못함(시도한 URL 전부 404) - 재조사 필요",
+        source="https://www.norangtongdak.com/menu",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "처갓집양념치킨": dict(
+        category="치킨", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.cheogajip.co.kr/menu",
+        notes="404 Not Found (사이트는 응답하나 이 경로가 없음) - 정확한 메뉴 URL 재확인 필요",
+    ),
+    "푸라닭": dict(
+        category="치킨", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.puradak.com/menu",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "컴포즈커피": dict(
+        category="커피", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://composecoffee.com",
+        notes="사이트는 열리나(/menu는 404) 메인 페이지에서 메뉴로 가는 링크를 못 찾음 - 정확한 메뉴 URL 재확인 필요",
+    ),
+    "폴바셋": dict(
+        category="커피", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.paulbassett.co.kr/menu/menuList",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "미스터피자": dict(
+        category="피자", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="N",
+        source="https://www.mrpizza.co.kr/menu",
+        notes="메뉴 이름 목록만 있고(가격·영양정보 없음) 클릭해도 상세페이지로 안 넘어가는 구식 게시판형 구조",
+    ),
+    "파파존스": dict(
+        category="피자", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="http://www.papajohns.co.kr/menu/",
+        notes="이 환경에서 connection refused - 국내 IP에서 재조사 필요",
+    ),
+    "피자헛": dict(
+        category="피자", status="rejected", nutrition="N", nutrition_format="none",
+        nutrients="", price="unknown",
+        source="https://www.pizzahut.co.kr/menu/list",
+        notes="메뉴 페이지에 영양정보 관련 내용 없음",
+    ),
+    "본죽": dict(
+        category="한식", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.bonif.co.kr/bonjuk/menu",
+        notes="본아이에프 그룹 랜딩페이지만 확인, 본죽 서브사이트는 따로 안 들어가봄 - 재조사 필요",
+    ),
+    "본죽&비빔밥": dict(
+        category="한식", status="unknown", nutrition="unknown", nutrition_format="unknown",
+        nutrients="", price="unknown",
+        source="https://www.bonif.co.kr/bonjukbibimbap/menu",
+        notes="본아이에프 그룹 랜딩페이지만 확인, 서브사이트는 따로 안 들어가봄 - 재조사 필요",
     ),
 }
 
