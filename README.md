@@ -73,7 +73,7 @@ cd docker && docker compose up airflow-init && docker compose up -d   # localhos
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 
-DB는 PostgreSQL이 필요하다 — `docker compose up -d postgres-app`(localhost:5432)을 띄우고 `data/*.csv`를 `python scripts/load_data.py`로 적재하면 크롤링 없이 바로 실행해볼 수 있다. (`db/dining.db`는 SQLite 시절 산출물로 더 이상 서빙에 쓰지 않는다.)
+DB는 PostgreSQL이 필요하다 — `docker compose up -d postgres-app`(localhost:5432)을 띄우고 `data/*.csv`를 `python scripts/pipeline/load_data.py`로 적재하면 크롤링 없이 바로 실행해볼 수 있다. (`db/dining.db`는 SQLite 시절 산출물로 더 이상 서빙에 쓰지 않는다.)
 
 ## 배포
 
@@ -90,9 +90,9 @@ DB는 PostgreSQL이 필요하다 — `docker compose up -d postgres-app`(localho
 
 ```bash
 # API (최초 생성·재배포 동일). 출력된 Function URL을 아래 프론트 배포에 넘긴다.
-DATABASE_URL=postgresql://... ALLOWED_ORIGINS=https://<cloudfront-domain> bash scripts/deploy_lambda.sh
+DATABASE_URL=postgresql://... ALLOWED_ORIGINS=https://<cloudfront-domain> bash scripts/deploy/deploy_lambda.sh
 # 프론트 (빌드 → S3 sync → 캐시 무효화)
-VITE_API_BASE=https://<function-url> bash scripts/deploy_frontend.sh
+VITE_API_BASE=https://<function-url> bash scripts/deploy/deploy_frontend.sh
 ```
 
 - 리전은 `ap-southeast-2` 고정 — 계정 SCP가 이 리전만 허용한다. Neon(싱가포르)과 왕복 ~90ms라 엔드포인트 안에서 쿼리 횟수를 줄여야 한다(메뉴 API의 N+1을 이 이유로 제거).

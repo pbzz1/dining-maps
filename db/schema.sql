@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_nutrition_fact_item ON nutrition_fact(menu_item_i
 CREATE INDEX IF NOT EXISTS idx_nutrition_fact_name ON nutrition_fact(nutrient_name);
 
 -- Diet-friendliness score per menu item. Computed offline by
--- scripts/compute_diet_score.py from nutrition_fact (see docs/diet_score.md
+-- scripts/pipeline/compute_diet_score.py from nutrition_fact (see docs/diet_score.md
 -- for the formula and why it's shaped this way) and rewritten each run,
 -- so it's a derived cache table, not a source of truth.
 --
@@ -88,12 +88,12 @@ ALTER TABLE diet_score ADD COLUMN IF NOT EXISTS basis TEXT NOT NULL DEFAULT 'mea
 
 -- Physical branch locations, one row per real-world store location.
 -- Populated separately from menu data via the Kakao Local API
--- (scripts/fetch_store_locations.py) since brand-level menu scraping
+-- (scripts/pipeline/fetch_store_locations.py) since brand-level menu scraping
 -- tells us nothing about where branches actually are.
 -- last_seen_at is bumped on every upsert (see fetch_store_locations*.py). A
 -- store whose last_seen_at falls too far behind "now" was not found in the
 -- most recent re-crawl -- likely closed or renamed -- and is a candidate for
--- scripts/flag_stale_stores.py to flag rather than delete outright.
+-- scripts/pipeline/flag_stale_stores.py to flag rather than delete outright.
 CREATE TABLE IF NOT EXISTS store (
     id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     restaurant_id INTEGER NOT NULL REFERENCES restaurant(id),
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS store (
 CREATE INDEX IF NOT EXISTS idx_store_restaurant ON store(restaurant_id);
 
 -- LLM이 브랜드별로 미리 뽑아둔 "다이어트 추천 메뉴 + 한 문장 이유"
--- (scripts/generate_menu_reco.py, 크롤/재채점 후 배치로 갱신). 지도 팝업과
+-- (scripts/llm/generate_menu_reco.py, 크롤/재채점 후 배치로 갱신). 지도 팝업과
 -- 매장 카드가 그대로 읽는다 -- 런타임에 LLM을 호출하지 않기 위한 캐시.
 -- menu_name이 아니라 menu_item_id를 저장하는 이유: 배치 스크립트가 LLM 응답을
 -- 실제 메뉴 목록과 대조해 환각을 걸러낸 뒤의 결과만 들어오게 강제하고,
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS brand_menu_reco (
 
 -- 실제 출시일. 크롤 diff의 첫 발견일(menu_change_log 'added')은 "우리가 처음 본 날"
 -- 이지 출시일이 아니라서, 보도자료·기사에서 확인된 날짜를 여기 둔다.
--- scripts/seed_released_at.py 가 1회성 백필로 채우고, 이후 신메뉴는 크롤 diff가
+-- scripts/pipeline/seed_released_at.py 가 1회성 백필로 채우고, 이후 신메뉴는 크롤 diff가
 -- 하루 이내로 잡으므로 첫 발견일이 충분한 근사치다 (NULL = 미확인, 피드가
 -- COALESCE(released_at, 첫 발견일)로 처리).
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
@@ -133,7 +133,7 @@ ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
 -- NULL이면 프론트가 이미지 없이 렌더링.
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS image_url TEXT;
 
--- 신메뉴 LLM 리뷰 캐시 (scripts/generate_new_menu_reviews.py).
+-- 신메뉴 LLM 리뷰 캐시 (scripts/llm/generate_new_menu_reviews.py).
 -- "신메뉴"의 원천은 menu_change_log(change_type='added') -- 별도 감지 로직 없음.
 -- brand_menu_reco와 같은 이유로 menu_item_id FK 저장: 환각 방지 + 표시용
 -- 정보는 조인으로. 리뷰는 메뉴당 1회 생성되면 갱신하지 않는다 (신메뉴는
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS new_menu_review (
 );
 
 -- ---------------------------------------------------------------------------
--- History + data quality (scripts/snapshot_and_validate.py)
+-- History + data quality (scripts/pipeline/snapshot_and_validate.py)
 --
 -- menu_item/nutrition_fact are UPSERTed on every load, which means they only
 -- ever hold "what the brands publish right now" -- every previous value is
@@ -219,7 +219,7 @@ CREATE INDEX IF NOT EXISTS idx_nutrition_snapshot_item ON nutrition_snapshot(men
 CREATE INDEX IF NOT EXISTS idx_change_log_run ON menu_change_log(run_id);
 
 -- ---------------------------------------------------------------------------
--- 대시보드용 mart (scripts/refresh_marts.py)
+-- 대시보드용 mart (scripts/pipeline/refresh_marts.py)
 --
 -- 데이터는 하루 한 번 파이프라인이 돌 때만 바뀌는데 대시보드는 요청마다
 -- 열린다. 요청마다 nutrition_fact 1.2만 행을 집계할 이유가 없어 결과를
