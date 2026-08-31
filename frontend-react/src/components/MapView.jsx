@@ -11,7 +11,16 @@ const CROWN_PATH = "M3.5 8.5 L8 12 L12 5.5 L16 12 L20.5 8.5 L18.5 17.5 Q12 19 5.
 const CROWN_SVG = `<svg class="pin-crown" width="24" height="24" viewBox="0 0 24 24"><path d="${CROWN_PATH}" fill="#FFC53D" stroke="#B8860B" stroke-width="1.2" stroke-linejoin="round"></path></svg>`;
 
 // 주변 매장 전부가 아니라 "다이어트로 그나마 추천할 만한" 상위 N곳만 보여준다.
+// 기본값일 뿐 -- 사용자가 툴바에서 바꿀 수 있다 (LIMIT_OPTIONS/RADIUS_OPTIONS).
 const RECOMMEND_LIMIT = 15;
+const LIMIT_OPTIONS = [10, 15, 20, 30];
+const RADIUS_OPTIONS = [
+  { value: 1000, label: "1km" },
+  { value: 2000, label: "2km" },
+  { value: 3000, label: "3km" },
+  { value: 5000, label: "5km" },
+  { value: 10000, label: "10km" },
+];
 
 export default function MapView({ onOpenMenu, visible = true }) {
   const containerRef = useRef(null);
@@ -27,6 +36,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const [gradeType, setGradeType] = useState("relative");
   const [activeGrades, setActiveGrades] = useState(() => new Set(ALL_GRADES));
   const [keyword, setKeyword] = useState("");
+  const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
+  const [limit, setLimit] = useState(RECOMMEND_LIMIT);
 
   function toggleGrade(g) {
     setActiveGrades((prev) => {
@@ -57,8 +68,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
           (GRADE_RANK[gradeOf(a)] ?? 9) - (GRADE_RANK[gradeOf(b)] ?? 9) ||
           (a.distance_m ?? 0) - (b.distance_m ?? 0)
       )
-      .slice(0, RECOMMEND_LIMIT);
-  }, [stores, gradeType, activeGrades]);
+      .slice(0, limit);
+  }, [stores, gradeType, activeGrades, limit]);
 
   const clearOverlays = useCallback(() => {
     overlaysRef.current.forEach((o) => o.setMap(null));
@@ -132,19 +143,19 @@ export default function MapView({ onOpenMenu, visible = true }) {
       setStatus("매장 불러오는 중...");
       clearOverlays();
       try {
-        const params = { lat, lng, radius_m: SEARCH_RADIUS_M, grade_type: gradeType };
+        const params = { lat, lng, radius_m: radiusM, grade_type: gradeType };
         const list = await fetchStores(params);
         setStores(list);
         setStatus(
           list.length === 0
             ? "주변에 매장이 없습니다."
-            : `주변 매장 ${list.length}곳 중 다이어트 추천 상위 ${Math.min(RECOMMEND_LIMIT, new Set(list.map((s) => s.restaurant_id)).size)}곳`
+            : `주변 매장 ${list.length}곳 중 다이어트 추천 상위 ${Math.min(limit, new Set(list.map((s) => s.restaurant_id)).size)}곳`
         );
       } catch (e) {
         setStatus(`매장 정보를 불러오지 못했습니다: ${e.message}`);
       }
     },
-    [gradeType, clearOverlays]
+    [gradeType, radiusM, limit, clearOverlays]
   );
 
   // The map is mounted inside a display:none wrapper when another tab is the
@@ -182,7 +193,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
   useEffect(() => {
     if (!ready || !searched) return;
     loadStores(centerRef.current.lat, centerRef.current.lng);
-  }, [ready, searched, gradeType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, searched, gradeType, radiusM]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Draw pins for whatever store list is current.
   useEffect(() => {
@@ -277,6 +288,32 @@ export default function MapView({ onOpenMenu, visible = true }) {
         </div>
 
         <div className="filter-controls">
+          <div className="filter-group">
+            <span className="filter-label">검색 반경</span>
+            <select
+              className="map-select"
+              value={radiusM}
+              onChange={(e) => setRadiusM(Number(e.target.value))}
+              aria-label="검색 반경"
+            >
+              {RADIUS_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">추천 개수</span>
+            <select
+              className="map-select"
+              value={limit}
+              onChange={(e) => setLimit(Number(e.target.value))}
+              aria-label="표시할 추천 매장 개수"
+            >
+              {LIMIT_OPTIONS.map((n) => (
+                <option key={n} value={n}>{n}곳</option>
+              ))}
+            </select>
+          </div>
           <div className="grade-mode-toggle" role="group" aria-label="등급 기준 선택">
             {["relative", "absolute"].map((t) => (
               <button
