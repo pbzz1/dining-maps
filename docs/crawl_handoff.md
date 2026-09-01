@@ -85,7 +85,23 @@
   load_data.py 등록까지 같이. 아니면 버려도 됨(현재 샐러디만 보유한 항목). `nutrition_basis` 빈칸. 가격 없음.
 - **기대 규모**: 카테고리 8개(추천 제외) × 1~3페이지 ≈ 150~250개.
 
-## 4. 신전떡볶이 (부분 — 선택 사항, 우선순위 최하)
+## 4. 설빙 (신규 발견 — 이전 조사가 틀렸음, 우선순위 1)
+
+이전 대장에 "메뉴 이름만 나열, 영양정보 없음"으로 기록돼 있었으나 **오판**(목록 페이지만 보고 판정).
+상세페이지 `menu_view.php`가 완전 서버 렌더링 PHP이고 영양정보 5종 + 알레르기가 인라인으로 있다. curl만으로 수집 가능.
+
+- **목록 (검증됨)**: `https://sulbing.com/menu/?type={설빙|음료|사이드}` — type 파라미터는 한글(URL 인코딩해서 요청).
+  각 목록에 `menu_view.php?menu={id}` 링크가 그대로 들어 있음(기본 페이지 기준 33개). 3개 type 전부 돌면서 id 수집 후 dedupe.
+- **상세**: `GET https://sulbing.com/menu/menu_view.php?menu={id}` (예: 157 = 오레오초코컵설빙)
+  - 이름: `.productTitle`
+  - 영양: `ul.infomation` 안 `li` — `.title`이 `영양정보`인 li의 `.con` 텍스트:
+    `열량(Kcal) 355 | 당류(g) 42 | 단백질(g) 10 | 포화지방(g) 7 | 나트륨(mg) 130`
+    — 파이프 구분 한 줄. `extract_nutrients()`로 잡히는 포맷.
+  - 알레르기(선택): `.title`이 `알레르기 정보`인 li의 `.con` (`우유 · 대두 · 밀`)
+- **매핑**: `menu_category` = type 값(설빙/음료/사이드). `nutrition_basis` 빈칸(1컵/1잔 기준). 가격·중량 없음.
+- **기대 규모**: 3개 카테고리 합쳐 40~80개.
+
+## 5. 신전떡볶이 (부분 — 선택 사항, 우선순위 최하)
 
 - **주소 (검증됨)**: `https://www.sinjeon.co.kr/doc/menu01.php` ~ `menu06.php` (서버 렌더링 HTML).
   nav는 JS `GoPage()`지만 실제 URL은 위 고정 경로라 직접 GET 하면 됨.
@@ -95,7 +111,7 @@
 
 ---
 
-## 5. 크롤링 제외 확정 (재조사하지 말 것 — 전부 2026-09-01 실확인)
+## 6. 크롤링 제외 확정 (재조사하지 말 것 — 전부 2026-09-01 실확인)
 
 | 브랜드 | 사유 (증거) |
 |---|---|
@@ -104,13 +120,13 @@
 | 처갓집양념치킨 | 프로모션 스플래시는 `https://www.cheogajip.co.kr/bbs/board.php?bo_table=menu` 직접 접근으로 우회 가능하나, 메뉴판에 **영양·가격 전무**("영양 간식"이라는 광고문구 2건뿐) |
 | 투썸플레이스 | 영양정보가 공지사항 JPG 1장 (기존 확인) |
 | 맘스터치·노브랜드버거 | 이미지 공개/빈 팝업 (기존 확인) |
-| BBQ·굽네·네네·한솥·본죽 계열·미스터피자·피자헛·설빙·프랭크버거 | 사이트는 정상이나 영양정보 미공개 (기존 확인) |
+| BBQ·굽네·네네·한솥·본죽 계열·미스터피자·피자헛·프랭크버거 | 사이트는 정상이나 영양정보 미공개 (기존 확인) |
 | 쉐이크쉑·타코벨·뚜레쥬르·죠스떡볶이·에그드랍·슬로우캘리·노랑통닭·푸라닭·폴바셋·파파존스 | 사이트 자체 다운 (국내 IP 실크롬으로 최종 확인) |
 
-## 6. 작업 순서 제안
+## 7. 작업 순서 제안
 
-1. `scripts/crawl_viable_brands.py`에 `crawl_parisbaguette` / `crawl_megacoffee` / `crawl_composecoffee` 함수 추가 (기존 함수 패턴 따르기).
-2. 각각 실행 → `data/parisbaguette.csv`, `data/megacoffee.csv`, `data/composecoffee.csv` 생성.
-3. `scripts/load_data.py` FILES에 3개 등록.
+1. `scripts/crawl_viable_brands.py`에 `crawl_parisbaguette` / `crawl_megacoffee` / `crawl_composecoffee` / `crawl_sulbing` 함수 추가 (기존 함수 패턴 따르기).
+2. 각각 실행 → `data/parisbaguette.csv`, `data/megacoffee.csv`, `data/composecoffee.csv`, `data/sulbing.csv` 생성.
+3. `scripts/load_data.py` FILES에 4개 등록.
 4. `data/brand_survey.csv`의 해당 행 status를 adopted로, notes에 실측 행 수 기록.
 5. 0번 공통 규칙의 검증 3종 결과 보고.
