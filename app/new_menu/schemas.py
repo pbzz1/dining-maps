@@ -20,6 +20,7 @@ class NewMenuOut(BaseModel):
     diet_score: float | None
     absolute_grade: str | None
     image_url: str | None  # 브랜드 공식 CDN. 크롤 자동수집 아님 -- 시드로만 채워짐
+    youtube_video_id: str | None  # 리뷰 검색 1위 영상 (fetch_youtube_reviews.py 캐시)
     # 같은 브랜드·같은 카테고리 안에서의 백분위 (0=최저, 100=최고).
     # 칼로리는 낮을수록, 단백질은 높을수록 좋은 편.
     calorie_brand_pct: float | None
