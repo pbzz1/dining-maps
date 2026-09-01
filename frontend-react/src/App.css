@@ -1131,21 +1131,45 @@ th.dash-td-hi { color: var(--accent); }
 .nm-verdict.mid  { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .nm-verdict.bad  { background: var(--accent-soft); color: var(--accent); }
 .nm-pending { color: var(--muted); font-style: italic; font-size: 0.78rem; }
+/* 유튜브 임베드 토글: 재생 아이콘 + 라벨 + 접힘 화살표를 한 알약으로.
+   글자 사이에 ▶·▼를 섞어 쓰면 폰트마다 크기가 튀어 어색해서 아이콘을 span으로 분리. */
 .nm-yt {
-  padding: 0.2rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
   border: 1px solid var(--border);
-  border-radius: 0.45rem;
-  font-size: 0.75rem;
+  border-radius: 999px;
+  background: var(--card-bg);
+  font-family: inherit;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
-  text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 .nm-yt:hover { border-color: var(--accent); color: var(--accent); }
-
-/* 유튜브 임베드 토글 -- .nm-yt가 a에서 button이 되면서 필요한 리셋 포함 */
-.nm-yt { background: var(--card-bg); cursor: pointer; font-family: inherit; }
-.nm-yt.open { border-color: var(--accent); color: var(--accent); }
+.nm-yt.open { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+/* 유튜브 재생 버튼 모양: 빨간 둥근 사각형 안 흰 삼각형 */
+.nm-yt-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 13px;
+  border-radius: 4px;
+  background: #f03;
+  color: #fff;
+  font-size: 7px;
+  line-height: 1;
+  padding-left: 1px;
+}
+.nm-yt-chev {
+  font-size: 8px;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.nm-yt.open .nm-yt-chev { transform: rotate(180deg); color: var(--accent); }
 .nm-embed-row td { padding: 0.6rem 0.8rem; background: var(--bg); }
 .nm-embed { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
 .nm-embed iframe {

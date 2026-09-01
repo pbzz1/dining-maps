@@ -219,7 +219,9 @@ export default function NewMenuView() {
                           track("youtube_review_embed", { menu: m.base_name });
                         }}
                       >
-                        ▶ 유튜브 {openKey === key ? "▲" : "▼"}
+                        <span className="nm-yt-ic" aria-hidden="true">▶</span>
+                        유튜브
+                        <span className="nm-yt-chev" aria-hidden="true">▼</span>
                       </button>
                     </td>
                   </tr>
