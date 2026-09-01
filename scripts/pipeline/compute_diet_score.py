@@ -171,10 +171,15 @@ def main():
                WHERE nf.nutrient_name = ANY(%s)""",
             (REQUIRED_NUTRIENTS,),
         ).fetchall()
-        kinds, scales = {}, {}
+        kinds, scales, excluded = {}, {}, set()
         for r in conn.execute(
             "SELECT id, name, category, weight_g, nutrition_basis FROM menu_item"
         ).fetchall():
+            # MD 물품(원두·캔디·병 원액 -- 메가커피/폴바셋 '상품' 카테고리)은
+            # 식사도 음료도 아니라서 채점하면 백분위만 오염시킨다.
+            if r["category"] == "상품":
+                excluded.add(r["id"])
+                continue
             drink = is_drink(r["category"], r["name"])
             kinds[r["id"]] = "drink" if drink else "meal"
             # 음료 점수는 "한 잔" 기준이므로, 용기 전체로 적힌 병 음료는 1회분으로 환산해
@@ -183,6 +188,9 @@ def main():
                 ratio = serving_ratio(r["nutrition_basis"], r["weight_g"])
                 if ratio:
                     scales[r["id"]] = ratio
+        if excluded:
+            rows = [r for r in rows if r["menu_item_id"] not in excluded]
+            print(f"'상품' 카테고리 {len(excluded)}건 채점 제외")
         _score_and_store(conn, rows, kinds, scales)
 
 
