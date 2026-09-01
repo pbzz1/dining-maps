@@ -5,6 +5,7 @@ import MenuView from "./features/restaurants/MenuView";
 import Dashboard from "./features/dashboard/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
 import NewMenuView from "./features/new-menu/NewMenuView";
+import AboutView from "./features/about/AboutView";
 import { fetchStatsQuality } from "./api";
 import { track } from "./constants";
 import LogoMark from "./components/Logo";
@@ -19,7 +20,8 @@ const NAV = [
   { key: "list", label: "매장 목록", Icon: IconList },
 ];
 
-const VIEWS = new Set(NAV.map((n) => n.key));
+// about은 NAV에 없다 -- 사이드바엔 안 뜨지만 #about 링크로는 열린다.
+const VIEWS = new Set([...NAV.map((n) => n.key), "about"]);
 // URL 해시가 곧 현재 뷰 -- "#list" 같은 링크를 공유하면 그 탭으로 바로 열린다.
 // 기본 화면은 지도: Dining Maps니까.
 const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "map");
@@ -92,7 +94,11 @@ export default function App() {
         </h1>
         <span className="subtitle">
           내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기
-          {dataDate && ` · 브랜드 공식 영양정보 ${dataDate} 기준`}
+          {" · "}
+          {/* 기준일을 아직 못 받아왔어도 링크는 남긴다 -- 데스크톱의 유일한 #about 진입점. */}
+          <a href="#about" onClick={() => track("view_change", { view: "about" })}>
+            브랜드 공식 영양정보{dataDate && ` ${dataDate}`} 기준
+          </a>
         </span>
       </header>
 
@@ -119,6 +125,7 @@ export default function App() {
         {view === "dashboard" && <Dashboard />}
         {view === "recommend" && <RecommendView />}
         {view === "new" && <NewMenuView />}
+        {view === "about" && <AboutView dataDate={dataDate} />}
         {view === "list" && <RestaurantList onSelect={openMenu} />}
         {view === "menu" && selected && (
           <MenuView restaurant={selected} onBack={() => setView("list")} />
