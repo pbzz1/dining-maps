@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class NewMenuOut(BaseModel):
     id: int
     name: str
+    base_name: str  # 사이즈·세트 접미사를 뗀 이름. 프론트가 옵션 행들을 한 줄로 묶는 키
     restaurant_id: int
     restaurant_name: str
     category_group: str | None

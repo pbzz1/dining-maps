@@ -22,10 +22,19 @@ ONBOARDING_CAP = 15
 # 이보다 오래된 것은 더이상 "신"메뉴가 아니다.
 WINDOW_DAYS = 90
 
-# 한 브랜드가 피드를 독식하지 않게 브랜드당 카드 수 제한. 도미노는 크러스트·사이즈
-# 조합마다 menu_item이 따로라 신메뉴 하나가 64행이 된다.
-# ponytail: 대표 메뉴 선정 없이 이름순 상위 N개 -- 조합 그룹핑이 필요해지면 교체.
+# 한 브랜드가 피드를 독식하지 않게 브랜드당 메뉴 수 제한. 사이즈·세트 옵션은
+# base_name으로 묶여 한 메뉴로 세므로(아래 OPTION_SUFFIX_RE) 도미노의 L/M 두 행이
+# 슬롯 두 개를 먹지 않는다. 크러스트 조합처럼 이름 본체가 다른 것은 여전히 별개 메뉴.
 PER_BRAND_CAP = 5
+
+# 옵션 행까지 합치면 한 브랜드가 몇십 행이 될 수 있어 행 수에도 상한을 둔다.
+PER_BRAND_ROW_CAP = 15
+
+# 브랜드가 같은 메뉴를 옵션마다 다른 행으로 준다: "…크루아상위치 / …세트 / …라지세트",
+# "…나폴리 L / M", "펩시콜라(L) / (R)". 이 접미사를 떼어낸 것이 base_name이고,
+# 프론트는 그 키로 한 줄에 묶어 옵션 칩으로 보여준다. 규칙은 여기 한 곳에만 둔다.
+# ponytail: 사이즈·세트만 -- HOT/ICED·콘/컵도 묶고 싶어지면 이 정규식에 추가.
+OPTION_SUFFIX_RE = r"\s*[(（](L|M|R|S|대|중|소)[)）]$|\s+(라지\s?세트|세트|라지|미디엄|레귤러|스몰|L|M|R|S)$"
 
 # 라우터와 배치 스크립트(generate_new_menu_reviews.py)가 같은 "신메뉴" 정의를
 # 공유해야 해서 쿼리를 모듈 상수로 둔다. 파라미터: limit 하나.
@@ -48,18 +57,26 @@ WITH added_events AS (
     SELECT ae.restaurant_name, ae.menu_name, MAX(ae.started_at) AS first_seen_at
     FROM added_events ae JOIN sane s USING (run_id, restaurant_name)
     GROUP BY ae.restaurant_name, ae.menu_name
-), fresh AS (
+), named AS (
     SELECT mi.id, mi.restaurant_id, a.first_seen_at,
            COALESCE(mi.released_at, a.first_seen_at::date) AS event_date,
-           ROW_NUMBER() OVER (
-               PARTITION BY mi.restaurant_id
-               ORDER BY COALESCE(mi.released_at, a.first_seen_at::date) DESC, mi.name
-           ) AS brand_rank
+           regexp_replace(mi.name, '{OPTION_SUFFIX_RE}', '') AS base_name
     FROM menu_item mi
     JOIN restaurant r ON r.id = mi.restaurant_id
     LEFT JOIN added a ON a.restaurant_name = r.name AND a.menu_name = mi.name
     WHERE COALESCE(mi.released_at, a.first_seen_at::date)
           > (now() - interval '{WINDOW_DAYS} days')::date
+), fresh AS (
+    -- 브랜드 슬롯은 base_name(=옵션 뗀 메뉴) 단위로 센다. 같은 메뉴의 옵션들은
+    -- 같은 크롤에서 함께 잡혀 event_date가 같으므로 한 rank에 모인다.
+    SELECT n.*,
+           DENSE_RANK() OVER (
+               PARTITION BY restaurant_id ORDER BY event_date DESC, base_name
+           ) AS brand_rank,
+           ROW_NUMBER() OVER (
+               PARTITION BY restaurant_id ORDER BY event_date DESC, base_name, id
+           ) AS brand_row
+    FROM named n
 ), brand_pct AS (
     -- "이 신메뉴가 그 브랜드의 같은 카테고리 안에서 칼로리·단백질이 어느 위치인가".
     -- 브랜드 전체와 비교하면 버거 브랜드의 음료가 늘 '저칼로리 1위'가 되므로
@@ -73,7 +90,7 @@ WITH added_events AS (
     JOIN menu_item mi2 ON mi2.id = nf2.menu_item_id
     WHERE nf2.nutrient_name IN ('calorie', 'protein')
 )
-SELECT mi.id, mi.name, r.id AS restaurant_id, r.name AS restaurant_name,
+SELECT mi.id, mi.name, f.base_name, r.id AS restaurant_id, r.name AS restaurant_name,
        mi.category_group, mi.weight_g, mi.nutrition_basis, mi.image_url,
        f.event_date, mi.released_at, f.first_seen_at,
        ds.score AS diet_score, ds.absolute_grade,
@@ -92,12 +109,12 @@ LEFT JOIN diet_score ds      ON ds.menu_item_id = mi.id
 LEFT JOIN nutrition_fact nf  ON nf.menu_item_id = mi.id
 LEFT JOIN brand_pct bp       ON bp.menu_item_id = mi.id
 LEFT JOIN new_menu_review rv ON rv.menu_item_id = mi.id
-WHERE f.brand_rank <= {PER_BRAND_CAP}
-GROUP BY mi.id, mi.name, r.id, r.name, mi.category_group, mi.weight_g,
+WHERE f.brand_rank <= {PER_BRAND_CAP} AND f.brand_row <= {PER_BRAND_ROW_CAP}
+GROUP BY mi.id, mi.name, f.base_name, r.id, r.name, mi.category_group, mi.weight_g,
          mi.nutrition_basis, mi.image_url, f.event_date, mi.released_at,
          f.first_seen_at, ds.score, ds.absolute_grade,
          rv.diet_verdict, rv.diet_comment, rv.taste_note
-ORDER BY f.event_date DESC, r.name, mi.id
+ORDER BY f.event_date DESC, r.name, f.base_name, mi.id
 LIMIT %s
 """
 
@@ -121,3 +138,22 @@ def list_new_menus(limit: int = 30):
         })
         for r in rows
     ]
+
+
+if __name__ == "__main__":
+    # OPTION_SUFFIX_RE 자체 점검. Postgres ARE와 Python re는 이 패턴 범위에서 같다.
+    import re
+
+    base = lambda n: re.sub(OPTION_SUFFIX_RE, "", n)  # noqa: E731
+    assert base("데리야킹 크리스퍼 라지세트") == "데리야킹 크리스퍼"
+    assert base("데리야킹 크리스퍼 세트") == "데리야킹 크리스퍼"
+    assert base("데리야킹 크리스퍼") == "데리야킹 크리스퍼"
+    assert base("무진장 슈림프 스테이크 나폴리 L") == "무진장 슈림프 스테이크 나폴리"
+    assert base("펩시콜라(L)") == "펩시콜라"
+    assert base("마구마구 밤식빵(대)") == "마구마구 밤식빵"
+    assert base("후렌치 후라이 미디엄") == "후렌치 후라이"
+    # 옵션이 아닌 것은 건드리지 않는다: 이름 본체가 다르면 별개 메뉴.
+    assert base("무진장 슈림프 스테이크 고구마쥬 엣지(오)") == "무진장 슈림프 스테이크 고구마쥬 엣지(오)"
+    assert base("아이스 카페라떼") == "아이스 카페라떼"
+    assert base("밀크 아이스크림 (컵)") == "밀크 아이스크림 (컵)"
+    print("ok")

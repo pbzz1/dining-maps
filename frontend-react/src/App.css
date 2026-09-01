@@ -1101,6 +1101,21 @@ th.dash-td-hi { color: var(--accent); }
   vertical-align: middle;
   background: var(--bg);
 }
+/* 사이즈·세트 옵션 칩. 같은 메뉴의 옵션 행들을 한 줄로 묶고 여기서 골라 본다. */
+.nm-opts { margin-left: 0.4rem; display: inline-flex; gap: 0.2rem; vertical-align: middle; }
+.nm-opt {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nm-opt:hover { border-color: var(--accent); color: var(--accent); }
+.nm-opt.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 .nm-cell-brandpos { display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
 .nm-verdict {
   display: inline-block;

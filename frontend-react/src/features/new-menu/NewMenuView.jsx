@@ -13,8 +13,28 @@ const BASIS_LABEL = { per_100g: "100g당", per_total: "전체", per_serving: "" 
 
 const youtubeUrl = (m) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(
-    `${m.restaurant_name} ${m.name} 리뷰`
+    `${m.restaurant_name} ${m.base_name} 리뷰`
   )}`;
+
+// 브랜드는 같은 메뉴를 옵션마다 다른 행으로 준다 (단품/세트/라지세트, L·M·라지…).
+// 옵션을 뗀 이름(base_name)은 서버가 계산해서 준다 -- app/new_menu/router.py의
+// OPTION_SUFFIX_RE 한 곳에만 규칙을 두려고. 여기서는 그 키로 묶고, 남은 접미사를
+// 옵션 이름으로 쓴다. 접미사가 없는 행이 곧 단품.
+const groupKey = (m) => `${m.restaurant_id}|${m.base_name}`;
+const optionLabel = (m) =>
+  m.name.slice(m.base_name.length).replace(/[()（）]/g, "").trim() || "단품";
+
+function groupByMenu(rows) {
+  const map = new Map();
+  for (const m of rows) {
+    const key = groupKey(m);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(m);
+  }
+  // 이름이 짧은 것부터 = 접미사 없는 행이 맨 앞. 기본 선택이 세트가 아니라 단품이 된다.
+  for (const options of map.values()) options.sort((a, b) => a.name.length - b.name.length);
+  return [...map.entries()];
+}
 
 // 클릭 정렬 가능한 컬럼: key -> 값 추출. null은 항상 뒤로.
 const SORTS = {
@@ -47,6 +67,7 @@ export default function NewMenuView() {
   const [error, setError] = useState(null);
   const [sortKey, setSortKey] = useState("date");
   const [dir, setDir] = useState(-1); // 1 asc, -1 desc
+  const [picked, setPicked] = useState({}); // groupKey -> 선택한 옵션의 menu_item id
 
   useEffect(() => {
     fetchNewMenus().then(setRows).catch((e) => setError(e.message));
@@ -61,16 +82,23 @@ export default function NewMenuView() {
     track("new_menu_sort", { key });
   }
 
+  // 정렬은 "지금 보고 있는 옵션"의 값 기준 -- 옵션을 바꾸면 그 줄이 따라 움직인다.
   const sorted = useMemo(() => {
     if (!rows) return null;
     const get = SORTS[sortKey].get;
-    return [...rows].sort((a, b) => {
-      const va = get(a), vb = get(b);
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
-    });
-  }, [rows, sortKey, dir]);
+    return groupByMenu(rows)
+      .map(([key, options]) => ({
+        key,
+        options,
+        sel: options.find((o) => o.id === picked[key]) ?? options[0],
+      }))
+      .sort((a, b) => {
+        const va = get(a.sel), vb = get(b.sel);
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
+      });
+  }, [rows, sortKey, dir, picked]);
 
   const th = (key) => (
     <th
@@ -88,7 +116,9 @@ export default function NewMenuView() {
       <h2 className="nm-title">신메뉴</h2>
       <p className="dash-sub">
         매일 크롤이 브랜드 공식 영양정보를 이전 회차와 비교해 새로 올라온 메뉴를 잡아낸다.
-        출시일은 보도자료로 확인된 날짜, 없으면 크롤이 처음 본 날. 열 제목을 눌러 재정렬.
+        출시일은 보도자료로 확인된 날짜, 없으면 크롤이 처음 본 날. 사이즈·세트처럼 옵션만
+        다른 메뉴는 한 줄로 묶었고, 옵션을 누르면 그 옵션의 영양정보로 바뀐다. 열 제목을
+        눌러 재정렬.
       </p>
 
       {error && <p className="dash-status">신메뉴 불러오기 실패: {error}</p>}
@@ -119,11 +149,11 @@ export default function NewMenuView() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((m) => {
+              {sorted.map(({ key, options, sel: m }) => {
                 const cal = brandBadge(m.calorie_brand_pct, true, ["낮은 편", "중간", "높은 편"]);
                 const pro = brandBadge(m.protein_brand_pct, false, ["적은 편", "중간", "많은 편"]);
                 return (
-                  <tr key={m.id}>
+                  <tr key={key}>
                     <td className="nm-cell-date">
                       {m.event_date}
                       {!m.released_at && <span className="nm-detected">발견</span>}
@@ -134,9 +164,26 @@ export default function NewMenuView() {
                       {m.image_url && (
                         <img className="nm-thumb" src={m.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" />
                       )}
-                      {m.name}
+                      {m.base_name}
                       {BASIS_LABEL[m.nutrition_basis] && (
                         <span className="mx-basis">{BASIS_LABEL[m.nutrition_basis]}</span>
+                      )}
+                      {options.length > 1 && (
+                        <span className="nm-opts">
+                          {options.map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              className={`nm-opt ${o.id === m.id ? "on" : ""}`}
+                              onClick={() => {
+                                setPicked((p) => ({ ...p, [key]: o.id }));
+                                track("new_menu_option", { menu: o.name });
+                              }}
+                            >
+                              {optionLabel(o)}
+                            </button>
+                          ))}
+                        </span>
                       )}
                     </td>
                     <td className="mx-cat">{m.category_group ?? "기타"}</td>
@@ -160,7 +207,7 @@ export default function NewMenuView() {
                         href={youtubeUrl(m)}
                         target="_blank"
                         rel="noreferrer"
-                        onClick={() => track("youtube_review_search", { menu: m.name })}
+                        onClick={() => track("youtube_review_search", { menu: m.base_name })}
                       >
                         ▶ 유튜브
                       </a>
