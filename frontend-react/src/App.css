@@ -6,6 +6,8 @@
   --border: #e4e0d8;
   --accent: #c1440e;
   --accent-soft: #fbe9e0;
+  /* 종이 위에 얹힌 카드의 쉬는 상태. 잉크색 기반이라 종이 바탕에서 회색으로 뜨지 않는다. */
+  --shadow-rest: 0 1px 3px rgba(35, 32, 27, 0.05);
 }
 
 * { box-sizing: border-box; }
@@ -87,6 +89,7 @@ body {
   font-size: 14px;
   font-weight: 600;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -133,7 +136,12 @@ main {
     padding: 8px 12px;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    /* 5개가 375px에 안 들어간다. 줄바꿈(글자 단위로 쪼개짐)이 아니라 가로 스크롤로
+       흘려보내고, 잘린 항목 자체가 더 있다는 표시가 되게 스크롤바는 숨긴다. */
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .sidebar::-webkit-scrollbar { display: none; }
   .subtitle { display: none; }
   .main-page { padding: 8px 16px 40px; }
 }
@@ -350,6 +358,7 @@ main {
   border-radius: 10px;
   padding: 10px 12px;
   cursor: pointer;
+  box-shadow: var(--shadow-rest);
 }
 
 .store-card:hover {
@@ -648,6 +657,7 @@ h2 {
   padding: 22px 16px 18px;
   text-align: center;
   cursor: pointer;
+  box-shadow: var(--shadow-rest);
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 
@@ -775,6 +785,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px 18px;
+  box-shadow: var(--shadow-rest);
 }
 
 .menu-item-head {
@@ -896,6 +907,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  box-shadow: var(--shadow-rest);
 }
 .dash-kpi-label { font-size: 0.8rem; color: var(--muted); }
 .dash-kpi-value { font-size: 1.7rem; font-weight: 600; }
@@ -904,6 +916,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   padding: 1rem 1.2rem 1.2rem;
+  box-shadow: var(--shadow-rest);
 }
 .dash-card h2 { margin: 0 0 0.2rem; font-size: 1.05rem; position: relative; }
 .dash-info { display: inline-block; margin-left: 0.4rem; }
@@ -1112,3 +1125,261 @@ th.dash-td-hi { color: var(--accent); }
   white-space: nowrap;
 }
 .nm-yt:hover { border-color: var(--accent); color: var(--accent); }
+
+/* --- 맞춤 추천 컨트롤 --- */
+/* 컨트롤 세 개가 성격이 다른데 전에는 같은 버튼 모양이었다. 단일 선택은 세그먼트
+   트랙, 온오프는 스위치 버튼, 펼치기는 details 카드 -- 모양으로 역할을 구분한다. */
+.rec-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+}
+
+.rec-goal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.rec-segmented-btn {
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.rec-segmented-btn:hover { color: var(--text); }
+
+.rec-segmented-btn.active {
+  background: var(--text);
+  color: var(--card-bg);
+  font-weight: 600;
+}
+
+.rec-nearby {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 8px 10px 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.rec-nearby:hover { background: var(--bg); color: var(--text); }
+
+.rec-nearby.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 상태는 라벨에서 떼어 배지로 -- 전의 "켜짐 ✕"는 칩 삭제 버튼으로 읽혔다. */
+.rec-nearby-state {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.rec-nearby.on .rec-nearby-state {
+  background: var(--accent);
+  color: #fff;
+}
+
+.rec-detail {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-rest);
+}
+
+.rec-detail-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rec-detail-summary::-webkit-details-marker { display: none; }
+
+/* 펼침 표시는 그린 도형으로 -- 유니코드 삼각형은 폰트마다 다르게 뜬다. */
+.rec-detail-summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 1.6px solid var(--muted);
+  border-bottom: 1.6px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.rec-detail[open] .rec-detail-summary::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.rec-detail-summary:hover .rec-detail-title { color: var(--accent); }
+
+/* 접힌 채로도 지금 무엇이 걸려 있는지 보인다 -- 열어봐야 아는 설정은 잊힌다. */
+.rec-detail-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.rec-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.rec-fieldset-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rec-fieldset-sub {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.rec-field-wide { grid-column: span 2; }
+
+.rec-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rec-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.rec-input { position: relative; display: block; }
+
+.rec-field input,
+.rec-field select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+}
+
+.rec-field input {
+  padding-right: 46px;
+  font-variant-numeric: tabular-nums;
+  caret-color: var(--accent);
+  /* 숫자 스피너는 폭만 먹고 손가락으로는 못 누른다. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.rec-field input::-webkit-outer-spin-button,
+.rec-field input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.rec-field input::placeholder { color: var(--muted); }
+
+.rec-field input:focus,
+.rec-field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 단위는 입력값 옆에 붙어 있어야 한다 -- placeholder에 두면 값이 들어간 순간 사라진다. */
+.rec-unit {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.rec-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rec-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.rec-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.rec-note b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .rec-bar { gap: 10px 12px; }
+  .rec-goal { width: 100%; }
+  .rec-segmented { flex: 1; }
+  .rec-segmented-btn { flex: 1; padding: 6px 8px; }
+  .rec-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  .rec-field-wide { grid-column: 1 / -1; }
+}

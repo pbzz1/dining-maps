@@ -3,6 +3,7 @@ import { formatDistance } from "../../constants";
 import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
+import { IconPin } from "../../components/NavIcons";
 
 // Step 0: 목표 선택 -> Step 2: 하드 제약(한 끼 상한, 음료 제외) -> Step 1: 근처 매장
 // -> Step 3: 신체정보는 새 화면이 아니라 위 '한 끼 상한'의 기본값 계산기.
@@ -22,7 +23,6 @@ export default function RecommendView() {
   const [prefs, setPrefs] = useLocalStorage("recommend.prefs", DEFAULT_PREFS);
   const [pos, setPos] = useLocalStorage("recommend.pos", null); // {lat,lng} | null
   const [profile, setProfile] = useLocalStorage("recommend.profile", DEFAULT_PROFILE);
-  const [showDetail, setShowDetail] = useState(false);
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("");
 
@@ -74,102 +74,162 @@ export default function RecommendView() {
         목표와 한 끼 상한만 고르면 됩니다. 선택은 이 브라우저에 저장되고 로그인은 필요 없습니다.
       </p>
 
-      <div className="filter-controls">
-        <div className="filter-group">
+      <div className="rec-bar">
+        <div className="rec-goal">
           <span className="filter-label">목표</span>
-          {goals.map((g) => (
-            <button
-              key={g.key}
-              className={`grade-type-btn ${prefs.goal === g.key ? "active" : ""}`}
-              onClick={() => {
-                window.gtag?.("event", "recommend_goal", { goal: g.key });
-                update({ goal: g.key });
-              }}
-            >
-              {g.label}
-            </button>
-          ))}
+          {/* 목표는 4지선다 단일 선택이라 개별 버튼이 아니라 세그먼트 트랙으로 묶는다.
+              트랙이 있어야 "이 중 하나"라는 사실이 눌러보기 전에 읽힌다. */}
+          <div className="rec-segmented">
+            {goals.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                className={`rec-segmented-btn ${prefs.goal === g.key ? "active" : ""}`}
+                aria-pressed={prefs.goal === g.key}
+                onClick={() => {
+                  window.gtag?.("event", "recommend_goal", { goal: g.key });
+                  update({ goal: g.key });
+                }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="filter-group">
-          <button className={`grade-type-btn ${pos ? "active" : ""}`} onClick={pos ? () => setPos(null) : locate}>
-            {pos ? "내 주변 매장 보기 켜짐 ✕" : "내 주변 매장 보기"}
-          </button>
-        </div>
-        <div className="filter-group">
-          <button className="grade-type-btn" onClick={() => setShowDetail((v) => !v)}>
-            상세 설정 {showDetail ? "▲" : "▼"}
-          </button>
-        </div>
+
+        {/* 켜고 끄는 스위치라 세그먼트와 다른 모양이어야 한다. 이전의 "켜짐 ✕"는
+            칩 삭제로 읽혀서, 상태를 오른쪽 배지로 분리했다. */}
+        <button
+          type="button"
+          className={`rec-nearby ${pos ? "on" : ""}`}
+          aria-pressed={!!pos}
+          onClick={pos ? () => setPos(null) : locate}
+        >
+          <IconPin size={16} />
+          내 주변 매장 보기
+          <span className="rec-nearby-state">{pos ? "켜짐" : "꺼짐"}</span>
+        </button>
       </div>
 
-      {showDetail && (
-        <div className="filter-controls" style={{ marginTop: 8 }}>
-          <div className="filter-group">
-            <span className="filter-label">한 끼 상한</span>
-            <input
-              type="number"
-              placeholder={suggestedKcal ? `${suggestedKcal}kcal` : "kcal"}
-              min="100"
-              step="50"
-              value={prefs.maxCalorie}
-              onChange={(e) => update({ maxCalorie: e.target.value })}
-              style={{ width: 100 }}
-            />
-            <input
-              type="number"
-              placeholder="나트륨 mg"
-              min="0"
-              step="100"
-              value={prefs.maxSodium}
-              onChange={(e) => update({ maxSodium: e.target.value })}
-              style={{ width: 110 }}
-            />
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={prefs.excludeDrinks}
-                onChange={(e) => update({ excludeDrinks: e.target.checked })}
-              />
-              <span className="filter-label">음료 제외</span>
-            </label>
+      {/* details/summary -- 펼침 상태·키보드·스크린리더를 브라우저가 처리한다. */}
+      <details className="rec-detail">
+        <summary className="rec-detail-summary">
+          <span className="rec-detail-title">상세 설정</span>
+          <span className="rec-detail-hint">
+            한 끼 {effectiveMaxCalorie ? `${Number(effectiveMaxCalorie).toLocaleString()}kcal` : "제한 없음"}
+            {prefs.maxSodium && ` · 나트륨 ${Number(prefs.maxSodium).toLocaleString()}mg`}
+            {prefs.excludeDrinks && " · 음료 제외"}
+          </span>
+        </summary>
+
+        <div className="rec-detail-body">
+          <div className="rec-fieldset">
+            <p className="rec-fieldset-title">한 끼 상한</p>
+            <div className="rec-grid">
+              <label className="rec-field">
+                <span className="rec-field-label">열량</span>
+                <span className="rec-input">
+                  <input
+                    type="number"
+                    placeholder={suggestedKcal ? String(suggestedKcal) : ""}
+                    min="100"
+                    step="50"
+                    value={prefs.maxCalorie}
+                    onChange={(e) => update({ maxCalorie: e.target.value })}
+                  />
+                  <span className="rec-unit">kcal</span>
+                </span>
+              </label>
+              <label className="rec-field">
+                <span className="rec-field-label">나트륨</span>
+                <span className="rec-input">
+                  <input
+                    type="number"
+                    placeholder="제한 없음"
+                    min="0"
+                    step="100"
+                    value={prefs.maxSodium}
+                    onChange={(e) => update({ maxSodium: e.target.value })}
+                  />
+                  <span className="rec-unit">mg</span>
+                </span>
+              </label>
+              <label className="rec-check">
+                <input
+                  type="checkbox"
+                  checked={prefs.excludeDrinks}
+                  onChange={(e) => update({ excludeDrinks: e.target.checked })}
+                />
+                음료 제외
+              </label>
+            </div>
+            {suggestedKcal && (
+              <p className="rec-note">
+                열량을 비우면 아래 내 정보로 계산한 <b>{suggestedKcal.toLocaleString()}kcal</b>이 적용됩니다.
+              </p>
+            )}
           </div>
-          <div className="filter-group">
-            <span className="filter-label">내 정보 (상한 자동 계산 · 한국 평균 기본값)</span>
-            <select value={profile.sex} onChange={(e) => onSexChange(e.target.value)}>
-              <option value="male">남성</option>
-              <option value="female">여성</option>
-            </select>
-            <input
-              type="number"
-              placeholder="키 cm"
-              value={profile.heightCm}
-              onChange={(e) => updateProfile({ heightCm: e.target.value })}
-              style={{ width: 70 }}
-            />
-            <input
-              type="number"
-              placeholder="몸무게 kg"
-              value={profile.weightKg}
-              onChange={(e) => updateProfile({ weightKg: e.target.value })}
-              style={{ width: 80 }}
-            />
-            <input
-              type="number"
-              placeholder="나이"
-              value={profile.age}
-              onChange={(e) => updateProfile({ age: e.target.value })}
-              style={{ width: 60 }}
-            />
-            <select value={profile.activity} onChange={(e) => updateProfile({ activity: e.target.value })}>
-              {Object.entries(ACTIVITY_FACTORS).map(([key, a]) => (
-                <option key={key} value={key}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+
+          <div className="rec-fieldset">
+            <p className="rec-fieldset-title">
+              내 정보
+              <span className="rec-fieldset-sub">한 끼 상한 계산용 · 한국 성인 평균이 기본값</span>
+            </p>
+            <div className="rec-grid">
+              <label className="rec-field">
+                <span className="rec-field-label">성별</span>
+                <select value={profile.sex} onChange={(e) => onSexChange(e.target.value)}>
+                  <option value="male">남성</option>
+                  <option value="female">여성</option>
+                </select>
+              </label>
+              <label className="rec-field">
+                <span className="rec-field-label">키</span>
+                <span className="rec-input">
+                  <input
+                    type="number"
+                    value={profile.heightCm}
+                    onChange={(e) => updateProfile({ heightCm: e.target.value })}
+                  />
+                  <span className="rec-unit">cm</span>
+                </span>
+              </label>
+              <label className="rec-field">
+                <span className="rec-field-label">몸무게</span>
+                <span className="rec-input">
+                  <input
+                    type="number"
+                    value={profile.weightKg}
+                    onChange={(e) => updateProfile({ weightKg: e.target.value })}
+                  />
+                  <span className="rec-unit">kg</span>
+                </span>
+              </label>
+              <label className="rec-field">
+                <span className="rec-field-label">나이</span>
+                <span className="rec-input">
+                  <input
+                    type="number"
+                    value={profile.age}
+                    onChange={(e) => updateProfile({ age: e.target.value })}
+                  />
+                  <span className="rec-unit">세</span>
+                </span>
+              </label>
+              <label className="rec-field rec-field-wide">
+                <span className="rec-field-label">활동량</span>
+                <select value={profile.activity} onChange={(e) => updateProfile({ activity: e.target.value })}>
+                  {Object.entries(ACTIVITY_FACTORS).map(([key, a]) => (
+                    <option key={key} value={key}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
         </div>
-      )}
+      </details>
 
       {status && <p className="loading">{status}</p>}
 

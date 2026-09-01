@@ -80,6 +80,11 @@ export default function App() {
   const activeNav = view === "menu" ? "list" : view;
   useScrollDepthTracking(activeNav);
 
+  // 모바일에서 내비는 가로 스크롤 줄이라 현재 탭이 화면 밖일 수 있다 -- 잘려 있으면 끌어온다.
+  useEffect(() => {
+    document.querySelector(".nav-btn.active")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [activeNav]);
+
   return (
     <div className="shell">
       <header className="topbar">
