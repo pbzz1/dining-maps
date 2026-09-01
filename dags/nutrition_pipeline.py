@@ -32,7 +32,7 @@ default_args = {
 
 with DAG(
     dag_id="nutrition_pipeline",
-    description="Crawl menu/nutrition data (4 brands), load into SQLite, recompute diet scores",
+    description="Crawl menu/nutrition data (4 legacy + 10 expansion brands), load into DB, recompute diet scores",
     default_args=default_args,
     schedule="0 3 1 * *",  # 03:00 KST on the 1st of each month
     start_date=datetime(2026, 1, 1),
@@ -48,6 +48,17 @@ with DAG(
         )
         for brand in ["mcdonalds", "lotteria", "subway", "salady"]
     ]
+
+    # 2026-09 확장 브랜드 10곳 -- 파리바게뜨·메가커피·컴포즈·설빙·에그드랍·뚜레쥬르·
+    # 폴바셋·미스터피자(+캡처본 파싱인 파파존스·한솥). 전부 curl 수준 요청이라 한
+    # 태스크로 순차 실행한다(브랜드별 방법·검증값은 docs/crawl_handoff.md).
+    # 파파존스·한솥은 저장소의 raw 캡처본을 파싱하므로 메뉴 개편 시 캡처본만 갱신하면 된다.
+    crawl_tasks.append(
+        BashOperator(
+            task_id="crawl_new_brands",
+            bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/crawl/crawl_new_brands.py",
+        )
+    )
 
     # Quality gate: exits non-zero on any hard failure, which fails this task
     # and (by default trigger rule) skips everything downstream.

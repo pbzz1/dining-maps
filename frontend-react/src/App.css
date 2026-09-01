@@ -1383,3 +1383,13 @@ th.dash-td-hi { color: var(--accent); }
   .rec-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   .rec-field-wide { grid-column: 1 / -1; }
 }
+/* #about -- 산출 기준 문서 화면. 대시보드 카드/테이블 스타일을 그대로 빌려 쓴다. */
+.about-list { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.65; }
+.about-list li + li { margin-top: 0.45rem; }
+.about-refs { color: var(--muted); font-size: 0.8rem; }
+/* 근거 열이 길어 좁은 화면에서는 표만 가로 스크롤시킨다. */
+.about-scroll { overflow-x: auto; }
+.about-table { min-width: 42rem; }
+.about-table td:last-child { white-space: normal; color: var(--muted); font-size: 0.8rem; }
+.about-table td:first-child { white-space: nowrap; font-weight: 600; }
+.dash-card code { font-size: 0.8rem; }
