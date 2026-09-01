@@ -6,13 +6,13 @@
 
 ## 0. 공통 규칙 (반드시 지킬 것)
 
-- **재사용**: `scripts/crawl_common.py`의 `fetch()`(UA·SSL 폴백 내장), `num()`, `clean()`,
+- **재사용**: `scripts/crawl/crawl_common.py`의 `fetch()`(UA·SSL 폴백 내장), `num()`, `clean()`,
   `extract_nutrients()`, `write_csv()`를 그대로 쓴다. 새 fetch/정규화 코드를 만들지 말 것.
-  기존 크롤러 예시는 `scripts/crawl_viable_brands.py` 참조.
+  기존 크롤러 예시는 `scripts/crawl/crawl_viable_brands.py` 참조.
 - **산출물**: `data/<brand>.csv`, 스키마는 `crawl_common.STANDARD_COLUMNS`
   (`restaurant,menu_name,menu_category,weight_g,price_krw,calorie_kcal,protein_g,sugar_g,saturated_fat_g,sodium_mg,caffeine_mg,nutrition_basis`),
   인코딩 utf-8-sig. `write_csv()`를 쓰면 자동으로 맞는다.
-- **DB 반영**: 새 CSV는 `scripts/load_data.py`의 `FILES` 매핑에 등록해야 DB에 들어간다(등록 안 하면 조용히 누락).
+- **DB 반영**: 새 CSV는 `scripts/pipeline/load_data.py`의 `FILES` 매핑에 등록해야 DB에 들어간다(등록 안 하면 조용히 누락).
 - **값 규칙**: "-"·빈값은 0이 아니라 미공개 → 빈칸 유지(`num()`이 처리). 영양소가 하나도 없는 행은 버린다(`has_any_nutrient`).
 - **예의**: 요청 간 0.3~0.5초 지연. User-Agent는 `crawl_common.DESKTOP_UA`.
 - **검증**: 크롤링 후 (1) 행 수가 아래 명시한 기대 규모와 비슷한지 (2) kcal 최솟값/최댓값이 상식적인지
@@ -235,11 +235,11 @@ ASP 사이트, **EUC-KR 인코딩**(`fetch(url, encoding="euc-kr")` 필수 — u
 ## 13. 작업 순서 제안
 
 1. **오프라인 파싱부터 (네트워크 불필요)**: `data/papajohns_nutrition_raw.tsv` → `data/papajohns.csv` 변환.
-2. `scripts/crawl_viable_brands.py`에 `crawl_parisbaguette` / `crawl_megacoffee` / `crawl_composecoffee` / `crawl_sulbing` /
+2. `scripts/crawl/crawl_viable_brands.py`에 `crawl_parisbaguette` / `crawl_megacoffee` / `crawl_composecoffee` / `crawl_sulbing` /
    `crawl_eggdrop` / `crawl_tlj` / `crawl_paulbassett` / `crawl_mrpizza` 함수 추가 (기존 함수 패턴 따르기).
    전부 curl(urllib)만으로 가능 — Playwright 필요한 브랜드 없음(파파존스는 1번으로 해결, 한솥은 `data/hsd_menu_index_raw.tsv` 인덱스 사용).
 3. 각각 실행 → `data/parisbaguette.csv`, `data/megacoffee.csv`, `data/composecoffee.csv`, `data/sulbing.csv`,
    `data/eggdrop.csv`, `data/tlj.csv`, `data/paulbassett.csv`, `data/mrpizza.csv`, `data/papajohns.csv` (+선택: `hsd.csv`) 생성.
-4. `scripts/load_data.py` FILES에 생성한 파일 전부 등록.
+4. `scripts/pipeline/load_data.py` FILES에 생성한 파일 전부 등록.
 4. `data/brand_survey.csv`의 해당 행 status를 adopted로, notes에 실측 행 수 기록.
 5. 0번 공통 규칙의 검증 3종 결과 보고.

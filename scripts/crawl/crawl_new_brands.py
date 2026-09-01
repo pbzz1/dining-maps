@@ -1,6 +1,6 @@
 """2026-09 재조사(docs/crawl_handoff.md)로 확정된 신규 브랜드 크롤러 모음.
 
-사용법: python scripts/crawl_new_brands.py [brand ...]
+사용법: python scripts/crawl/crawl_new_brands.py [brand ...]
 brand 생략 시 전체. 브랜드명: papajohns mrpizza megacoffee sulbing eggdrop
 compose paulbassett tlj parisbaguette hsd
 
@@ -17,7 +17,7 @@ from crawl_common import (fetch, num, clean, write_csv, match_nutrient,
                           extract_nutrients, has_any_nutrient)
 from bs4 import BeautifulSoup
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 DELAY = 0.35
 
 
