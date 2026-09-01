@@ -195,7 +195,7 @@ ASP 사이트, **EUC-KR 인코딩**(`fetch(url, encoding="euc-kr")` 필수 — u
 | 굽네치킨 | 상세의 '조리 전 중량/원산지/영양성분 및 알레르기' 링크(`/menu/menu_info?itemId={id}`)까지 확인 — 실제로는 **중량·원산지·알레르기만 있고 영양성분 값 없음** |
 | 네네치킨 | 상세 `https://nenechicken.com/home_menu_detail.asp?no={n}&subid={s}&GUBUN=MENU`까지 확인 — 영양 키워드 0 |
 | 피자헛 | 메뉴 경로가 `/menu/pizza/best` 등으로 개편됨. 목록·상세·주문 플로우 전부에서 영양 키워드 0 (가격만 있음) |
-| 노랑통닭 | 도메인 정정: `norangtongdak.co.kr`(살아있음). 상세 `/menu/chicken_view.html?mode=VIEW_FORM&p_no={n}`까지 확인 — '나트륨 줄이기 실천 음식점' 캠페인 배지만 있고 영양정보 없음 |
+| 노랑통닭 | 도메인 정정: `norangtongdak.co.kr`(살아있음). 상세 `/menu/chicken_view.html?mode=VIEW_FORM&p_no={n}&p=1&s_p_type=A`에 **가격·조리 전 중량·알레르기는 있음**(curl 가능, BBQ와 같은 유형). 그러나 열량·나트륨 등 영양성분 값은 상세·`/about/`(원산지·알레르기·중량 안내) 어디에도 없음 — 영양 기준으로만 제외. 가격·중량 데이터가 나중에 필요해지면 이 URL로 수집 가능 |
 | 푸라닭 | 도메인 정정: `puradakchicken.com`(살아있음). 목록 `/menu/product.asp?sermode={n}`, 상세 `view.asp?idx={n}`까지 확인 — 영양·가격 전무 |
 | 죠스떡볶이 | 도메인 정정: 브랜드 사이트는 `jawstopokki.co.kr`(WordPress, 살아있음). `/menu/` 페이지에 영양 키워드 0 (이미지 갤러리) |
 | 슬로우캘리 | 도메인 정정: `www.slowcalorie.com`(살아있음)은 본사·프랜차이즈 안내 사이트 — 메뉴/영양 데이터 자체가 없음 |
