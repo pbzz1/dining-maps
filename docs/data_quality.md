@@ -1,6 +1,6 @@
 # 데이터 품질 검증 + 변화 감지
 
-`scripts/snapshot_and_validate.py`가 하는 일과, 왜 이게 필요한지.
+`scripts/pipeline/snapshot_and_validate.py`가 하는 일과, 왜 이게 필요한지.
 
 ## 왜 만들었나
 

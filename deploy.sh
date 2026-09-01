@@ -34,8 +34,8 @@ if [ "$COMMIT" = 1 ] && [ -n "$(git status --porcelain)" ]; then
   echo "커밋: $(git log --oneline -1)"
 fi
 
-[ -n "$BACK" ]  && { echo "== 백엔드 배포 =="; bash scripts/deploy_lambda.sh | tail -1; }
-[ -n "$FRONT" ] && { echo "== 프론트 배포 =="; bash scripts/deploy_frontend.sh | grep "SITE URL"; }
+[ -n "$BACK" ]  && { echo "== 백엔드 배포 =="; bash scripts/deploy/deploy_lambda.sh | tail -1; }
+[ -n "$FRONT" ] && { echo "== 프론트 배포 =="; bash scripts/deploy/deploy_frontend.sh | grep "SITE URL"; }
 
 [ "$COMMIT" = 1 ] && git push -q && echo "push 완료"
 echo "끝. 브라우저에서 Ctrl+Shift+R"

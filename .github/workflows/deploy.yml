@@ -21,8 +21,8 @@ jobs:
         id: f
         with:
           filters: |
-            back: ['app/**', 'scripts/deploy_lambda.sh']
-            front: ['frontend-react/**', 'scripts/deploy_frontend.sh']
+            back: ['app/**', 'scripts/deploy/deploy_lambda.sh']
+            front: ['frontend-react/**', 'scripts/deploy/deploy_frontend.sh']
 
   backend:
     needs: changes
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: bash scripts/deploy_lambda.sh
+      - run: bash scripts/deploy/deploy_lambda.sh
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
@@ -55,7 +55,7 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: frontend-react/package-lock.json }
       - run: npm ci && npm run lint
         working-directory: frontend-react
-      - run: bash scripts/deploy_frontend.sh
+      - run: bash scripts/deploy/deploy_frontend.sh
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
           VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }} # 없으면 지도 탭이 빈 화면
