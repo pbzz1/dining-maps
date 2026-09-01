@@ -44,7 +44,7 @@ with DAG(
     crawl_tasks = [
         BashOperator(
             task_id=f"crawl_{brand}",
-            bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/crawl_{brand}.py",
+            bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/crawl/crawl_{brand}.py",
         )
         for brand in ["mcdonalds", "lotteria", "subway", "salady"]
     ]
@@ -53,23 +53,23 @@ with DAG(
     # and (by default trigger rule) skips everything downstream.
     snapshot_and_validate = BashOperator(
         task_id="snapshot_and_validate",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/snapshot_and_validate.py --source airflow",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/snapshot_and_validate.py --source airflow",
         retries=0,  # a failed quality gate is a real signal, not a flake -- don't retry into a false pass
     )
 
     load_data = BashOperator(
         task_id="load_data",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/load_data.py",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/load_data.py",
     )
 
     compute_diet_score = BashOperator(
         task_id="compute_diet_score",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/compute_diet_score.py",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/compute_diet_score.py",
     )
 
     refresh_marts = BashOperator(
         task_id="refresh_marts",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/refresh_marts.py",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/refresh_marts.py",
     )
 
     crawl_tasks >> snapshot_and_validate >> load_data >> compute_diet_score >> refresh_marts

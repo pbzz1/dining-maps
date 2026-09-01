@@ -3,7 +3,7 @@
 어떤 프랜차이즈가 영양정보·가격을 공개하는지 조사한 결과와, 그 조사를 반복 가능하게 만든 방법.
 
 - 대장 파일: `data/brand_survey.csv`
-- 갱신 스크립트: `scripts/survey_brands.py`
+- 갱신 스크립트: `scripts/survey/survey_brands.py`
 
 ## 왜 대장을 따로 만들었나
 
@@ -17,7 +17,7 @@
 
 ## 사용법
 
-새 브랜드를 조사 대상에 넣으려면 `scripts/survey_brands.py`의 `PROBE_TARGETS`에 추가한다:
+새 브랜드를 조사 대상에 넣으려면 `scripts/survey/survey_brands.py`의 `PROBE_TARGETS`에 추가한다:
 
 ```python
 PROBE_TARGETS = {
@@ -28,7 +28,7 @@ PROBE_TARGETS = {
 그리고 실행하면 `data/brand_survey.csv`가 통째로 갱신된다.
 
 ```bash
-python scripts/survey_brands.py
+python scripts/survey/survey_brands.py
 ```
 
 ### 대장의 빈칸을 채우는 두 경로
@@ -39,9 +39,9 @@ python scripts/survey_brands.py
 크롤러만 쓰면 된다.
 
 ```bash
-python scripts/crawl_viable_brands.py --list          # 브랜드와 신뢰도 확인
-python scripts/crawl_viable_brands.py --brand bhc     # 하나씩
-python scripts/crawl_viable_brands.py                 # 전체
+python scripts/crawl/crawl_viable_brands.py --list          # 브랜드와 신뢰도 확인
+python scripts/crawl/crawl_viable_brands.py --brand bhc     # 하나씩
+python scripts/crawl/crawl_viable_brands.py                 # 전체
 ```
 
 파서는 두 등급으로 나뉜다. `VERIFIED`(버거킹·스타벅스·이디야·BHC·포케올데이)는 조사
@@ -51,7 +51,7 @@ python scripts/crawl_viable_brands.py                 # 전체
 고쳐야 한다는 뜻이고, 그때는 구조부터 본다.
 
 ```bash
-python scripts/inspect_page.py https://www.hollys.co.kr/menu/espresso.do
+python scripts/survey/inspect_page.py https://www.hollys.co.kr/menu/espresso.do
 ```
 
 이 스크립트는 HTML을 통째로 뱉지 않고 **테이블 개수·헤더·매핑 결과·영양 텍스트를 담은
@@ -62,8 +62,8 @@ python scripts/inspect_page.py https://www.hollys.co.kr/menu/espresso.do
 "영양정보가 없다"가 아니라 **1차 프로브의 fetch가 실패했을 뿐**이다.
 
 ```bash
-python scripts/resurvey_unknown.py --dry-run    # CSV 안 건드리고 결과만
-python scripts/resurvey_unknown.py              # 대장 갱신
+python scripts/survey/resurvey_unknown.py --dry-run    # CSV 안 건드리고 결과만
+python scripts/survey/resurvey_unknown.py              # 대장 갱신
 ```
 
 1차 프로브가 고정해 뒀던 축(UA·스킴·호스트·경로)을 전부 흔들어 다시 시도한다. 순회는
@@ -225,7 +225,7 @@ CSV의 `notes` 컬럼에 `[수동확인]` 접두사가 붙은 행이 브라우�
 
 #### JS 렌더링 17곳 — 배후 API 탐색 결과 (2026-08-12)
 
-`scripts/find_spa_api.py`로 각 사이트의 JS 번들을 정적 스캔해 배후 API를 찾아본 결과다.
+`scripts/survey/find_spa_api.py`로 각 사이트의 JS 번들을 정적 스캔해 배후 API를 찾아본 결과다.
 
 | 결과 | 브랜드 | 다음 단계 |
 |---|---|---|

@@ -3,7 +3,7 @@
 별도 크롤이나 감지 로직을 만들지 않는다 -- snapshot_and_validate.py가 매 크롤마다
 이전 스냅샷과 diff해서 added/removed/changed를 이미 기록하고 있고, 그중
 change_type='added' AND verdict='real_change'가 "브랜드가 실제로 새로 올린 메뉴"다.
-LLM 리뷰(다이어트 판정 + 예상 맛)는 scripts/generate_new_menu_reviews.py가
+LLM 리뷰(다이어트 판정 + 예상 맛)는 scripts/llm/generate_new_menu_reviews.py가
 배치로 채우는 캐시(new_menu_review)를 조인만 한다 -- 런타임 LLM 호출 없음.
 """
 from fastapi import APIRouter
