@@ -114,21 +114,30 @@ def load_snapshot(conn, run_id):
 
 
 def write_snapshot(conn, run_id, records):
-    for rec in records.values():
-        snapshot_id = conn.execute(
-            """INSERT INTO menu_snapshot
-                   (run_id, restaurant_name, menu_name, category, price_krw, weight_g)
-               VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-            (run_id, rec["restaurant"], rec["menu_name"], rec["category"],
-             rec["price_krw"], rec["weight_g"]),
-        ).fetchone()["id"]
-        for nutrient, (value, unit) in rec["nutrients"].items():
-            conn.execute(
-                """INSERT INTO nutrition_snapshot
-                       (menu_snapshot_id, nutrient_name, value, unit)
-                   VALUES (%s, %s, %s, %s)""",
-                (snapshot_id, nutrient, value, unit),
-            )
+    """executemany 두 방 + 조회 한 번. 행마다 execute(RETURNING)를 돌리면 2.5만
+    왕복이라 GitHub Actions -> 싱가포르 Neon에선 한 시간짜리가 된다 -- psycopg3
+    executemany는 파이프라인으로 묶어 보내서 왕복이 사실상 상수다."""
+    recs = list(records.values())
+    conn.cursor().executemany(
+        """INSERT INTO menu_snapshot
+               (run_id, restaurant_name, menu_name, category, price_krw, weight_g)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        [(run_id, r["restaurant"], r["menu_name"], r["category"],
+          r["price_krw"], r["weight_g"]) for r in recs],
+    )
+    ids = {
+        (row["restaurant_name"], row["menu_name"]): row["id"]
+        for row in conn.execute(
+            "SELECT id, restaurant_name, menu_name FROM menu_snapshot WHERE run_id = %s",
+            (run_id,),
+        )
+    }
+    conn.cursor().executemany(
+        """INSERT INTO nutrition_snapshot (menu_snapshot_id, nutrient_name, value, unit)
+           VALUES (%s, %s, %s, %s)""",
+        [(ids[(r["restaurant"], r["menu_name"])], nutrient, value, unit)
+         for r in recs for nutrient, (value, unit) in r["nutrients"].items()],
+    )
 
 
 def record_check(conn, run_id, name, scope, severity, detail):
