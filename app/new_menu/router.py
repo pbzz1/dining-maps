@@ -91,7 +91,7 @@ WITH added_events AS (
     WHERE nf2.nutrient_name IN ('calorie', 'protein')
 )
 SELECT mi.id, mi.name, f.base_name, r.id AS restaurant_id, r.name AS restaurant_name,
-       mi.category_group, mi.weight_g, mi.nutrition_basis, mi.image_url,
+       mi.category_group, mi.weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id,
        f.event_date, mi.released_at, f.first_seen_at,
        ds.score AS diet_score, ds.absolute_grade,
        MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'calorie') AS calorie_brand_pct,
@@ -111,7 +111,7 @@ LEFT JOIN brand_pct bp       ON bp.menu_item_id = mi.id
 LEFT JOIN new_menu_review rv ON rv.menu_item_id = mi.id
 WHERE f.brand_rank <= {PER_BRAND_CAP} AND f.brand_row <= {PER_BRAND_ROW_CAP}
 GROUP BY mi.id, mi.name, f.base_name, r.id, r.name, mi.category_group, mi.weight_g,
-         mi.nutrition_basis, mi.image_url, f.event_date, mi.released_at,
+         mi.nutrition_basis, mi.image_url, mi.youtube_video_id, f.event_date, mi.released_at,
          f.first_seen_at, ds.score, ds.absolute_grade,
          rv.diet_verdict, rv.diet_comment, rv.taste_note
 ORDER BY f.event_date DESC, r.name, f.base_name, mi.id

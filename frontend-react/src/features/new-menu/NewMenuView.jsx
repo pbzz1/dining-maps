@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { fetchNewMenus } from "../../api";
 import { track } from "../../constants";
 
@@ -11,10 +11,15 @@ const num = (v, digits = 0) =>
 
 const BASIS_LABEL = { per_100g: "100g당", per_total: "전체", per_serving: "" };
 
-const youtubeUrl = (m) =>
-  `https://www.youtube.com/results?search_query=${encodeURIComponent(
-    `${m.restaurant_name} ${m.base_name} 리뷰`
-  )}`;
+// 리뷰 영상은 사이즈·세트와 무관하니 검색어도 옵션 뗀 이름으로 건다.
+const ytQuery = (m) => `${m.restaurant_name} ${m.base_name} 리뷰`;
+// 임베드는 fetch_youtube_reviews.py가 캐시한 검색 1위 영상 ID 기준
+// (검색 결과 자체의 임베드는 유튜브가 지원 종료). ID 없으면 검색 링크로 대체.
+const youtubeEmbedUrl = (m) => `https://www.youtube.com/embed/${m.youtube_video_id}`;
+const youtubeSearchUrl = (m) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery(m))}`;
+
+const COL_COUNT = 11; // 임베드 행의 colSpan -- 헤더 열 수와 같아야 한다
 
 // 브랜드는 같은 메뉴를 옵션마다 다른 행으로 준다 (단품/세트/라지세트, L·M·라지…).
 // 옵션을 뗀 이름(base_name)은 서버가 계산해서 준다 -- app/new_menu/router.py의
@@ -68,6 +73,8 @@ export default function NewMenuView() {
   const [sortKey, setSortKey] = useState("date");
   const [dir, setDir] = useState(-1); // 1 asc, -1 desc
   const [picked, setPicked] = useState({}); // groupKey -> 선택한 옵션의 menu_item id
+  // 유튜브 임베드가 펼쳐진 행 (한 번에 하나). 옵션을 바꿔도 같은 줄이므로 groupKey 기준.
+  const [openKey, setOpenKey] = useState(null);
 
   useEffect(() => {
     fetchNewMenus().then(setRows).catch((e) => setError(e.message));
@@ -152,8 +159,11 @@ export default function NewMenuView() {
               {sorted.map(({ key, options, sel: m }) => {
                 const cal = brandBadge(m.calorie_brand_pct, true, ["낮은 편", "중간", "높은 편"]);
                 const pro = brandBadge(m.protein_brand_pct, false, ["적은 편", "중간", "많은 편"]);
+                // 리뷰 영상은 메뉴 단위 -- 캐시된 영상 ID를 가진 옵션이 하나라도 있으면 그걸 쓴다.
+                const yt = options.find((o) => o.youtube_video_id) ?? m;
                 return (
-                  <tr key={key}>
+                  <Fragment key={key}>
+                  <tr>
                     <td className="nm-cell-date">
                       {m.event_date}
                       {!m.released_at && <span className="nm-detected">발견</span>}
@@ -202,17 +212,40 @@ export default function NewMenuView() {
                         : `${m.diet_score.toFixed(0)}${m.absolute_grade ? ` (${m.absolute_grade})` : ""}`}
                     </td>
                     <td>
-                      <a
-                        className="nm-yt"
-                        href={youtubeUrl(m)}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => track("youtube_review_search", { menu: m.base_name })}
+                      <button
+                        className={`nm-yt ${openKey === key ? "open" : ""}`}
+                        onClick={() => {
+                          setOpenKey(openKey === key ? null : key);
+                          track("youtube_review_embed", { menu: m.base_name });
+                        }}
                       >
-                        ▶ 유튜브
-                      </a>
+                        ▶ 유튜브 {openKey === key ? "▲" : "▼"}
+                      </button>
                     </td>
                   </tr>
+                  {openKey === key && (
+                    <tr className="nm-embed-row">
+                      <td colSpan={COL_COUNT}>
+                        <div className="nm-embed">
+                          {yt.youtube_video_id ? (
+                            /* 펼쳤을 때만 마운트 -- 닫으면 재생도 함께 멈춘다 */
+                            <iframe
+                              src={youtubeEmbedUrl(yt)}
+                              title={`${m.base_name} 유튜브 리뷰`}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <p className="nm-embed-none">아직 연결된 리뷰 영상이 없습니다.</p>
+                          )}
+                          <a href={youtubeSearchUrl(m)} target="_blank" rel="noreferrer">
+                            유튜브에서 전체 검색 결과 보기 ↗
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
