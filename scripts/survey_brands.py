@@ -111,10 +111,17 @@ MANUAL_FINDINGS = {
               "홈 화면 자체엔 영양 키워드 없음. 주소 입력 후 주문 플로우를 타야 하는 것으로 보임 - 재조사 필요)",
     ),
     "메가커피": dict(
-        category="커피", status="rejected", nutrition="N", nutrition_format="none",
-        nutrients="", price="N",
-        source="https://www.mega-mgccoffee.com/menu/",
-        notes="메뉴 페이지에 이름·영문명·설명만 존재. 별도 영양 페이지 경로도 전부 404",
+        category="커피", status="viable", nutrition="Y", nutrition_format="server_html",
+        nutrients="열량,포화지방,당류,나트륨,단백질,카페인", price="N",
+        source="https://mega-mgccoffee.com/menu/menu.php?menu_category1=&menu_category2=&category=",
+        notes="2026-09-01 정정(사용자가 화면 캡처로 지적, 실 크롬으로 재확인): 이전 판정이 틀렸다 -- "
+              "/menu/ 페이지 자체는 이름·설명만 보이지만, 각 항목을 클릭하면 열리는 상세 모달에 "
+              "컵용량·1회제공량kcal·포화지방·당류·나트륨·단백질·카페인·알레르기가 전부 있고, 이게 이미 "
+              "페이지 로드 시 menu.php AJAX 응답에 통째로 들어있어 curl만으로 그대로 잡힌다(JS 불필요, "
+              "20개 항목 확인). 페이지네이션(1/2/3/4)이 있어 전체 메뉴는 여러 페이지에 나뉘어 있고, "
+              "menu_category1/menu_category2로 음료/푸드/상품 카테고리도 나뉜다 -- 정확한 페이지네이션 "
+              "파라미터는 크롤러 작성 시 네트워크 탭에서 재확인 필요. "
+              "[교훈] 목록 페이지만 보고 판정하면 안 된다 -- 항목을 최소 하나는 클릭해서 상세/모달까지 확인해야 함",
     ),
     "투썸플레이스": dict(
         category="커피", status="rejected", nutrition="N", nutrition_format="image",

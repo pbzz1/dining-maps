@@ -9,6 +9,7 @@
 파리바게뜨,베이커리,viable,Y,server_html,"열량,나트륨,당류,포화지방,단백질",unknown,https://www.paris.co.kr/product/{slug}/,"[수동확인] 상품 상세페이지에 '영양정보' 섹션이 curl로도 그대로 잡힘(JS 불필요, 완전 서버 렌더링) - 예: 감자쫀떡(1개입) 38g/160kcal/나트륨140mg/당류13g/포화지방5g/단백질2g, 알레르기 정보도 같이 있음. 단 목록 페이지(/products/?cat1=...)는 상품 링크가 JS로 주입돼 curl로는 안 보임 -- 브라우저 1회로 slug 목록만 수집하면(카테고리별 42개 안팎) 이후 상세페이지는 requests만으로 충분",2026-09-01
 포케올데이,샐러드,viable,Y,server_html,"열량,나트륨,탄수화물,당류,단백질,지방,콜레스테롤,포화지방산,트랜스지방",N,https://pokeallday.co.kr/nutrition_info,[수동확인] 조사 브랜드 중 영양소 항목이 가장 많음(9종). 콜레스테롤·트랜스지방까지 공개,2026-09-01
 BHC,치킨,viable,Y,server_html,"열량,당류,단백질,포화지방,나트륨",N,https://www.bhc.co.kr/menu/chicken.asp,[수동확인] 서버 렌더링 <table>. 롯데리아와 유사한 구조,2026-09-01
+메가커피,커피,viable,Y,server_html,"열량,포화지방,당류,나트륨,단백질,카페인",N,https://mega-mgccoffee.com/menu/menu.php?menu_category1=&menu_category2=&category=,"[수동확인] 2026-09-01 정정(사용자가 화면 캡처로 지적, 실 크롬으로 재확인): 이전 판정이 틀렸다 -- /menu/ 페이지 자체는 이름·설명만 보이지만, 각 항목을 클릭하면 열리는 상세 모달에 컵용량·1회제공량kcal·포화지방·당류·나트륨·단백질·카페인·알레르기가 전부 있고, 이게 이미 페이지 로드 시 menu.php AJAX 응답에 통째로 들어있어 curl만으로 그대로 잡힌다(JS 불필요, 20개 항목 확인). 페이지네이션(1/2/3/4)이 있어 전체 메뉴는 여러 페이지에 나뉘어 있고, menu_category1/menu_category2로 음료/푸드/상품 카테고리도 나뉜다 -- 정확한 페이지네이션 파라미터는 크롤러 작성 시 네트워크 탭에서 재확인 필요. [교훈] 목록 페이지만 보고 판정하면 안 된다 -- 항목을 최소 하나는 클릭해서 상세/모달까지 확인해야 함",2026-09-01
 빽다방,커피,viable,Y,server_html,"kcal,칼로리,나트륨,단백질,당류,포화지방",N,https://paikdabang.com/menu/menu_coffee/,자동 프로브: 영양 키워드 5종 검출 (브라우저 확인 권장),2026-09-01
 스타벅스,커피,viable,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.starbucks.co.kr/menu/drink_view.do?product_cd=,[수동확인] 음료 207개 확인. Tall 사이즈 기준. 서버 렌더링이라 curl 크롤링 가능,2026-09-01
 이디야,커피,viable,Y,server_html,"열량,단백질,당류,포화지방,나트륨,카페인",N,https://www.ediya.com/contents/drink.html,[수동확인] 목록 페이지 HTML에 dl/dt/dd로 인라인 표기. 상세페이지 순회 불필요,2026-09-01
@@ -37,7 +38,6 @@ KFC,버거,unknown,unknown,js_rendered,,Y,https://www.kfckorea.com/menu/detail/N
 BBQ,치킨,rejected,N,none,,Y,https://www.bbq.co.kr/categories/17,"[수동확인] 2026-09-01: 메뉴 목록 페이지 찾음(가격·조리전 중량 표기 있음, 예: 황금올리브치킨 23,000원/10호 951~1050g). 영양정보 링크·페이지는 못 찾음",2026-09-01
 굽네치킨,치킨,rejected,N,none,,Y,https://www.goobne.co.kr/menu/menu_list,[수동확인] 가격은 있으나 영양정보 없음,2026-09-01
 네네치킨,치킨,rejected,N,none,,N,https://nenechicken.com,[수동확인] 메인 페이지에 영양정보 관련 링크·언급 전혀 없음,2026-09-01
-메가커피,커피,rejected,N,none,,N,https://www.mega-mgccoffee.com/menu/,[수동확인] 메뉴 페이지에 이름·영문명·설명만 존재. 별도 영양 페이지 경로도 전부 404,2026-09-01
 투썸플레이스,커피,rejected,N,image,,N,https://www.twosome.co.kr/co/annoDetail.do?annoSeqNo=1404,"[수동확인] 2026-09-01: 공지사항에 '음료 열량 및 알레르기 유발 성분 안내(2026.09.01 ver)'가 있으나 내용이 JPG 이미지(nutrient_260901.jpg) 한 장 -- 노브랜드버거·맘스터치와 같은 이미지 공개 유형, 텍스트 크롤링 불가. 실 크롬(사용자 PC)으로 재확인 완료",2026-09-01
 미스터피자,피자,rejected,N,none,,N,https://www.mrpizza.co.kr/menu,[수동확인] 메뉴 이름 목록만 있고(가격·영양정보 없음) 클릭해도 상세페이지로 안 넘어가는 구식 게시판형 구조,2026-09-01
 피자헛,피자,rejected,N,none,,unknown,https://www.pizzahut.co.kr/menu/list,[수동확인] 메뉴 페이지에 영양정보 관련 내용 없음,2026-09-01
