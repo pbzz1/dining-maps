@@ -27,6 +27,12 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install -q "psycopg[binary]" pandas
+      # 스냅샷·diff를 prod에서도 기록한다 -- menu_change_log의 'added'가 신메뉴
+      # 피드의 원천이라, 이 단계가 없으면 새 CSV가 로드돼도 prod 피드에 안 뜬다.
+      # 검증 실패(fail)면 여기서 멈춰 load_data가 돌지 않는다 (로컬 Airflow와 동일한 게이트).
+      - run: python scripts/pipeline/snapshot_and_validate.py --source actions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python scripts/pipeline/load_data.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
