@@ -1077,7 +1077,9 @@ th.dash-td-hi { color: var(--accent); }
 }
 
 /* --- 신메뉴 표 --- */
-.nm-page { max-width: 1100px; margin: 0 auto; padding: 1.2rem; }
+/* 열이 11개라 1100px에선 가로 스크롤이 생긴다. 넓은 화면에선 다 펼치고,
+   그보다 좁으면 dash-table-scroll이 알아서 가로 스크롤을 만든다. */
+.nm-page { max-width: 1560px; margin: 0 auto; padding: 1.2rem; }
 .nm-title { margin: 0 0 0.2rem; font-size: 1.15rem; }
 .nm-table td { white-space: nowrap; }
 .nm-th { cursor: pointer; user-select: none; white-space: nowrap; }
