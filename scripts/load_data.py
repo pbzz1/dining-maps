@@ -110,6 +110,17 @@ STANDARD_SCHEMA_CSVS = [
     ("coffeebean.csv", "커피빈"),
     ("hollys.csv", "할리스"),
     ("dominos.csv", "도미노피자"),
+    # 2026-09 재조사(docs/crawl_handoff.md) 배치 -- scripts/crawl_new_brands.py 산출물
+    ("parisbaguette.csv", "파리바게뜨"),
+    ("megacoffee.csv", "메가커피"),
+    ("composecoffee.csv", "컴포즈커피"),
+    ("sulbing.csv", "설빙"),
+    ("eggdrop.csv", "에그드랍"),
+    ("tlj.csv", "뚜레쥬르"),
+    ("paulbassett.csv", "폴바셋"),
+    ("mrpizza.csv", "미스터피자"),
+    ("papajohns.csv", "파파존스"),
+    ("hsd.csv", "한솥도시락"),
 ]
 
 FILES += [
