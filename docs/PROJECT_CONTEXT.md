@@ -36,24 +36,32 @@
 
 ```
 dining_maps/
-├── app/                    FastAPI 백엔드
-│   ├── main.py             엔드포인트 5개
-│   ├── schemas.py          Pydantic 응답 모델
-│   └── db.py               SQLite 커넥션
-├── frontend-react/         React + Vite (현행)
+├── app/                    FastAPI 백엔드 -- 기능 하나 = 폴더 하나
+│   ├── main.py             앱 조립(CORS + include_router)만
+│   ├── restaurants/        브랜드 목록·메뉴·통계·등급  router.py + schemas.py
+│   ├── stores/             매장 위치(거리·등급 필터)
+│   ├── menus/              메뉴 탐색기(/api/menus)
+│   ├── stats/              대시보드용 mart 조회
+│   ├── recommend/          목표별 메뉴 추천
+│   ├── new_menu/           신메뉴 피드
+│   ├── grading.py          브랜드 절대/상대 등급 (restaurants·stores 공용)
+│   └── db.py               PostgreSQL 커넥션
+├── frontend-react/         React + Vite
 │   └── src/
-│       ├── components/     MapView, RestaurantList, MenuView, GradeBadges
+│       ├── features/       탭 하나 = 폴더 하나 (map, restaurants, dashboard,
+│       │                   recommend, new-menu)
+│       ├── components/     여러 기능이 같이 쓰는 표시 전용 조각
 │       ├── api.js          API 호출 단일 진입점
-│       ├── constants.js    라벨·색상·정렬옵션
-│       └── useKakaoMap.js  카카오맵 SDK 로딩 훅
-├── scripts/
-│   ├── crawl_*.py          브랜드별 크롤러 (맥도날드/롯데리아/서브웨이/샐러디)
-│   ├── load_data.py        CSV → SQLite UPSERT
-│   ├── compute_diet_score.py   다이어트 등급 계산
-│   ├── snapshot_and_validate.py  품질 게이트 + 변화 감지
-│   ├── fetch_store_locations_nationwide.py  전국 매장 수집
-│   ├── flag_stale_stores.py     폐업 후보 탐지
-│   └── survey_brands.py    브랜드 확장 조사 대장 생성
+│       └── constants.js    라벨·색상·정렬옵션
+├── scripts/               실행 스크립트 -- 성격별로 폴더 하나
+│   ├── crawl/             브랜드 메뉴 크롤러. crawl_common.py가 공용 fetch·파서
+│   ├── pipeline/          적재→검증→채점→mart. Airflow DAG가 부르는 것들
+│   ├── survey/            브랜드 확장 조사·페이지 구조 파악(수동 도구)
+│   ├── llm/               LLM 배치 (브랜드 추천 메뉴, 신메뉴 리뷰)
+│   ├── analytics/         GA4 리포트·커스텀 디멘션 등록
+│   ├── migrate/           SQLite→PostgreSQL 1회성 이관
+│   ├── deploy/            Lambda·CloudFront 배포 셸
+│   └── data_analyze/      탐색용 노트북
 ├── dags/                   Airflow DAG 2개
 ├── docker/                 Airflow docker-compose
 ├── data/                   CSV (브랜드별 메뉴 + 조사 대장)
@@ -160,7 +168,7 @@ GET /stores?lat=&lng=&radius_m=&grade_type=&min_grade=
 
 ## 9. 브랜드 확장 조사 결과
 
-`scripts/survey_brands.py` → `data/brand_survey.csv` (재실행 가능한 대장)
+`scripts/survey/survey_brands.py` → `data/brand_survey.csv` (재실행 가능한 대장)
 
 | 상태 | 개수 |
 |---|---|

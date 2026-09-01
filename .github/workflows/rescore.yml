@@ -27,9 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install -q "psycopg[binary]" pandas
-      - run: python scripts/load_data.py
+      - run: python scripts/pipeline/load_data.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - run: python scripts/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
+      - run: python scripts/pipeline/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

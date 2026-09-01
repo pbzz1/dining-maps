@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import MapView from "./components/MapView";
-import RestaurantList from "./components/RestaurantList";
-import MenuView from "./components/MenuView";
-import Dashboard from "./components/Dashboard";
+import MapView from "./features/map/MapView";
+import RestaurantList from "./features/restaurants/RestaurantList";
+import MenuView from "./features/restaurants/MenuView";
+import Dashboard from "./features/dashboard/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
 import NewMenuView from "./features/new-menu/NewMenuView";
 import { fetchStatsQuality } from "./api";

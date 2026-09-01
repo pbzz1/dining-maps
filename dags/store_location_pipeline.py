@@ -36,18 +36,18 @@ with DAG(
 
     fetch_stores = BashOperator(
         task_id="fetch_store_locations_nationwide",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/fetch_store_locations_nationwide.py",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/fetch_store_locations_nationwide.py",
         execution_timeout=timedelta(minutes=20),
     )
 
     flag_stale = BashOperator(
         task_id="flag_stale_stores",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/flag_stale_stores.py --stale-days 14",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/flag_stale_stores.py --stale-days 14",
     )
 
     refresh_marts = BashOperator(
         task_id="refresh_marts",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/refresh_marts.py",
+        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/refresh_marts.py",
     )
 
     fetch_stores >> flag_stale >> refresh_marts

@@ -38,13 +38,15 @@ HMR로 저장 즉시 반영된다.
 src/
   api.js              모든 API 호출 (베이스 URL 한 곳에서 관리)
   constants.js        등급 색상/라벨, 정렬 옵션, 포맷 헬퍼
-  useKakaoMap.js      카카오맵 SDK 로드 + 지도 인스턴스 훅
-  App.jsx             화면 전환 (지도 / 매장목록 / 메뉴상세)
-  components/
-    MapView.jsx        지도 + 필터 + 거리순 매장 리스트 + 팝업
-    RestaurantList.jsx 브랜드 카드
-    MenuView.jsx       메뉴 목록 + 정렬 + 영양정보
-    GradeBadges.jsx    절대/상대 등급 배지, 범례
+  App.jsx             탭 전환 (지도 / 맞춤추천 / 신메뉴 / 대시보드 / 매장목록)
+  features/           탭 하나 = 폴더 하나. 그 탭에서만 쓰는 건 전부 안쪽에 둔다
+    map/              MapView + useKakaoMap 훅
+    restaurants/      RestaurantList(브랜드 카드) + MenuView(드릴다운)
+    dashboard/        Dashboard + MenuExplorer + BrandExplorer
+    recommend/        RecommendView + 목표별 API·BMR 계산
+    new-menu/         NewMenuView
+  components/         여러 기능이 같이 쓰는 표시 전용 조각
+    GradeBadges.jsx / BrandAvatar.jsx / Logo.jsx / NavIcons.jsx
 ```
 
 ## API 연결 방식
