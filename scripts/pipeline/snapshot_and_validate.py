@@ -184,7 +184,10 @@ def validate(conn, run_id, current, previous):
             else:
                 severities.append(record_check(conn, run_id, "row_count_stability", brand, "pass", detail))
 
-    # 3. Values physically plausible.
+    # 3. Values physically plausible. warn까지만 -- 홀케이크(뚜레쥬르 6호 2단
+    #    8,690kcal)처럼 통째 기준으로 공개된 값은 정당하게 상한을 넘는데, CSV에
+    #    per_total 표시가 없는 브랜드가 많아 구분할 근거가 없다. 파서 붕괴는
+    #    커버리지·행수·구조적 변화 검사가 잡고, 이 검사는 경고로 대시보드에만 남긴다.
     for (brand, name), rec in current.items():
         for nutrient, (value, _unit) in rec["nutrients"].items():
             lo, hi = VALUE_LIMITS.get(nutrient, (None, None))
@@ -192,7 +195,7 @@ def validate(conn, run_id, current, previous):
                 continue
             if not (lo <= value <= hi):
                 severities.append(record_check(
-                    conn, run_id, "value_range", brand, "fail",
+                    conn, run_id, "value_range", brand, "warn",
                     f"{name}: {nutrient}={value} outside [{lo}, {hi}]",
                 ))
 
