@@ -63,6 +63,9 @@ def main(force: bool = False) -> bool:
     generate_menu_reco.main()
     # 신메뉴 LLM 리뷰는 화면에서 뺐다 -- 다시 켜려면 여기서
     # generate_new_menu_reviews.main() 호출을 복구하면 된다.
+    # 신메뉴 유튜브 리뷰 영상 ID 캐시 (무료, 실패해도 검색 링크로 대체되므로 무해)
+    from scripts import fetch_youtube_reviews
+    fetch_youtube_reviews.main()
     return True
 
 

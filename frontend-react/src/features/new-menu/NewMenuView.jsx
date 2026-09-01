@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { fetchNewMenus } from "../../api";
 import { track } from "../../constants";
 
@@ -11,10 +11,14 @@ const num = (v, digits = 0) =>
 
 const BASIS_LABEL = { per_100g: "100g당", per_total: "전체", per_serving: "" };
 
-const youtubeUrl = (m) =>
-  `https://www.youtube.com/results?search_query=${encodeURIComponent(
-    `${m.restaurant_name} ${m.name} 리뷰`
-  )}`;
+const ytQuery = (m) => `${m.restaurant_name} ${m.name} 리뷰`;
+// 임베드는 fetch_youtube_reviews.py가 캐시한 검색 1위 영상 ID 기준
+// (검색 결과 자체의 임베드는 유튜브가 지원 종료). ID 없으면 검색 링크로 대체.
+const youtubeEmbedUrl = (m) => `https://www.youtube.com/embed/${m.youtube_video_id}`;
+const youtubeSearchUrl = (m) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery(m))}`;
+
+const COL_COUNT = 11; // 임베드 행의 colSpan -- 헤더 열 수와 같아야 한다
 
 // 클릭 정렬 가능한 컬럼: key -> 값 추출. null은 항상 뒤로.
 const SORTS = {
@@ -47,6 +51,7 @@ export default function NewMenuView() {
   const [error, setError] = useState(null);
   const [sortKey, setSortKey] = useState("date");
   const [dir, setDir] = useState(-1); // 1 asc, -1 desc
+  const [openId, setOpenId] = useState(null); // 유튜브 임베드가 펼쳐진 행 (한 번에 하나)
 
   useEffect(() => {
     fetchNewMenus().then(setRows).catch((e) => setError(e.message));
@@ -123,7 +128,8 @@ export default function NewMenuView() {
                 const cal = brandBadge(m.calorie_brand_pct, true, ["낮은 편", "중간", "높은 편"]);
                 const pro = brandBadge(m.protein_brand_pct, false, ["적은 편", "중간", "많은 편"]);
                 return (
-                  <tr key={m.id}>
+                  <Fragment key={m.id}>
+                  <tr>
                     <td className="nm-cell-date">
                       {m.event_date}
                       {!m.released_at && <span className="nm-detected">발견</span>}
@@ -155,17 +161,40 @@ export default function NewMenuView() {
                         : `${m.diet_score.toFixed(0)}${m.absolute_grade ? ` (${m.absolute_grade})` : ""}`}
                     </td>
                     <td>
-                      <a
-                        className="nm-yt"
-                        href={youtubeUrl(m)}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => track("youtube_review_search", { menu: m.name })}
+                      <button
+                        className={`nm-yt ${openId === m.id ? "open" : ""}`}
+                        onClick={() => {
+                          setOpenId(openId === m.id ? null : m.id);
+                          track("youtube_review_embed", { menu: m.name });
+                        }}
                       >
-                        ▶ 유튜브
-                      </a>
+                        ▶ 유튜브 {openId === m.id ? "▲" : "▼"}
+                      </button>
                     </td>
                   </tr>
+                  {openId === m.id && (
+                    <tr className="nm-embed-row">
+                      <td colSpan={COL_COUNT}>
+                        <div className="nm-embed">
+                          {m.youtube_video_id ? (
+                            /* 펼쳤을 때만 마운트 -- 닫으면 재생도 함께 멈춘다 */
+                            <iframe
+                              src={youtubeEmbedUrl(m)}
+                              title={`${m.name} 유튜브 리뷰`}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          ) : (
+                            <p className="nm-embed-none">아직 연결된 리뷰 영상이 없습니다.</p>
+                          )}
+                          <a href={youtubeSearchUrl(m)} target="_blank" rel="noreferrer">
+                            유튜브에서 전체 검색 결과 보기 ↗
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

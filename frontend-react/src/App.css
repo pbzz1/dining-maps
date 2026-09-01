@@ -1059,3 +1059,20 @@ th.dash-td-hi { color: var(--accent); }
   white-space: nowrap;
 }
 .nm-yt:hover { border-color: var(--accent); color: var(--accent); }
+
+/* 유튜브 임베드 토글 -- .nm-yt가 a에서 button이 되면서 필요한 리셋 포함 */
+.nm-yt { background: var(--card-bg); cursor: pointer; font-family: inherit; }
+.nm-yt.open { border-color: var(--accent); color: var(--accent); }
+.nm-embed-row td { padding: 0.6rem 0.8rem; background: var(--bg); }
+.nm-embed { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.nm-embed iframe {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #000;
+}
+.nm-embed a { font-size: 0.78rem; color: var(--muted); }
+.nm-embed a:hover { color: var(--accent); }
+.nm-embed-none { margin: 0; font-size: 0.82rem; color: var(--muted); font-style: italic; }
