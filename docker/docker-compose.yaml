@@ -33,6 +33,13 @@ x-airflow-common: &airflow-common
     KAKAO_REST_API_KEY: ${KAKAO_REST_API_KEY:-}
     # DAG가 실행하는 scripts/*.py가 접속할 애플리케이션 DB
     DATABASE_URL: postgresql://dining:dining@postgres-app:5432/dining_maps
+    # dbt-postgres는 discrete host/port/user/password/dbname이 필요해 DATABASE_URL을
+    # 못 쓴다 -- 위와 같은 값을 따로 주입 (dbt/README.md "접속 정보" 참고).
+    DBT_PG_HOST: postgres-app
+    DBT_PG_PORT: "5432"
+    DBT_PG_USER: dining
+    DBT_PG_PASSWORD: dining
+    DBT_PG_DBNAME: dining_maps
   volumes:
     - ../dags:/opt/airflow/dags
     - airflow-logs:/opt/airflow/logs

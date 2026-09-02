@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: stg_restaurant
+    columns:
+      - name: restaurant_id
+        tests: [not_null, unique]
+
+  - name: stg_menu_item
+    columns:
+      - name: menu_item_id
+        tests: [not_null, unique]
+      - name: restaurant_id
+        tests: [not_null]
+
+  - name: stg_nutrition_fact
+    columns:
+      - name: nutrition_fact_id
+        tests: [not_null, unique]
+      - name: menu_item_id
+        tests: [not_null]
+
+  - name: stg_diet_score
+    columns:
+      - name: menu_item_id
+        tests: [not_null, unique]
+
+  - name: stg_store
+    columns:
+      - name: store_id
+        tests: [not_null, unique]
+      - name: restaurant_id
+        tests: [not_null]
+
+  - name: stg_crawl_run
+    columns:
+      - name: run_id
+        tests: [not_null, unique]
+
+  - name: stg_menu_snapshot
+    columns:
+      - name: menu_snapshot_id
+        tests: [not_null, unique]
+      - name: run_id
+        tests: [not_null]
+
+  - name: stg_nutrition_snapshot
+    columns:
+      - name: nutrition_snapshot_id
+        tests: [not_null, unique]
+      - name: menu_snapshot_id
+        tests: [not_null]
+
+  - name: stg_data_quality_check
+    columns:
+      - name: check_id
+        tests: [not_null, unique]
+      - name: run_id
+        tests: [not_null]
+
+  - name: stg_menu_change_log
+    columns:
+      - name: change_log_id
+        tests: [not_null, unique]
+      - name: run_id
+        tests: [not_null]
