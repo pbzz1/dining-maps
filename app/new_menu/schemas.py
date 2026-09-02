@@ -18,6 +18,7 @@ class NewMenuOut(BaseModel):
     sodium: float | None
     weight_g: float | None
     nutrition_basis: str | None
+    scaled_from_100g: bool = False  # 100g당 값을 weight_g로 제품 전체 기준 환산했음
     diet_score: float | None
     absolute_grade: str | None
     image_url: str | None  # 브랜드 공식 CDN. 크롤 자동수집 아님 -- 시드로만 채워짐

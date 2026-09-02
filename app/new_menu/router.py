@@ -129,15 +129,27 @@ def list_new_menus(limit: int = 30):
     conn = get_connection()
     rows = fetch_new_menus(conn, limit)
     conn.close()
-    return [
-        NewMenuOut(**{
-            **r,
-            "event_date": r["event_date"].isoformat(),
-            "released_at": r["released_at"].isoformat() if r["released_at"] else None,
-            "first_seen_at": r["first_seen_at"].date().isoformat() if r["first_seen_at"] else None,
-        })
-        for r in rows
-    ]
+    return [NewMenuOut(**_as_whole_item(dict(r))) for r in rows]
+
+
+NUTRIENT_KEYS = ("calorie", "protein", "sugar", "saturated_fat", "sodium")
+
+
+def _as_whole_item(r: dict) -> dict:
+    """100g당으로 공개된 브랜드(교촌·BHC)는 제품 전체 중량이 있으면 한 마리 기준으로
+    환산한다 -- 신메뉴 화면에서 사람들이 보는 건 "100g당 353kcal"이 아니라 "한 마리
+    2,470kcal"이다. 중량이 없으면 100g당 그대로 두고 프론트가 그렇게 표시한다."""
+    r["event_date"] = r["event_date"].isoformat()
+    r["released_at"] = r["released_at"].isoformat() if r["released_at"] else None
+    r["first_seen_at"] = r["first_seen_at"].date().isoformat() if r["first_seen_at"] else None
+    r["scaled_from_100g"] = False
+    if r["nutrition_basis"] == "per_100g" and r["weight_g"]:
+        factor = r["weight_g"] / 100
+        for k in NUTRIENT_KEYS:
+            if r[k] is not None:
+                r[k] = round(r[k] * factor, 1)
+        r["scaled_from_100g"] = True
+    return r
 
 
 if __name__ == "__main__":
