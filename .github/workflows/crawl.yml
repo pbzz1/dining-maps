@@ -41,7 +41,8 @@ jobs:
           done
           # 멀티 브랜드 드라이버는 브랜드별 실패를 삼키고 FAILED로 출력만 한다 -> 로그에서 수집
           python scripts/crawl/crawl_viable_brands.py 2>&1 | tee -a crawl.log || echo "viable_brands(전체)" >> failed.txt
-          python scripts/crawl/crawl_new_brands.py 2>&1 | tee -a crawl.log || echo "new_brands(전체)" >> failed.txt
+          # compose는 Actions 해외 IP를 403으로 차단 -> 명시 목록으로 제외 (로컬 수동 크롤)
+          python scripts/crawl/crawl_new_brands.py papajohns mrpizza megacoffee sulbing eggdrop paulbassett tlj parisbaguette hsd 2>&1 | tee -a crawl.log || echo "new_brands(전체)" >> failed.txt
           grep -oE "^\[[a-z]+\] FAILED" crawl.log | tr -d '[]' | awk '{print $1}' >> failed.txt || true
           grep -E "^  [a-z]+ +FAILED" crawl.log | awk '{print $1}' >> failed.txt || true
           # 버거킹은 Actions에서 원래 불가 (viable 드라이버에 포함돼 있어 항상 FAILED로 찍힘)
