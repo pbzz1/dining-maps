@@ -36,6 +36,11 @@ jobs:
       - run: python scripts/pipeline/load_data.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # 보도자료로 확인한 신메뉴 출시일·이미지 백필 (멱등 -- 이미 있으면 no-op).
+      # SEED에 항목을 추가하고 커밋만 하면 다음 날 prod에 자동 반영된다.
+      - run: python scripts/pipeline/seed_released_at.py
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python scripts/pipeline/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
