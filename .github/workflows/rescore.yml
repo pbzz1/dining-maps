@@ -39,3 +39,10 @@ jobs:
       - run: python scripts/pipeline/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # 카톡 알림 (secrets 미설정이면 스스로 건너뜀) -- docs/kakao_notify_setup.md
+      - name: kakao notify on failure
+        if: failure()
+        env:
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+        run: python scripts/pipeline/notify_kakao.py "[Dining Maps] daily 파이프라인(rescore) 실패 -- Actions 로그 확인 필요" || echo "::warning::카톡 알림 전송 실패"
