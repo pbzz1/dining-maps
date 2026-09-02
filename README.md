@@ -9,7 +9,7 @@
 |---|---|
 | **Live** | https://d13coohgfeztsm.cloudfront.net/ |
 | **역할** | 1인 개발 — 조사·크롤러·파이프라인·API·프론트·배포 전부 |
-| **스택** | Python · FastAPI · PostgreSQL · Airflow · GitHub Actions · React · AWS Lambda/CloudFront · Neon |
+| **스택** | Python · FastAPI · PostgreSQL · dbt · Airflow · GitHub Actions · React · AWS Lambda/CloudFront · Neon |
 | **데이터** | 브랜드 26 · 메뉴 4,469 · 영양정보 23,265행 · 매장 18,351곳 (전국) |
 
 ---
@@ -49,7 +49,7 @@
 
 ### 대시보드 — 브랜드를 숫자로
 
-브랜드별 매장 수·메뉴 수·평균 영양소·다이어트 점수·등급 분포. 서빙은 materialized view(`mart_*`)에서 읽는다.
+브랜드별 매장 수·메뉴 수·평균 영양소·다이어트 점수·등급 분포. 서빙은 dbt가 재계산하는 `mart_*` 테이블에서 읽는다 — OLTP 테이블을 staging 뷰 → dim/fact 스타 스키마 → rollup 순으로 변환하고 `dbt test`로 계약을 검사한다.
 
 ![대시보드 — 브랜드별 매장 수·메뉴 수·다이어트 점수·평균 영양소 표](docs/screenshots/dashboard.png)
 ![대시보드 — 브랜드별 평균 다이어트 점수 막대와 A/B/C/D 등급 분포](docs/screenshots/dashboard_charts.png)
@@ -84,7 +84,7 @@
  브랜드별 파서 26개       validate.py              UPSERT             + rescore_if_changed      + React + 카카오맵
  → data/<brand>.csv     스냅샷 · 룰 검사          CSV → Postgres     + generate_menu_reco      mart_* 뷰에서 읽음
                         · diff 판정               (게이트 실패 시 스킵)  + fetch_youtube_reviews
-                        fail → exit 1                                + refresh_marts
+                        fail → exit 1                                + dbt run / dbt test (mart)
 
  GitHub Actions: 크롤 주 2회 (월·목 02:00 KST) → CSV 커밋 / 검증·적재·재채점 매일 03:00 KST
  Airflow DAG 2개(nutrition_pipeline 매월, store_location_pipeline 매주)는 로컬 Docker에서 동일 흐름을 오케스트레이션
@@ -92,10 +92,10 @@
 
 | 단계 | 스크립트 | 하는 일 |
 |---|---|---|
-| 수집 | `scripts/crawl/crawl_*.py`, `crawl_common.py` | 브랜드별 파서. 출력은 표준 12컬럼 CSV 하나로 통일 |
+| 수집 | `scripts/crawl/crawl_*.py`, `crawl_common.py` | 브랜드별 파서. 출력은 표준 13컬럼 CSV 하나로 통일 |
 | 검증 | `scripts/pipeline/snapshot_and_validate.py` | 스냅샷 저장 → 4개 룰 검사 → 직전 회차와 diff → "파서 버그 vs 실제 변경" 판정. **fail이면 exit 1** |
 | 적재 | `scripts/pipeline/load_data.py` | `menu_item` / `nutrition_fact` UPSERT. `conn.pipeline()`으로 왕복 최소화 |
-| 가공 | `compute_diet_score.py`, `rescore_if_changed.py`, `refresh_marts.py` | 100kcal 기준 채점, 절대·상대 등급, 지문(fingerprint) 비교로 변경 시에만 재채점 |
+| 가공 | `compute_diet_score.py`, `rescore_if_changed.py`, `dbt/models/` | 100kcal 기준 채점, 절대·상대 등급, 지문(fingerprint) 비교로 변경 시에만 재채점. 대시보드용 마트는 dbt(staging → dim/fact → rollup)가 재계산 |
 | 보강 | `scripts/llm/generate_menu_reco.py`, `scripts/crawl/fetch_youtube_reviews.py` | 브랜드별 추천 한 줄(Claude, structured output), 신메뉴 유튜브 ID |
 | 매장 | `scripts/pipeline/fetch_store_locations_nationwide.py` | 카카오 로컬 API를 25km 격자로 전국 순회, 45건 상한에 걸리면 재귀 4분할 |
 
@@ -142,7 +142,7 @@
 - `match_nutrient()` — 라벨→컬럼 매핑을 **긴 라벨 우선**으로 본다(`포화지방산`을 `지방`보다 먼저). 위치가 아니라 라벨로 읽으니 컬럼 순서가 바뀌어도 살아남는다.
 - `num()` — `"0.5g 미만"`→`0.5`, `"5 (10%)"`→`5`. 단 `-`·`미표기`는 **0이 아니라 빈 값** (미공개와 0은 다르다).
 - `nutrition_basis` — 단위 환산 대신 기준을 라벨로 남긴다(`per_serving` / `per_100g`(BHC·교촌) / `per_total`(도미노)). 등급은 칼로리로 나눠 계산해 스케일이 상쇄되지만, 화면에 그대로 뿌리는 원값은 기준을 알아야 한다.
-- `write_csv()` — 표준 12컬럼으로 `data/<brand>.csv` 출력. **0행이면 예외를 던진다** — 파서가 깨졌을 때 멀쩡한 CSV를 빈 파일로 덮어쓰지 않으려고.
+- `write_csv()` — 표준 13컬럼으로 `data/<brand>.csv` 출력. **0행이면 예외를 던진다** — 파서가 깨졌을 때 멀쩡한 CSV를 빈 파일로 덮어쓰지 않으려고.
 
 여기서 나온 CSV가 그대로 품질 게이트(`snapshot_and_validate.py`) → 적재(`load_data.py`)로 들어간다. 영양소는 고정 컬럼이 아니라 `nutrition_fact` 행으로 풀어 저장한다.
 
@@ -163,7 +163,7 @@ store(kakao_place_id UNIQUE, restaurant_id, branch_name, lat, lng, last_seen_at)
 -- 이력·품질 (append-only, 절대 UPDATE 하지 않음)
 crawl_run · menu_snapshot · nutrition_snapshot · data_quality_check · menu_change_log
 
--- 서빙용 materialized view
+-- 대시보드용 마트 (dbt가 매 실행마다 재계산: stg_* → dim_*/fact_* → mart_*)
 mart_brand_nutrition · mart_nutrient_trend · mart_data_quality
 ```
 
@@ -289,6 +289,9 @@ python -m uvicorn app.main:app --reload                           # localhost:80
 # 프론트엔드
 cd frontend-react && npm install && npm run dev                   # localhost:5173
 
+# 데이터 마트 (선택) — dbt/README.md의 DBT_PG_* 환경변수 필요
+cd dbt && dbt run && dbt test
+
 # Airflow (선택)
 cd docker && docker compose up airflow-init && docker compose up -d   # localhost:8080
 
@@ -320,6 +323,7 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 | [crawl_handoff.md](docs/crawl_handoff.md) | 브랜드별 크롤링 인수인계 메모 (제외 사유 포함) |
 | [price_data_options.md](docs/price_data_options.md) | 가격 데이터 확보 방안 조사 및 결론 |
 | [ga4_report.md](docs/ga4_report.md) | 30일 사용자 행동 리포트 |
+| [dbt/README.md](dbt/README.md) | 데이터 마트 모델 구조(staging → dim/fact → rollup)와 실행법 |
 | [docker/README.md](docker/README.md) | Airflow 실행법, 2.x→3.x 아키텍처 차이 |
 
 ---
