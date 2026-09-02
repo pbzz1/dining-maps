@@ -1,0 +1,21 @@
+name: kakao-test
+# 카톡 알림 설정 점검용 -- 수동 실행하면 테스트 메시지를 보낸다.
+# (crawl·rescore는 실패할 때만 알림을 보내므로, 설정 확인은 이걸로.)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python scripts/pipeline/notify_kakao.py "[Dining Maps] 카톡 알림 테스트 -- 설정이 완료됐습니다 ✅"
+        env:
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
