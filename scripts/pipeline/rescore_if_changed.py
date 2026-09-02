@@ -54,6 +54,11 @@ def main(force: bool = False) -> bool:
         last = conn.execute("SELECT fingerprint FROM diet_score_run ORDER BY ran_at DESC LIMIT 1").fetchone()
         if not force and last and last["fingerprint"] == fp:
             print(f"unchanged ({fp[:12]}…); skipping")
+            # 유튜브 캐시는 변경 여부와 무관하게 돈다 -- seed_released_at이 출시일만
+            # 넣어 신메뉴가 생기는 경우 지문은 그대로인데 영상 연결은 필요하다.
+            # 이미 캐시된 메뉴는 건너뛰므로 평소엔 사실상 no-op.
+            from scripts.crawl import fetch_youtube_reviews
+            fetch_youtube_reviews.main()
             return False
         print(f"inputs changed -> rescoring ({fp[:12]}…)")
         compute_diet_score.main()
