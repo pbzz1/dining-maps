@@ -33,6 +33,9 @@
        gh secret set KAKAO_REST_API_KEY
        gh secret set KAKAO_REFRESH_TOKEN
 
+   앱 [보안]에서 Client Secret을 "사용함"으로 켰다면 토큰 발급 curl에
+   `&client_secret=...`을 붙이고, `gh secret set KAKAO_CLIENT_SECRET`도 등록.
+
    (각각 실행하면 값 입력 프롬프트가 뜬다 -- 복사해 둔 값 붙여넣기)
 
 6. **테스트** — Actions 탭에서 crawl 워크플로우를 수동 실행(workflow_dispatch)하거나,

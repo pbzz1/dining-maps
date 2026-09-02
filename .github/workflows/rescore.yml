@@ -45,4 +45,5 @@ jobs:
         env:
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
           KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
         run: python scripts/pipeline/notify_kakao.py "[Dining Maps] daily 파이프라인(rescore) 실패 -- Actions 로그 확인 필요" || echo "::warning::카톡 알림 전송 실패"
