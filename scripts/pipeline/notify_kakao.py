@@ -35,9 +35,11 @@ def main() -> None:
         return
     message = sys.argv[1] if len(sys.argv) > 1 else "(빈 메시지)"
 
-    tok = post("https://kauth.kakao.com/oauth/token", {
-        "grant_type": "refresh_token", "client_id": api_key, "refresh_token": refresh,
-    })
+    token_req = {"grant_type": "refresh_token", "client_id": api_key, "refresh_token": refresh}
+    # 카카오 앱의 [보안]에서 Client Secret을 "사용함"으로 켠 경우에만 필요
+    if os.environ.get("KAKAO_CLIENT_SECRET"):
+        token_req["client_secret"] = os.environ["KAKAO_CLIENT_SECRET"]
+    tok = post("https://kauth.kakao.com/oauth/token", token_req)
     if "refresh_token" in tok:
         print("::warning::카카오 refresh token이 곧 만료됩니다. "
               "GitHub secret KAKAO_REFRESH_TOKEN을 로그의 새 값으로 갱신하세요.")
