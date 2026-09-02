@@ -1,4 +1,6 @@
 ﻿restaurant,menu_name,menu_category,weight_g,price_krw,calorie_kcal,protein_g,sugar_g,saturated_fat_g,sodium_mg,caffeine_mg,nutrition_basis
+커피빈,Jeju Hallabong Mango Tea 제주 한라망고 티,신음료,,,202,0,48,0,70,0,
+커피빈,Sparkling Jeju Hallabong Mango 제주 한라망고 스파클링,신음료,,,202,0,48,0,70,0,
 커피빈,Lychee & Coconut Ice Blended 리치 코코넛 아이스 블렌디드,신음료,,,285,0,68,,67,0,
 커피빈,Chewy Black Sesame Ice Blended 쫀득 흑임자 아이스 블렌디드,신음료,,,745,14,85,7,573,0,
 커피빈,Vanilla Bean Flat White 바닐라 빈 플랫화이트,신음료,,,228,8,25,6,126,182,
@@ -81,7 +83,6 @@
 커피빈,English Breakfast 잉글리쉬 브렉퍼스트,티,,,9,1,0,0,1,77,
 커피빈,Sparkling Jeju Lemon Swedish 스파클링 제주 레몬 스웨디쉬,티,,,190,0,40,0,20,0,
 커피빈,Earl Grey 얼 그레이,티,,,9,0,0,0,0,65,
-커피빈,Sparkling Mango Chamomile 스파클링 망고 캐모마일,티,,,263,0,54,0,94,0,
 커피빈,Lemon Chamomile 레몬 캐모마일,티,,,8,0,1,0,5,,
 커피빈,Goheung Yuzu Lemon Chamomile Tea 고흥 유자 레몬 캐모마일 티,티,,,99,0,22,0,12,,
 커피빈,Swedish Berries 스웨디쉬 베리즈,티,,,16,0,0,0,20,,
