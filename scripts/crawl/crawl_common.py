@@ -54,6 +54,10 @@ STANDARD_COLUMNS = [
     # score divides nutrients by calories, so a uniform scale cancels), but
     # any displayed or compared raw value needs this column.
     "nutrition_basis",
+    # 제품 전체 중량 (weight_g가 1회분일 때만 의미). 도미노가 1회분 150g 옆에 한 판
+    # 총중량을 나란히 공개해서, 점수는 1회분으로 매기되 신메뉴 화면은 한 판으로
+    # 환산해 보여줄 수 있다. 다른 브랜드는 비워둔다.
+    "total_weight_g",
 ]
 
 # Label -> CSV column. Longer/more specific labels must be tried first:

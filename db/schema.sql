@@ -133,6 +133,10 @@ ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
 -- NULL이면 프론트가 이미지 없이 렌더링.
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS image_url TEXT;
 
+-- 제품 전체 중량. weight_g가 1회분(도미노 150g)일 때 한 판 값으로 환산하는 데 쓴다.
+-- 점수·비교는 1회분 기준을 유지하고 신메뉴 화면만 전체로 보여준다. NULL = 미공개.
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS total_weight_g DOUBLE PRECISION;
+
 -- 신메뉴 유튜브 리뷰 영상 ID (검색 1위, scripts/crawl/fetch_youtube_reviews.py가
 -- 배치로 캐시). 검색 결과 임베드(listType=search)가 지원 종료돼 영상 ID가 있어야
 -- 임베드할 수 있다. NULL이면 프론트가 검색 링크로 대체.

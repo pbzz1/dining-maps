@@ -175,10 +175,11 @@ export default function NewMenuView() {
                         <img className="nm-thumb" src={m.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" />
                       )}
                       {m.base_name}
-                      {/* 100g당 공개 브랜드는 서버가 제품 전체로 환산해 준다 -> 총 중량을 보여준다.
-                          중량이 없어 환산 못 한 것만 '100g당'으로 남는다. */}
-                      {m.scaled_from_100g ? (
-                        <span className="mx-basis" title="브랜드가 100g당으로 공개한 값을 제품 전체 중량으로 환산">
+                      {/* 서버가 한 마리·한 판 기준으로 환산해 준 행은 총 중량을 보여준다
+                          (교촌 100g당 x 중량, 도미노 1회분 150g x 한 판). 근거 중량이 없어
+                          환산 못 한 것만 원래 기준('100g당' 등)으로 남는다. */}
+                      {m.scaled_to_total ? (
+                        <span className="mx-basis" title="브랜드 공개값(100g당 또는 1회분)을 제품 전체 중량으로 환산">
                           총 {num(m.weight_g)}g
                         </span>
                       ) : BASIS_LABEL[m.nutrition_basis] && (
