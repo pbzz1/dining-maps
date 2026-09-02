@@ -14,6 +14,7 @@
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -23,8 +24,13 @@ def post(url, data, headers=None):
         url, data=urllib.parse.urlencode(data).encode(),
         headers={"Content-Type": "application/x-www-form-urlencoded", **(headers or {})},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        # 카카오는 오류 원인을 본문 JSON(error_code 등)에 담아 준다 -- 삼키면 디버깅 불가
+        print(f"HTTP {e.code} from {url}: {e.read().decode(errors='replace')[:500]}")
+        raise
 
 
 def main() -> None:
