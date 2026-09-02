@@ -267,6 +267,11 @@ def has_any_nutrient(row):
 def write_csv(rows, filename, *, extra_columns=()):
     """Write rows to data/<filename> using the canonical column order."""
     rows = [r for r in rows if r]
+    # 사이트 개편으로 파서가 0행을 내면 기존 CSV를 빈 파일로 덮어써 버린다.
+    # 무인 크롤(GitHub Actions)이 그걸 그대로 커밋하면 안 되니 실패로 처리 --
+    # 드라이버의 브랜드별 try/except가 FAILED로 집계하고 기존 CSV는 살아남는다.
+    if not rows:
+        raise ValueError(f"0 rows for {filename} -- refusing to overwrite existing CSV")
     columns = list(STANDARD_COLUMNS) + [c for c in extra_columns if c not in STANDARD_COLUMNS]
     path = DATA_DIR / filename
     path.parent.mkdir(parents=True, exist_ok=True)

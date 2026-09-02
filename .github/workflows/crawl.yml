@@ -1,0 +1,47 @@
+name: crawl
+# 크롤 가능한 브랜드(공식 API·정적 페이지 24곳)를 Actions에서 주기 크롤해 data/*.csv를
+# 자동 커밋한다. 커밋만 하면 나머지는 전부 자동: 매일 03시 rescore 워크플로우가
+# 스냅샷 diff -> 신메뉴 감지 -> prod 로드 -> 유튜브 연결까지 처리한다.
+#
+# 버거킹(WAF가 서버 요청 차단)·맘스터치(이미지로만 공개)는 여기서 못 돌리므로
+# 로컬 수동 크롤 유지 -- 해당 CSV는 이 워크플로우가 건드리지 않는다.
+#
+# 브랜드 하나가 실패해도 나머지는 진행한다(각 드라이버가 브랜드별 try/except).
+# 파서가 0행을 내면 write_csv가 거부해 기존 CSV가 보존되고(crawl_common.py),
+# 부분적으로 깨진 데이터가 커밋되더라도 rescore의 스냅샷 품질 게이트가
+# prod 로드 전에 걸러낸다 -- 이중 안전망.
+on:
+  schedule:
+    - cron: '0 17 * * 0,3' # 매주 월·목 02:00 KST (03:00 rescore 전에)
+  workflow_dispatch:
+
+permissions:
+  contents: write # data/*.csv 자동 커밋
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q beautifulsoup4
+      # 실패는 각 스크립트가 브랜드 단위로 삼키거나(멀티 브랜드 드라이버),
+      # 여기서 warning으로만 남긴다 -- 한 브랜드 때문에 전체 커밋을 막지 않는다.
+      - run: python scripts/crawl/crawl_mcdonalds.py || echo "::warning::mcdonalds 크롤 실패"
+      - run: python scripts/crawl/crawl_lotteria.py || echo "::warning::lotteria 크롤 실패"
+      - run: python scripts/crawl/crawl_subway.py || echo "::warning::subway 크롤 실패"
+      - run: python scripts/crawl/crawl_salady.py || echo "::warning::salady 크롤 실패"
+      - run: python scripts/crawl/crawl_viable_brands.py || echo "::warning::viable_brands 크롤 실패"
+      - run: python scripts/crawl/crawl_new_brands.py || echo "::warning::new_brands 크롤 실패"
+      - name: commit changed CSVs
+        run: |
+          git add data/*.csv
+          if git diff --cached --quiet; then
+            echo "변경 없음 -- 커밋 생략"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "크롤 자동 갱신 $(TZ=Asia/Seoul date +%F)"
+            git push
+          fi
