@@ -20,3 +20,4 @@ data/raw/
 # Word 임시 잠금 파일
 ~$*
 build/
+.impeccable/
