@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: dim_restaurant
+    columns:
+      - name: restaurant_id
+        tests: [not_null, unique]
+
+  - name: dim_menu_item
+    columns:
+      - name: menu_item_id
+        tests: [not_null, unique]
+      - name: restaurant_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_restaurant')
+                field: restaurant_id
+
+  - name: dim_store
+    columns:
+      - name: store_id
+        tests: [not_null, unique]
+      - name: restaurant_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_restaurant')
+                field: restaurant_id
+
+  - name: fact_nutrition
+    columns:
+      - name: menu_item_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_menu_item')
+                field: menu_item_id
+
+  - name: fact_diet_score
+    columns:
+      - name: menu_item_id
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_menu_item')
+                field: menu_item_id
+      - name: absolute_grade
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["A", "B", "C", "D"]

@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: mart_brand_nutrition
+    description: 브랜드별 메뉴/매장 수, 다이어트 점수, 주요 영양소 평균. app/stats/router.py GET /api/stats/brands가 읽는다.
+    columns:
+      - name: restaurant_id
+        tests: [not_null, unique]
+
+  - name: mart_nutrient_trend
+    description: 크롤 회차별 브랜드 x 영양소 평균 추이. GET /api/stats/trend가 읽는다.
+    columns:
+      - name: run_id
+        tests: [not_null]
+
+  - name: mart_data_quality
+    description: 크롤 회차별 검증 결과 요약. GET /api/stats/quality가 읽는다.
+    columns:
+      - name: run_id
+        tests: [not_null, unique]

@@ -45,9 +45,16 @@ with DAG(
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/flag_stale_stores.py --stale-days 14",
     )
 
-    refresh_marts = BashOperator(
-        task_id="refresh_marts",
-        bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/refresh_marts.py",
+    # dbt/models/marts/의 dim/fact + rollups(public.mart_*)를 재계산 -- 옛 refresh_marts.py
+    # (REFRESH MATERIALIZED VIEW)를 대체. 상세: dbt/README.md.
+    dbt_run = BashOperator(
+        task_id="dbt_run",
+        bash_command=f"cd {PROJECT_DIR}/dbt && dbt run --project-dir . --profiles-dir .",
     )
 
-    fetch_stores >> flag_stale >> refresh_marts
+    dbt_test = BashOperator(
+        task_id="dbt_test",
+        bash_command=f"cd {PROJECT_DIR}/dbt && dbt test --project-dir . --profiles-dir .",
+    )
+
+    fetch_stores >> flag_stale >> dbt_run >> dbt_test
