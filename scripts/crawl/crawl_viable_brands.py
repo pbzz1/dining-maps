@@ -828,6 +828,9 @@ def _dominos_rows_from_grid(grid, cols, category, table_index, fallback_cols=Non
             row[column] = num(cells[active[column]]) if column in active else ""
         if serving_g and active is cols:
             row["weight_g"] = serving_g  # the block's own basis, not 총중량
+            # 한 판 총중량은 따로 싣는다 -- 신메뉴 화면이 1회분 x (총중량/150)로 환산
+            if fallback_cols and "weight_g" in fallback_cols:
+                row["total_weight_g"] = num(cells[fallback_cols["weight_g"]]) or ""
         row["nutrition_basis"] = basis
         if has_any_nutrient(row):
             rows.append(row)

@@ -1,3 +1,5 @@
 beautifulsoup4
 lxml
 pandas
+dbt-core
+dbt-postgres

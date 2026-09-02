@@ -1,5 +1,5 @@
-"""대시보드 통계: mart 머티리얼라이즈드 뷰를 그대로 읽는다. 집계는 파이프라인이
-scripts/pipeline/refresh_marts.py 로 미리 해둔다 -- db/schema.sql 마지막 절 참고."""
+"""대시보드 통계: public.mart_* 테이블을 그대로 읽는다. 집계는 파이프라인 끝에서
+dbt(dbt/models/marts/rollups/)가 미리 해둔다 -- dbt/README.md 참고."""
 from fastapi import APIRouter
 
 from app.db import get_connection

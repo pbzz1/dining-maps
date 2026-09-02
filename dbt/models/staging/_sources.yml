@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: public
+    description: dining_maps OLTP 스키마 (db/schema.sql). 앱과 파이프라인이 직접 쓰고 읽는다.
+    schema: public
+    tables:
+      - name: restaurant
+      - name: menu_item
+      - name: nutrition_fact
+      - name: diet_score
+      - name: store
+      - name: crawl_run
+      - name: menu_snapshot
+      - name: nutrition_snapshot
+      - name: data_quality_check
+      - name: menu_change_log
