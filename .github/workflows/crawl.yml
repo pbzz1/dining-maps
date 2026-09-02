@@ -1,15 +1,20 @@
 name: crawl
-# 크롤 가능한 브랜드(공식 API·정적 페이지 24곳)를 Actions에서 주기 크롤해 data/*.csv를
-# 자동 커밋한다. 커밋만 하면 나머지는 전부 자동: 매일 03시 rescore 워크플로우가
-# 스냅샷 diff -> 신메뉴 감지 -> prod 로드 -> 유튜브 연결까지 처리한다.
+# 크롤 가능한 브랜드를 Actions에서 주 2회 크롤해 data/*.csv를 자동 커밋한다.
+# 커밋만 되면 나머지는 전부 자동: 매일 03시 rescore 워크플로우가 스냅샷 diff ->
+# 신메뉴 감지 -> prod 로드 -> 유튜브 연결까지 처리한다.
 #
-# 버거킹(WAF가 서버 요청 차단)·맘스터치(이미지로만 공개)는 여기서 못 돌리므로
-# 로컬 수동 크롤 유지 -- 해당 CSV는 이 워크플로우가 건드리지 않는다.
+# 여기서 못 도는 브랜드 (로컬 수동 크롤 유지, 이 워크플로우는 해당 CSV를 안 건드림):
+#   버거킹   -- WAF가 브라우저 외 요청 차단 (crawl_viable_brands.py 독스트링 참고)
+#   맘스터치 -- 영양정보를 이미지로만 공개
+#   서브웨이·컴포즈커피 -- Actions(해외 IP)에서 403 (2026-09-02 실측, 로컬에선 정상)
 #
-# 브랜드 하나가 실패해도 나머지는 진행한다(각 드라이버가 브랜드별 try/except).
-# 파서가 0행을 내면 write_csv가 거부해 기존 CSV가 보존되고(crawl_common.py),
-# 부분적으로 깨진 데이터가 커밋되더라도 rescore의 스냅샷 품질 게이트가
-# prod 로드 전에 걸러낸다 -- 이중 안전망.
+# 안전망 2중:
+#   1) 파서가 0행을 내면 write_csv가 거부 -> 기존 CSV 보존 (crawl_common.py)
+#   2) 깨진 데이터가 커밋돼도 rescore의 스냅샷 품질 게이트가 prod 로드 전에 차단
+#
+# 알림: 브랜드 하나라도 실패하면 커밋은 정상 진행하되 마지막 단계에서 job을
+# 실패시킨다 -> GitHub가 기본 설정대로 실패 메일/앱 알림을 보낸다.
+# 브랜드별 행 수는 run 페이지의 Summary 탭에 표로 남는다.
 on:
   schedule:
     - cron: '0 17 * * 0,3' # 매주 월·목 02:00 KST (03:00 rescore 전에)
@@ -26,14 +31,22 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install -q beautifulsoup4
-      # 실패는 각 스크립트가 브랜드 단위로 삼키거나(멀티 브랜드 드라이버),
-      # 여기서 warning으로만 남긴다 -- 한 브랜드 때문에 전체 커밋을 막지 않는다.
-      - run: python scripts/crawl/crawl_mcdonalds.py || echo "::warning::mcdonalds 크롤 실패"
-      - run: python scripts/crawl/crawl_lotteria.py || echo "::warning::lotteria 크롤 실패"
-      - run: python scripts/crawl/crawl_subway.py || echo "::warning::subway 크롤 실패"
-      - run: python scripts/crawl/crawl_salady.py || echo "::warning::salady 크롤 실패"
-      - run: python scripts/crawl/crawl_viable_brands.py || echo "::warning::viable_brands 크롤 실패"
-      - run: python scripts/crawl/crawl_new_brands.py || echo "::warning::new_brands 크롤 실패"
+
+      - name: crawl all brands
+        run: |
+          set -o pipefail  # 없으면 "python | tee"의 종료코드가 tee 것이 돼 실패를 못 잡는다
+          : > failed.txt
+          for s in mcdonalds lotteria salady; do
+            python "scripts/crawl/crawl_$s.py" 2>&1 | tee -a crawl.log || echo "$s" >> failed.txt
+          done
+          # 멀티 브랜드 드라이버는 브랜드별 실패를 삼키고 FAILED로 출력만 한다 -> 로그에서 수집
+          python scripts/crawl/crawl_viable_brands.py 2>&1 | tee -a crawl.log || echo "viable_brands(전체)" >> failed.txt
+          python scripts/crawl/crawl_new_brands.py 2>&1 | tee -a crawl.log || echo "new_brands(전체)" >> failed.txt
+          grep -oE "^\[[a-z]+\] FAILED" crawl.log | tr -d '[]' | awk '{print $1}' >> failed.txt || true
+          grep -E "^  [a-z]+ +FAILED" crawl.log | awk '{print $1}' >> failed.txt || true
+          # 버거킹은 Actions에서 원래 불가 (viable 드라이버에 포함돼 있어 항상 FAILED로 찍힘)
+          grep -vE "^(burgerking)$" failed.txt > failed.tmp && mv failed.tmp failed.txt || : > failed.txt
+
       - name: commit changed CSVs
         run: |
           git add data/*.csv
@@ -44,4 +57,26 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "크롤 자동 갱신 $(TZ=Asia/Seoul date +%F)"
             git push
+          fi
+
+      - name: summary + fail on broken brands
+        run: |
+          {
+            echo "## 크롤 결과 ($(TZ=Asia/Seoul date '+%F %R KST'))"
+            echo ""
+            echo "| 브랜드 | 행 수 |"
+            echo "|---|---|"
+            grep -oE "wrote [0-9]+ rows to .*/data/[a-z]+\.csv" crawl.log \
+              | sed -E 's#wrote ([0-9]+) rows to .*/data/([a-z]+)\.csv#| \2 | \1 |#'
+            grep -oE "^\[[a-z]+\] [0-9]+ rows" crawl.log | sed -E 's#\[([a-z]+)\] ([0-9]+) rows#| \1 | \2 |#'
+            grep -E "^  [a-z]+ +[0-9]+ rows" crawl.log | awk '{print "| "$1" | "$2" |"}'
+            if [ -s failed.txt ]; then
+              echo ""
+              echo "### ❌ 실패한 브랜드"
+              sed 's/^/- /' failed.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -s failed.txt ]; then
+            echo "실패 브랜드:" && cat failed.txt
+            exit 1  # job을 실패로 -> GitHub 실패 알림 발송 (커밋은 이미 끝난 뒤)
           fi
