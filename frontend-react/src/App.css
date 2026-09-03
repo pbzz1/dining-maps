@@ -372,8 +372,14 @@ main {
   box-shadow: var(--shadow-rest);
 }
 
-.store-card:hover {
+.store-card:hover,
+.store-card.is-hover {
   border-color: var(--accent);
+}
+
+/* 지도 핀에 커서를 올렸을 때 목록에서도 같은 매장이 떠오른다 */
+.store-card.is-hover {
+  box-shadow: 0 4px 12px rgba(35, 32, 27, 0.12);
 }
 
 .store-card-head {
@@ -446,22 +452,50 @@ main {
   border-radius: 3px;
 }
 
+/* 기본은 등급 글자만 있는 작은 핀 -- 이름은 접어 두고 호버·선택 때만 펼친다.
+   축소했을 때 이름표끼리 겹쳐 지도를 덮어버리던 문제를 형태 자체로 없앤다. */
 .map-pin {
-  padding: 4px 10px;
+  padding: 4px 6px;
   border-radius: 12px 12px 12px 2px;
   display: flex;
   align-items: center;
-  gap: 5px;
   border: 2px solid #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   white-space: nowrap;
+  transition: box-shadow 0.15s ease;
 }
 
 .map-pin span {
   color: #fff;
   font-weight: 700;
   font-size: 12px;
+}
+
+.map-pin .pin-name {
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.18s ease, opacity 0.15s ease, margin-left 0.18s ease;
+}
+
+.map-pin:hover .pin-name,
+.map-pin.is-hover .pin-name,
+.map-pin.is-selected .pin-name,
+.map-pin-top .pin-name {
+  max-width: 170px;
+  margin-left: 5px;
+  opacity: 1;
+}
+
+/* 목록 카드에 커서를 올렸을 때 -- 지도에서 어느 핀인지 바로 찾을 수 있게 */
+.map-pin.is-hover {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.map-pin.is-selected {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* 핀 안의 등급 글자 -- 색만으론 등급이 전달되지 않아서(첫 방문·색약) 문자로도 표시 */
@@ -475,10 +509,37 @@ main {
   line-height: 16px;
 }
 
+/* 축소했을 때 겹치는 핀들을 대체하는 요약 핀 -- 클릭하면 그 자리로 확대된다. */
+.map-cluster {
+  position: relative;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.map-cluster b { font-size: 15px; font-weight: 800; }
+.map-cluster span { font-size: 10px; font-weight: 700; }
+
+/* 묶인 안에 추천 상위 3곳이 있으면 골드 테두리로 -- 핀의 순위 규칙과 같은 신호 */
+.map-cluster-top {
+  border-color: #ffc53d;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 /* 추천 상위 3곳: 왕관 + 금테 + 골드 순위 뱃지 (디자인 시안 방향 A) */
 .map-pin-top {
   position: relative;
-  padding: 7px 13px;
+  padding: 6px 10px;
+  gap: 5px;
   border: 3px solid #ffc53d;
   border-radius: 14px 14px 14px 2px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -486,14 +547,8 @@ main {
 
 .map-pin-top span { font-size: 14px; }
 
-.map-pin .pin-crown {
-  position: absolute;
-  top: -18px;
-  left: -9px;
-  transform: rotate(-20deg);
-}
-
-.map-pin .pin-rank {
+.map-pin .pin-rank,
+.map-grade-legend .pin-rank {
   font-style: normal;
   background: #ffc53d;
   color: #5c4300;
