@@ -18,3 +18,24 @@ models:
     columns:
       - name: run_id
         tests: [not_null, unique]
+
+  - name: mart_menu_nutrition
+    description: 메뉴 1행 = 1레코드인 wide 팩트. 영양소 피벗 + 브랜드 내 백분위 + 에너지 밀도. 파생값은 기준이 맞는 per_serving 행에만 채운다. BI(Google Sheets 경유 Tableau)가 썰어 쓰는 원천.
+    columns:
+      - name: menu_item_id
+        tests: [not_null, unique]
+      - name: restaurant_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_restaurant')
+                field: restaurant_id
+      # NULL을 per_serving으로 편 뒤라 not_null이 실제 계약이 된다 -- 새 basis 값이
+      # 들어오면 accepted_values가 잡는다(파생값 조건이 그 값을 모르고 지나치는 걸 막음).
+      - name: nutrition_basis
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["per_serving", "per_100g", "per_total"]
