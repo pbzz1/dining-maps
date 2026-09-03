@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
+from assets import MARTS, STORE
+
 PROJECT_DIR = "/opt/airflow/dining_maps"
 PYTHON = "python"
 
@@ -37,6 +39,7 @@ with DAG(
     fetch_stores = BashOperator(
         task_id="fetch_store_locations_nationwide",
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/fetch_store_locations_nationwide.py",
+        outlets=[STORE],
         execution_timeout=timedelta(minutes=20),
     )
 
@@ -50,6 +53,7 @@ with DAG(
     dbt_run = BashOperator(
         task_id="dbt_run",
         bash_command=f"cd {PROJECT_DIR}/dbt && dbt run --project-dir . --profiles-dir .",
+        outlets=[MARTS],
     )
 
     dbt_test = BashOperator(
