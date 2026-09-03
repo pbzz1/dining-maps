@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { formatDistance } from "../../constants";
 import { fetchGoals, fetchRecommendedMenus } from "./api";
-import { ACTIVITY_FACTORS, perMealCalorie } from "./bmr";
+import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
 import { IconPin } from "../../components/NavIcons";
 import Skel, { SkelBlock } from "../../components/Skeleton";
@@ -11,13 +11,7 @@ import Skel, { SkelBlock } from "../../components/Skeleton";
 // 전부 localStorage 에 남아서 재방문 시 그대로 복원된다. 로그인 없음.
 const DEFAULT_PREFS = { goal: "diet", maxCalorie: "", maxSodium: "", excludeDrinks: true };
 
-// 질병관리청 국민건강영양조사 성인 평균 근사치. 신체정보를 한 번도 안 만진
-// 유저도 처음부터 "내 한 끼 상한"이 채워져 있도록 하는 기본값이다.
-const KOREAN_AVG = {
-  male: { heightCm: 173, weightKg: 74, age: 35 },
-  female: { heightCm: 160, weightKg: 59, age: 35 },
-};
-const DEFAULT_PROFILE = { ...KOREAN_AVG.male, sex: "male", activity: "light" };
+// KOREAN_AVG·DEFAULT_PROFILE은 bmr.js -- 신메뉴 표도 같은 기준을 쓴다.
 
 export default function RecommendView() {
   const [goals, setGoals] = useState([]);

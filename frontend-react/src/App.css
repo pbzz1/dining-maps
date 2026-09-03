@@ -1488,3 +1488,7 @@ th.dash-td-hi { color: var(--accent); }
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* 신메뉴 표: 중량 열 / 등급 배지+라벨 */
+.nm-cell-weight { white-space: nowrap; color: var(--muted); }
+.nm-grade { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 600; }
