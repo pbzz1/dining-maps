@@ -11,6 +11,7 @@ videoId를 뽑는다 -- 신메뉴는 주당 몇 건이라 요청량이 미미하
 
     DATABASE_URL=... python scripts/crawl/fetch_youtube_reviews.py
 """
+import datetime
 import re
 import sys
 import time
@@ -25,25 +26,43 @@ from app.new_menu.router import fetch_new_menus  # noqa: E402
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
+# 동의 쿠키가 없으면 유튜브가 동의/봇 확인 페이지를 줘서 게시일(publishDate)이 빠진다
+# (GitHub Actions 러너에서 100% 재현). 이 쿠키를 붙이면 안정적으로 실린다.
+HEADERS = {"User-Agent": UA, "Accept-Language": "ko", "Cookie": "SOCS=CAI; CONSENT=YES+cb"}
 
 
-def top_video_id(query: str) -> str | None:
-    url = "https://www.youtube.com/results?search_query=" + urllib.parse.quote(query)
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "ko"})
+def top_video(query: str) -> tuple[str | None, str | None]:
+    """검색 1위 (videoId, '3주 전' 같은 상대 게시 시각). 상대 시각은 watch 페이지가
+    게시일을 안 줄 때의 폴백 -- 주 단위 오차지만 크롤 발견일보다 훨씬 낫다."""
+    url = "https://www.youtube.com/results?hl=ko&search_query=" + urllib.parse.quote(query)
     try:
-        html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
+        html = urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=15)             .read().decode("utf-8", "replace")
     except Exception as e:
         print(f"  검색 실패({e}): {query}")
-        return None
+        return None, None
     m = re.search(r'"videoId":"([A-Za-z0-9_-]{11})"', html)
-    return m.group(1) if m else None
+    if not m:
+        return None, None
+    rel = re.search(r'"publishedTimeText":\{"simpleText":"([^"]+)"', html[m.end():m.end() + 4000])
+    return m.group(1), (rel.group(1) if rel else None)
+
+
+REL_UNIT_DAYS = {"분": 0, "시간": 0, "일": 1, "주": 7, "개월": 30, "년": 365}
+
+
+def approx_from_relative(text: str | None) -> str | None:
+    """'3주 전' -> 오늘-21일. 정확한 게시일을 못 읽을 때만 쓰는 근사치."""
+    m = re.match(r"(\d+)\s*(분|시간|일|주|개월|년)\s*전", text or "")
+    if not m:
+        return None
+    days = int(m.group(1)) * REL_UNIT_DAYS[m.group(2)]
+    return (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
 
 
 def publish_date(video_id: str) -> str | None:
     """영상 게시일(YYYY-MM-DD). 리뷰어는 출시 직후 올리므로 출시일의 며칠 오차 근사치 --
     크롤 발견일보다 훨씬 낫고, 온보딩·재크롤로 잡힌 옛 메뉴를 걸러내는 근거가 된다."""
-    req = urllib.request.Request(f"https://www.youtube.com/watch?v={video_id}",
-                                 headers={"User-Agent": UA, "Accept-Language": "ko"})
+    req = urllib.request.Request(f"https://www.youtube.com/watch?v={video_id}&hl=ko", headers=HEADERS)
     try:
         html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
     except Exception as e:
@@ -65,10 +84,14 @@ def main() -> None:
             return
         ok = 0
         for m in pending:
-            vid = m["youtube_video_id"] or top_video_id(f"{m['restaurant_name']} {m['name']} 리뷰")
+            vid, rel = m["youtube_video_id"], None
+            if not vid or not m["released_at"]:
+                found_vid, rel = top_video(f"{m['restaurant_name']} {m['name']} 리뷰")
+                vid = vid or found_vid
             if not vid:
                 continue
-            date = None if m["released_at"] else publish_date(vid)
+            # 정확한 게시일(watch 페이지) -> 없으면 검색 결과의 상대 시각으로 근사
+            date = None if m["released_at"] else (publish_date(vid) or approx_from_relative(rel))
             conn.execute("UPDATE menu_item SET youtube_video_id = %s WHERE id = %s", (vid, m["id"]))
             if date:  # press 출시일이 있으면 released_at이 이미 차 있어 아래는 no-op
                 conn.execute(
