@@ -5,7 +5,9 @@ name: rescore
 # "커밋된 CSV가 곧 운영 DB 상태"를 매일 보장하는 게 이 스텝의 역할.
 # 브랜드 상대등급(25/25/25/25)은 API 가 요청 시 실시간으로 순위를 매기므로 여기서 할 일이 없고,
 # rescore_if_changed.py 는 "새로 들어온 브랜드가 채점되는 것"과 메뉴 단위 백분위만 책임진다.
-# 필요한 Secrets: DATABASE_URL
+# 마지막에 dbt build로 public.mart_* 를 재계산한다 -- 그 전까지 dbt는 로컬 Airflow에서만
+# 돌아서 운영 마트가 갱신되지 않고 있었다(대시보드 /api/stats/* 가 읽는 테이블이다).
+# 필요한 Secrets: DATABASE_URL (dbt도 이 하나를 파싱해서 쓴다 -- 아래 derive 스텝)
 on:
   schedule:
     - cron: '0 18 * * *' # 매일 03:00 KST
@@ -26,7 +28,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - run: pip install -q "psycopg[binary]" pandas fastapi  # fastapi: fetch_youtube_reviews가 신메뉴 쿼리를 app.new_menu.router에서 가져온다
+      # fastapi: fetch_youtube_reviews가 신메뉴 쿼리를 app.new_menu.router에서 가져온다
+      # dbt: 마지막 스텝의 mart 재계산. 1.10 하한은 _marts__models.yml이 쓰는 중첩
+      #      arguments: 테스트 문법이 1.10부터라서 -- 1.9는 그 파일을 파싱하지 못한다.
+      - run: pip install -q "psycopg[binary]" pandas fastapi "dbt-postgres>=1.10,<2"
       # 스냅샷·diff를 prod에서도 기록한다 -- menu_change_log의 'added'가 신메뉴
       # 피드의 원천이라, 이 단계가 없으면 새 CSV가 로드돼도 prod 피드에 안 뜬다.
       # 검증 실패(fail)면 여기서 멈춰 load_data가 돌지 않는다 (로컬 Airflow와 동일한 게이트).
@@ -44,6 +49,31 @@ jobs:
       - run: python scripts/pipeline/rescore_if_changed.py ${{ inputs.force && '--force' || '' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # mart 재계산. 마트가 diet_score를 읽으므로 반드시 rescore_if_changed.py 뒤에 온다.
+      # dbt-postgres는 host/port/user/password/dbname을 따로 요구해 DATABASE_URL을 그대로
+      # 못 쓴다(dbt/README.md "접속 정보"). Secret을 5개 더 만드는 대신 이미 있는 하나를
+      # 파싱한다 -- 비밀번호가 한 곳에만 있어야 교체할 때 양쪽이 어긋나지 않는다.
+      - name: derive DBT_PG_* from DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os, urllib.parse as u
+          p = u.urlparse(os.environ["DATABASE_URL"])
+          pw = u.unquote(p.password or "")
+          print(f"::add-mask::{pw}")  # secret에서 파싱해 낸 조각은 자동 마스킹되지 않는다
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"DBT_PG_HOST={p.hostname}\n")
+              f.write(f"DBT_PG_PORT={p.port or 5432}\n")
+              f.write(f"DBT_PG_USER={u.unquote(p.username or '')}\n")
+              f.write(f"DBT_PG_PASSWORD={pw}\n")
+              f.write(f"DBT_PG_DBNAME={p.path.lstrip('/')}\n")
+              f.write("DBT_PG_SSLMODE=require\n")
+          PY
+      # build = run + test를 모델 단위로 엮는다 -- 테스트가 깨지면 그 하위 모델은 건너뛰고
+      # job이 실패하므로, 아래 카톡 알림이 그대로 울린다.
+      - run: dbt build --project-dir dbt --profiles-dir dbt
+
       # 카톡 알림 (secrets 미설정이면 스스로 건너뜀) -- docs/kakao_notify_setup.md
       - name: kakao notify on failure
         if: failure()

@@ -1,5 +1,6 @@
 beautifulsoup4
 lxml
 pandas
-dbt-core
-dbt-postgres
+# Actions(.github/workflows/rescore.yml)와 같은 핀 -- 두 곳이 같은 mart 테이블을 만드는데
+# 버전이 갈리면 미묘한 차이가 생긴다.
+dbt-postgres>=1.10,<2

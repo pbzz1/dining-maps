@@ -8,5 +8,8 @@ dining_maps:
       user: "{{ env_var('DBT_PG_USER') }}"
       password: "{{ env_var('DBT_PG_PASSWORD') }}"
       dbname: "{{ env_var('DBT_PG_DBNAME') }}"
+      # 기본 prefer -- 로컬 docker postgres(TLS 없음)는 평문으로 폴백한다.
+      # Actions는 Neon용으로 require를 넣는다 (.github/workflows/rescore.yml).
+      sslmode: "{{ env_var('DBT_PG_SSLMODE', 'prefer') }}"
       schema: public
       threads: 4

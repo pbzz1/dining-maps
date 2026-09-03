@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 
+from assets import DIET_SCORE, MARTS, MENU_ITEM
+
 PROJECT_DIR = "/opt/airflow/dining_maps"
 PYTHON = "python"
 
@@ -71,11 +73,13 @@ with DAG(
     load_data = BashOperator(
         task_id="load_data",
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/load_data.py",
+        outlets=[MENU_ITEM],
     )
 
     compute_diet_score = BashOperator(
         task_id="compute_diet_score",
         bash_command=f"cd {PROJECT_DIR} && {PYTHON} scripts/pipeline/compute_diet_score.py",
+        outlets=[DIET_SCORE],
     )
 
     # dbt/models/marts/의 dim/fact + rollups(public.mart_*)를 재계산 -- 옛 refresh_marts.py
@@ -83,6 +87,7 @@ with DAG(
     dbt_run = BashOperator(
         task_id="dbt_run",
         bash_command=f"cd {PROJECT_DIR}/dbt && dbt run --project-dir . --profiles-dir .",
+        outlets=[MARTS],
     )
 
     dbt_test = BashOperator(
