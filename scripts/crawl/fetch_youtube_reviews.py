@@ -40,11 +40,16 @@ def top_video(query: str) -> tuple[str | None, str | None]:
     except Exception as e:
         print(f"  검색 실패({e}): {query}")
         return None, None
-    m = re.search(r'"videoId":"([A-Za-z0-9_-]{11})"', html)
-    if not m:
-        return None, None
-    rel = re.search(r'"publishedTimeText":\{"simpleText":"([^"]+)"', html[m.end():m.end() + 4000])
-    return m.group(1), (rel.group(1) if rel else None)
+    # 첫 "videoId"는 대개 쇼츠(reelWatchEndpoint)라 게시 시각이 없고 임베드용으로도
+    # 별로다. 일반 영상 블록(videoRenderer)의 첫 항목을 고르고, 상대 시각은 그 블록
+    # 안(다음 videoRenderer 전까지)에서만 읽어 옆 영상 것과 섞이지 않게 한다.
+    blocks = list(re.finditer(r'"videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})"', html))
+    if not blocks:
+        m = re.search(r'"videoId":"([A-Za-z0-9_-]{11})"', html)  # 쇼츠뿐이면 그거라도
+        return (m.group(1) if m else None), None
+    end = blocks[1].start() if len(blocks) > 1 else len(html)
+    rel = re.search(r'"publishedTimeText":\{"simpleText":"([^"]+)"', html[blocks[0].end():end])
+    return blocks[0].group(1), (rel.group(1) if rel else None)
 
 
 REL_UNIT_DAYS = {"분": 0, "시간": 0, "일": 1, "주": 7, "개월": 30, "년": 365}
@@ -87,7 +92,7 @@ def main() -> None:
             vid, rel = m["youtube_video_id"], None
             if not vid or not m["released_at"]:
                 found_vid, rel = top_video(f"{m['restaurant_name']} {m['name']} 리뷰")
-                vid = vid or found_vid
+                vid = found_vid or vid  # 다시 검색했다면 일반 영상 우선(예전엔 쇼츠가 잡혔을 수 있음)
             if not vid:
                 continue
             # 정확한 게시일(watch 페이지) -> 없으면 검색 결과의 상대 시각으로 근사
