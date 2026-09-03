@@ -1129,7 +1129,7 @@ th.dash-td-hi { color: var(--accent); }
 .nm-opt:hover { border-color: var(--accent); color: var(--accent); }
 .nm-opt.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.nm-cell-brandpos { display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
+.nm-cell-cal { white-space: nowrap; }
 .nm-verdict {
   display: inline-block;
   padding: 0.05rem 0.45rem;
@@ -1509,3 +1509,8 @@ th.dash-td-hi { color: var(--accent); }
 }
 .nm-more:hover { border-color: var(--accent); color: var(--accent); }
 .nm-more:disabled { opacity: 0.6; cursor: default; }
+
+/* 신메뉴 표: 권장 대비 칼로리 헤더의 한 끼/하루 토글 (지도의 세그먼트 컨트롤 재사용, 표 안이라 작게) */
+.nm-calhead { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.nm-caltoggle { margin: 0; padding: 2px; }
+.nm-caltoggle button { padding: 2px 8px; font-size: 11px; }

@@ -18,18 +18,26 @@ export const KOREAN_AVG = {
 export const DEFAULT_PROFILE = { ...KOREAN_AVG.male, sex: "male", activity: "light" };
 export const profileFor = (sex) => ({ ...KOREAN_AVG[sex], sex, activity: "light" });
 
-// 한 끼 단백질 권장량: KDRIs 성인 권장섭취량 0.91g/kg/일을 3끼로 나눈 근사치.
-export function perMealProtein({ weightKg }) {
-  const w = Number(weightKg);
-  return w ? Math.round((w * 0.91) / 3) : null;
-}
-
 export function perMealCalorie({ heightCm, weightKg, age, sex, activity }) {
   const h = Number(heightCm), w = Number(weightKg), a = Number(age);
   if (!h || !w || !a) return null;
   const bmr = 10 * w + 6.25 * h - 5 * a + (sex === "female" ? -161 : 5);
   const factor = ACTIVITY_FACTORS[activity]?.factor ?? ACTIVITY_FACTORS.sedentary.factor;
   return Math.round((bmr * factor) / 3);
+}
+
+// 저장된 프로필이 반쯤 비어 있거나(입력하다 지움) 말이 안 되는 값이면(체중 7400)
+// 그 칸만 같은 성별 한국 평균으로 메운다 -- 신메뉴 표가 빈 배지나 엉뚱한 판정을
+// 내지 않게. 맞춤 추천 화면은 원본을 그대로 쓴다.
+const RANGES = { heightCm: [120, 230], weightKg: [30, 250], age: [10, 100] };
+export function sanitizeProfile(profile) {
+  const sex = profile?.sex === "female" ? "female" : "male";
+  const out = { sex, activity: ACTIVITY_FACTORS[profile?.activity] ? profile.activity : "light" };
+  for (const [k, [lo, hi]] of Object.entries(RANGES)) {
+    const v = Number(profile?.[k]);
+    out[k] = v >= lo && v <= hi ? v : KOREAN_AVG[sex][k];
+  }
+  return out;
 }
 
 if (typeof process !== "undefined" && process.argv[1]?.endsWith("bmr.js")) {

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { fetchNewMenus } from "../../api";
 import { GRADE_CLASS, GRADE_LABEL, track } from "../../constants";
 import { SkelRows, SkelBlock } from "../../components/Skeleton";
-import { DEFAULT_PROFILE, perMealCalorie, perMealProtein, profileFor } from "../recommend/bmr";
+import { DEFAULT_PROFILE, perMealCalorie, profileFor, sanitizeProfile } from "../recommend/bmr";
 import { useLocalStorage } from "../recommend/useLocalStorage";
 
 // 신메뉴 표. 원천은 크롤 diff(menu_change_log 'added') + 보도자료로 확인한
@@ -56,37 +56,34 @@ const SORTS = {
   score: { label: "다이어트 적합도", get: (m) => m.diet_score, defaultDir: -1 },
 };
 
-// "내 한 끼 기준" -- 메뉴 하나를 한 끼로 먹었을 때 내 권장량 대비 어떤지.
-// 기준은 맞춤 추천 탭의 신체정보(Mifflin-St Jeor 한 끼 kcal, 체중x0.91g/3 단백질).
-// 신체정보를 입력한 적이 없으면(저장값이 기본 프로필과 같으면) 한국 성인 남/여
-// 평균 두 기준을 나란히 보여준다.
-const CALORIE_LEVELS = [[0.7, "가벼움", "good"], [1.2, "한 끼 적정", "mid"], [Infinity, "한 끼 초과", "bad"]];
-const PROTEIN_LEVELS = [[0.5, "부족", "bad"], [1.0, "보통", "mid"], [Infinity, "충분", "good"]];
-
-function level(ratio, levels) {
-  return levels.find(([max]) => ratio < max) ?? levels[levels.length - 1];
-}
-
-// bases: [{ label: "남"|"여"|null, kcal, protein }] -- 프로필이 있으면 하나, 없으면 남/여 둘.
-function mealBadge(value, bases, key, levels, unit) {
-  if (value == null || !bases.every((b) => b[key])) return null;
+// "권장 대비 칼로리" -- 이 메뉴 하나가 권장 칼로리의 몇 %인지. 토글로 '한 끼'(하루의 1/3)와
+// '하루' 기준을 오간다. 기준은 맞춤 추천 탭의 신체정보(Mifflin-St Jeor); 입력한 적이
+// 없으면 한국 성인 남/여 평균 두 기준을 나란히. 반쯤 비거나 이상한 프로필은
+// sanitizeProfile이 평균으로 메워서 배지가 사라지거나 엉뚱해지지 않게 한다.
+// 색은 기준과 무관하게 "한 끼로 과한가"로 정한다 -- 하루 % 모드에서도 같은 색.
+const HEAVY = 1.2, LIGHT = 0.7; // 한 끼 권장 대비
+function calorieCell(value, bases, mode) {
+  if (value == null) return null;
   const parts = bases.map((b) => {
-    const r = value / b[key];
-    const [, txt, cls] = level(r, levels);
-    const who = b.label ? `${b.label} ` : "";
-    return { label: b.label, txt, cls, tip: `${who}한 끼 권장 ${num(b[key])}${unit}의 ${Math.round(r * 100)}%` };
+    const target = mode === "day" ? b.kcal * 3 : b.kcal;
+    const mealRatio = value / b.kcal;
+    return {
+      label: b.label,
+      pct: Math.round((value / target) * 100),
+      cls: mealRatio >= HEAVY ? "bad" : mealRatio < LIGHT ? "good" : "mid",
+      tip: `${b.label ? b.label + " " : ""}한 끼 권장 ${num(b.kcal)}kcal · 하루 ${num(b.kcal * 3)}kcal`,
+    };
   });
-  const same = parts.every((p) => p.txt === parts[0].txt);
   return {
-    cls: same ? parts[0].cls : "mid",
-    txt: same ? parts[0].txt : parts.map((p) => `${p.label} ${p.txt}`).join(" · "),
+    cls: parts.every((p) => p.cls === parts[0].cls) ? parts[0].cls : "mid",
+    txt: parts.map((p) => `${p.label ? p.label + " " : ""}${p.pct}%`).join(" · "),
     tip: parts.map((p) => p.tip).join(" / "),
   };
 }
 
 function mealBases(profile) {
   const entered = profile && Object.keys(DEFAULT_PROFILE).some((k) => String(profile[k]) !== String(DEFAULT_PROFILE[k]));
-  const targets = (p, label) => ({ label, kcal: perMealCalorie(p), protein: perMealProtein(p) });
+  const targets = (p, label) => ({ label, kcal: perMealCalorie(sanitizeProfile(p)) });
   return entered ? [targets(profile, null)] : [targets(profileFor("male"), "남"), targets(profileFor("female"), "여")];
 }
 
@@ -100,6 +97,7 @@ export default function NewMenuView() {
   const [openKey, setOpenKey] = useState(null);
   const [profile] = useLocalStorage("recommend.profile", null); // 맞춤 추천 탭에서 입력한 신체정보
   const bases = useMemo(() => mealBases(profile), [profile]);
+  const [calMode, setCalMode] = useLocalStorage("newmenu.calMode", "meal"); // "meal" | "day"
 
   // "이전 신메뉴 더 보기": 90일 -> 180일 -> 1년. 창을 넓힐수록 브랜드당 슬롯도 같이 늘린다.
   const DEPTHS = [
@@ -195,8 +193,14 @@ export default function NewMenuView() {
                 {th("protein")}
                 {th("sugar")}
                 {th("sodium")}
-                <th title={bases.length === 1 ? "맞춤 추천 탭에 입력한 신체정보 기준" : "신체정보 미입력 -- 한국 성인 남/여 평균 기준"}>
-                  {bases.length === 1 ? "내 한 끼 기준" : "한 끼 기준(남/여)"}
+                <th title={(bases.length === 1 ? "맞춤 추천 탭에 입력한 신체정보 기준. " : "신체정보 미입력 -- 한국 성인 남/여 평균 기준. ") + "토글로 한 끼/하루 권장 대비 전환"}>
+                  <span className="nm-calhead">
+                    권장 대비 칼로리
+                    <span className="grade-mode-toggle nm-caltoggle" role="group" aria-label="칼로리 기준">
+                      <button type="button" className={calMode === "meal" ? "active" : ""} onClick={() => setCalMode("meal")}>한 끼</button>
+                      <button type="button" className={calMode === "day" ? "active" : ""} onClick={() => setCalMode("day")}>하루</button>
+                    </span>
+                  </span>
                 </th>
                 {th("score")}
                 <th>리뷰</th>
@@ -204,8 +208,7 @@ export default function NewMenuView() {
             </thead>
             <tbody>
               {sorted.map(({ key, options, sel: m }) => {
-                const cal = mealBadge(m.calorie, bases, "kcal", CALORIE_LEVELS, "kcal");
-                const pro = mealBadge(m.protein, bases, "protein", PROTEIN_LEVELS, "g");
+                const cal = calorieCell(m.calorie, bases, calMode);
                 // 리뷰 영상은 메뉴 단위 -- 캐시된 영상 ID를 가진 옵션이 하나라도 있으면 그걸 쓴다.
                 const yt = options.find((o) => o.youtube_video_id) ?? m;
                 return (
@@ -258,10 +261,8 @@ export default function NewMenuView() {
                     <td className={sortKey === "protein" ? "dash-td-hi" : ""}>{num(m.protein, 1)}g</td>
                     <td className={sortKey === "sugar" ? "dash-td-hi" : ""}>{num(m.sugar, 1)}g</td>
                     <td className={sortKey === "sodium" ? "dash-td-hi" : ""}>{num(m.sodium)}mg</td>
-                    <td className="nm-cell-brandpos">
-                      {cal && <span className={`nm-verdict ${cal.cls}`} title={cal.tip}>칼로리 {cal.txt}</span>}
-                      {pro && <span className={`nm-verdict ${pro.cls}`} title={pro.tip}>단백질 {pro.txt}</span>}
-                      {!cal && !pro && "-"}
+                    <td className="nm-cell-cal">
+                      {cal ? <span className={`nm-verdict ${cal.cls}`} title={cal.tip}>{cal.txt}</span> : "-"}
                     </td>
                     <td className={sortKey === "score" ? "dash-td-hi" : ""}>
                       {m.absolute_grade ? (
@@ -326,7 +327,8 @@ export default function NewMenuView() {
 
       <p className="dash-footnote">
         영양정보는 브랜드 공식 공개값이며 중량 열의 제품 전체 기준으로 환산했다.
-        '한 끼 기준'은 이 메뉴 하나를 한 끼로 먹었을 때 권장량 대비 어떤지 —
+        '권장 대비 칼로리'는 이 메뉴 하나가 권장 칼로리(한 끼 = 하루의 1/3)의 몇 %인지 —
+        색은 한 끼 권장의 70% 미만 초록, 120% 이상 빨강.
         {bases.length === 1
           ? " 맞춤 추천 탭에 입력한 신체정보로 계산한 내 기준이다."
           : " 지금은 한국 성인 남/여 평균 기준이며, 맞춤 추천 탭에서 신체정보를 입력하면 내 기준으로 바뀐다."}
