@@ -69,14 +69,13 @@ def main() -> None:
             if not vid:
                 continue
             date = None if m["released_at"] else publish_date(vid)
-            conn.execute(
-                """UPDATE menu_item SET youtube_video_id = %s,
-                       released_at = COALESCE(released_at, %s),
-                       released_at_source = CASE WHEN released_at IS NULL AND %s IS NOT NULL
-                                                 THEN 'youtube' ELSE released_at_source END
-                   WHERE id = %s""",
-                (vid, date, date, m["id"]),
-            )
+            conn.execute("UPDATE menu_item SET youtube_video_id = %s WHERE id = %s", (vid, m["id"]))
+            if date:  # press 출시일이 있으면 released_at이 이미 차 있어 아래는 no-op
+                conn.execute(
+                    """UPDATE menu_item SET released_at = %s::date, released_at_source = 'youtube'
+                       WHERE id = %s AND released_at IS NULL""",
+                    (date, m["id"]),
+                )
             conn.commit()  # 메뉴 단위 커밋 -- 중간에 죽어도 완료분은 남는다
             ok += 1
             print(f"  {m['restaurant_name']} {m['name']}: {vid} {date or ''}")
