@@ -82,7 +82,9 @@ def main() -> None:
         apply_schema(conn)
         conn.commit()
         # 영상 ID가 없거나, 있어도 출시일이 아직 없는 메뉴 (출시일은 press가 아닐 때만 채운다)
-        pending = [m for m in fetch_new_menus(conn, limit=200)
+        # 화면 기본값(브랜드당 5개)이 아니라 창 안의 후보 전부를 처리한다 -- 옛 메뉴가
+        # 출시일 추정으로 빠지면 다음 후보가 올라오는데, 그때마다 하루씩 기다리지 않게.
+        pending = [m for m in fetch_new_menus(conn, limit=500, per_brand=50, per_brand_rows=150)
                    if not m["youtube_video_id"] or not m["released_at"]]
         if not pending:
             print("조회할 신메뉴 없음")
