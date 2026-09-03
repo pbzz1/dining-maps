@@ -64,7 +64,7 @@ body {
 .subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .sidebar {
@@ -208,7 +208,7 @@ main {
   background: var(--card-bg);
   border-radius: 10px;
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -289,7 +289,7 @@ main {
   background: transparent;
   border-radius: 6px;
   padding: 5px 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   cursor: pointer;
 }
@@ -346,7 +346,7 @@ main {
 
 .store-list-empty {
   margin: 24px 8px;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--muted);
   text-align: center;
@@ -383,7 +383,7 @@ main {
 }
 
 .store-card-name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   flex: 1;
   overflow: hidden;
@@ -574,7 +574,7 @@ main {
 
 .store-popup-title {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   padding-right: 18px;
   margin-bottom: 6px;
 }
@@ -647,13 +647,13 @@ h2 {
 }
 
 .tier-letter {
-  font-size: 24px;
+  font-size: 1.7rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .tier-caption {
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.85;
 }
 
@@ -749,7 +749,7 @@ h2 {
 .legend-hint .grade-badge {
   width: 16px;
   height: 16px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .menu-toolbar {
@@ -913,23 +913,23 @@ h2 {
 .dash-kpi {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0.6rem;
+  border-radius: 10px;
   padding: 0.8rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   box-shadow: var(--shadow-rest);
 }
-.dash-kpi-label { font-size: 0.8rem; color: var(--muted); }
+.dash-kpi-label { font-size: 12px; color: var(--muted); }
 .dash-kpi-value { font-size: 1.7rem; font-weight: 600; }
 .dash-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0.6rem;
+  border-radius: 12px;
   padding: 1rem 1.2rem 1.2rem;
   box-shadow: var(--shadow-rest);
 }
-.dash-card h2 { margin: 0 0 0.2rem; font-size: 1.05rem; position: relative; }
+.dash-card h2 { margin: 0 0 0.2rem; font-size: 18px; position: relative; }
 .dash-info { display: inline-block; margin-left: 0.4rem; }
 .dash-info summary {
   list-style: none;
@@ -950,15 +950,15 @@ h2 {
   max-width: 80vw;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: 12px;
   padding: 0.7rem 0.9rem;
-  font-size: 0.8rem;
+  font-size: 12px;
   font-weight: normal;
   line-height: 1.5;
   color: var(--muted);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
-.dash-sub { margin: 0 0 0.9rem; font-size: 0.82rem; color: var(--muted); }
+.dash-sub { margin: 0 0 0.9rem; font-size: 12px; color: var(--muted); }
 .dash-bar-row {
   display: grid;
   grid-template-columns: 6.5rem 1fr 4.5rem;
@@ -981,7 +981,7 @@ h2 {
 .dash-stack-seg { height: 14px; min-width: 3px; }
 .dash-stack-seg:first-child { border-radius: 3px 0 0 3px; }
 .dash-stack-seg:last-child { border-radius: 0 3px 3px 0; }
-.dash-stack-empty { font-size: 0.78rem; color: var(--muted); grid-column: 2 / 4; }
+.dash-stack-empty { font-size: 12px; color: var(--muted); grid-column: 2 / 4; }
 .dash-legend { margin-left: 0.8rem; }
 .dash-legend-item { margin-right: 0.6rem; white-space: nowrap; }
 .dash-legend-swatch {
@@ -998,7 +998,7 @@ h2 {
   background: var(--card-bg);
   border-radius: 999px;
   padding: 0.25rem 0.8rem;
-  font-size: 0.82rem;
+  font-size: 12px;
   cursor: pointer;
 }
 .dash-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1013,7 +1013,7 @@ h2 {
 }
 .dash-table th:first-child, .dash-table td:first-child { text-align: left; }
 .dash-table th { color: var(--muted); font-weight: 600; }
-.dash-footnote { margin: 0.8rem 0 0; font-size: 0.78rem; color: var(--muted); }
+.dash-footnote { margin: 0.8rem 0 0; font-size: 11px; color: var(--muted); }
 
 /* 대시보드 매장/메뉴 전환. grade-mode-toggle 재사용, 여백만 조정 */
 .dash-view-toggle { margin: 0; align-self: flex-start; }
@@ -1034,15 +1034,15 @@ h2 {
 }
 .mx-filters .dash-tabs { margin-bottom: 0; }
 .mx-selects { display: flex; flex-wrap: wrap; gap: 0.8rem; }
-.mx-selects label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; }
+.mx-selects label { display: flex; align-items: center; gap: 0.35rem; font-size: 12px; }
 .mx-selects label span { color: var(--muted); }
 .mx-search {
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: 0.4rem;
+  border-radius: 10px;
   background: var(--card-bg);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 14px;
   width: 11rem;
 }
 .mx-search:focus {
@@ -1053,10 +1053,10 @@ h2 {
 .mx-selects select {
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 0.4rem;
+  border-radius: 8px;
   background: var(--card-bg);
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: 12px;
 }
 /* 표가 넓어도 페이지 전체가 가로로 밀리지 않게, 표만 자기 안에서 스크롤한다. */
 .dash-table-scroll { overflow-x: auto; }
@@ -1066,15 +1066,15 @@ h2 {
 .mx-table th:nth-child(-n + 3), .mx-table td:nth-child(-n + 3) { text-align: left; }
 .mx-rank { color: var(--muted); width: 2rem; }
 .mx-name { white-space: normal; min-width: 12rem; }
-.mx-cat { text-align: left; color: var(--muted); font-size: 0.78rem; }
+.mx-cat { text-align: left; color: var(--muted); font-size: 11px; }
 /* 영양정보 표기 기준 배지 (100g당 / 전체). 1인분이면 표시하지 않는다. */
 .mx-basis {
   display: inline-block;
   margin-left: 0.35rem;
   padding: 0 0.35rem;
   border: 1px solid var(--border);
-  border-radius: 0.3rem;
-  font-size: 0.68rem;
+  border-radius: 6px;
+  font-size: 11px;
   color: var(--muted);
   vertical-align: middle;
   white-space: nowrap;
@@ -1091,25 +1091,25 @@ th.dash-td-hi { color: var(--accent); }
 /* 열이 11개라 1100px에선 가로 스크롤이 생긴다. 넓은 화면에선 다 펼치고,
    그보다 좁으면 dash-table-scroll이 알아서 가로 스크롤을 만든다. */
 .nm-page { max-width: 1560px; margin: 0 auto; padding: 1.2rem; }
-.nm-title { margin: 0 0 0.2rem; font-size: 1.15rem; }
+.nm-title { margin: 0 0 0.2rem; font-size: 18px; }
 .nm-table td { white-space: nowrap; }
 .nm-th { cursor: pointer; user-select: none; white-space: nowrap; }
 .nm-th:hover { color: var(--accent); }
-.nm-arrow { margin-left: 0.2rem; font-size: 0.65rem; }
-.nm-cell-date { color: var(--muted); font-size: 0.8rem; }
+.nm-arrow { margin-left: 0.2rem; font-size: 11px; }
+.nm-cell-date { color: var(--muted); font-size: 12px; }
 .nm-detected {
   margin-left: 0.3rem;
   padding: 0 0.3rem;
   border: 1px solid var(--border);
-  border-radius: 0.3rem;
-  font-size: 0.65rem;
+  border-radius: 6px;
+  font-size: 11px;
 }
 .nm-cell-name { text-align: left; font-weight: 600; }
 .nm-thumb {
   width: 40px;
   height: 40px;
   object-fit: cover;
-  border-radius: 0.4rem;
+  border-radius: 6px;
   margin-right: 0.5rem;
   vertical-align: middle;
   background: var(--bg);
@@ -1119,10 +1119,10 @@ th.dash-td-hi { color: var(--accent); }
 .nm-opt {
   padding: 0.05rem 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 0.35rem;
+  border-radius: 6px;
   background: var(--bg);
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1133,15 +1133,15 @@ th.dash-td-hi { color: var(--accent); }
 .nm-verdict {
   display: inline-block;
   padding: 0.05rem 0.45rem;
-  border-radius: 0.35rem;
-  font-size: 0.72rem;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 .nm-verdict.good { background: #e3f2e6; color: #1d7a33; }
 .nm-verdict.mid  { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .nm-verdict.bad  { background: var(--accent-soft); color: var(--accent); }
-.nm-pending { color: var(--muted); font-style: italic; font-size: 0.78rem; }
+.nm-pending { color: var(--muted); font-style: italic; font-size: 12px; }
 /* 유튜브 임베드 토글: 재생 아이콘 + 라벨 + 접힘 화살표를 한 알약으로.
    글자 사이에 ▶·▼를 섞어 쓰면 폰트마다 크기가 튀어 어색해서 아이콘을 span으로 분리. */
 .nm-yt {
@@ -1168,7 +1168,7 @@ th.dash-td-hi { color: var(--accent); }
   justify-content: center;
   width: 18px;
   height: 13px;
-  border-radius: 4px;
+  border-radius: 6px;
   background: #f03;
   color: #fff;
   font-size: 7px;
@@ -1188,12 +1188,12 @@ th.dash-td-hi { color: var(--accent); }
   max-width: 640px;
   aspect-ratio: 16 / 9;
   border: 0;
-  border-radius: 0.5rem;
+  border-radius: 12px;
   background: #000;
 }
-.nm-embed a { font-size: 0.78rem; color: var(--muted); }
+.nm-embed a { font-size: 12px; color: var(--muted); }
 .nm-embed a:hover { color: var(--accent); }
-.nm-embed-none { margin: 0; font-size: 0.82rem; color: var(--muted); font-style: italic; }
+.nm-embed-none { margin: 0; font-size: 12px; color: var(--muted); font-style: italic; }
 
 /* --- 맞춤 추천 컨트롤 --- */
 /* 컨트롤 세 개가 성격이 다른데 전에는 같은 버튼 모양이었다. 단일 선택은 세그먼트
@@ -1227,7 +1227,7 @@ th.dash-td-hi { color: var(--accent); }
   border-radius: 6px;
   padding: 6px 14px;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   cursor: pointer;
 }
@@ -1249,7 +1249,7 @@ th.dash-td-hi { color: var(--accent); }
   border-radius: 10px;
   padding: 8px 10px 8px 12px;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
@@ -1293,7 +1293,7 @@ th.dash-td-hi { color: var(--accent); }
   padding: 12px 16px;
   cursor: pointer;
   list-style: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1334,7 +1334,7 @@ th.dash-td-hi { color: var(--accent); }
 
 .rec-fieldset-title {
   margin: 0 0 10px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
 }
@@ -1422,7 +1422,7 @@ th.dash-td-hi { color: var(--accent); }
   align-items: center;
   gap: 8px;
   padding-bottom: 10px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
   cursor: pointer;
@@ -1455,13 +1455,13 @@ th.dash-td-hi { color: var(--accent); }
 /* #about -- 산출 기준 문서 화면. 대시보드 카드/테이블 스타일을 그대로 빌려 쓴다. */
 .about-list { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; line-height: 1.65; }
 .about-list li + li { margin-top: 0.45rem; }
-.about-refs { color: var(--muted); font-size: 0.8rem; }
+.about-refs { color: var(--muted); font-size: 12px; }
 /* 근거 열이 길어 좁은 화면에서는 표만 가로 스크롤시킨다. */
 .about-scroll { overflow-x: auto; }
 .about-table { min-width: 42rem; }
-.about-table td:last-child { white-space: normal; color: var(--muted); font-size: 0.8rem; }
+.about-table td:last-child { white-space: normal; color: var(--muted); font-size: 12px; }
 .about-table td:first-child { white-space: nowrap; font-weight: 600; }
-.dash-card code { font-size: 0.8rem; }
+.dash-card code { font-size: 12px; }
 
 /* --- Skeletons: 첫 로딩용. 캐시가 비어 있을 때만 보인다 (탭 재방문은 keep-alive). --- */
 .skel {

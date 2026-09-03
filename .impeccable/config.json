@@ -1,0 +1,44 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "7px",
+        "createdAt": "2026-09-03T04:38:48.944Z",
+        "reason": "유튜브 재생 아이콘 글리프(18x13 배지 안 삼각형) — 텍스트 아님, Claude 판단"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "8px",
+        "createdAt": "2026-09-03T04:38:49.179Z",
+        "reason": "유튜브 토글 화살표 글리프 — 텍스트 아님, Claude 판단"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "14px",
+        "createdAt": "2026-09-03T04:38:49.384Z",
+        "reason": "DESIGN.md Shapes 절이 '티어 라벨 14px'를 명시적으로 허용, Claude 판단"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "14px 14px 14px 2px",
+        "createdAt": "2026-09-03T04:38:49.634Z",
+        "reason": "지도 핀 물방울 모양(꼭짓점 2px) — 컴포넌트 모서리 규격 밖, Claude 판단"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "3px",
+        "createdAt": "2026-09-03T04:38:49.853Z",
+        "reason": "범례 스와치·누적막대 끝 등 데이터 시각화 마크 — 최소 토큰(6px)보다 작은 표식, Claude 판단"
+      },
+      {
+        "rule": "design-system-radius",
+        "value": "2px",
+        "createdAt": "2026-09-03T04:38:50.084Z",
+        "reason": "대시보드 범례 스와치(데이터 마크), Claude 판단"
+      }
+    ]
+  }
+}
