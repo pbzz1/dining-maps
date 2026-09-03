@@ -101,9 +101,23 @@ export default function NewMenuView() {
   const [profile] = useLocalStorage("recommend.profile", null); // 맞춤 추천 탭에서 입력한 신체정보
   const bases = useMemo(() => mealBases(profile), [profile]);
 
+  // "이전 신메뉴 더 보기": 90일 -> 180일 -> 1년. 창을 넓힐수록 브랜드당 슬롯도 같이 늘린다.
+  const DEPTHS = [
+    { days: 90, per_brand: 5, limit: 30, label: "최근 90일" },
+    { days: 180, per_brand: 15, limit: 100, label: "최근 180일" },
+    { days: 365, per_brand: 50, limit: 200, label: "최근 1년" },
+  ];
+  const [depth, setDepth] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
   useEffect(() => {
-    fetchNewMenus().then(setRows).catch((e) => setError(e.message));
-  }, []);
+    const { days, per_brand, limit } = DEPTHS[depth];
+    setLoadingMore(depth > 0);
+    fetchNewMenus({ days, per_brand, limit })
+      .then(setRows)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoadingMore(false));
+  }, [depth]);
 
   function clickSort(key) {
     if (key === sortKey) setDir(-dir);
@@ -148,7 +162,8 @@ export default function NewMenuView() {
       <h2 className="nm-title">신메뉴</h2>
       <p className="dash-sub">
         매일 크롤이 브랜드 공식 영양정보를 이전 회차와 비교해 새로 올라온 메뉴를 잡아낸다.
-        출시일은 보도자료로 확인된 날짜, 없으면 크롤이 처음 본 날. 사이즈·세트처럼 옵션만
+        출시일은 보도자료로 확인된 날짜, 없으면 리뷰 영상 게시일로 추정(며칠 오차), 그것도 없으면 크롤이
+        처음 본 날. 사이즈·세트처럼 옵션만
         다른 메뉴는 한 줄로 묶었고, 옵션을 누르면 그 옵션의 영양정보로 바뀐다. 열 제목을
         눌러 재정렬.
       </p>
@@ -196,9 +211,15 @@ export default function NewMenuView() {
                 return (
                   <Fragment key={key}>
                   <tr>
+                    {/* 출시일 출처: 보도자료(확정) > 리뷰 영상 게시일(추정, 며칠 오차) > 크롤 발견일 */}
                     <td className="nm-cell-date">
                       {m.event_date}
-                      {!m.released_at && <span className="nm-detected">발견</span>}
+                      {m.released_at_source === "youtube" && (
+                        <span className="nm-detected" title="리뷰 영상 게시일로 추정한 출시일 (며칠 오차)">추정</span>
+                      )}
+                      {!m.released_at && (
+                        <span className="nm-detected" title="크롤이 처음 발견한 날 -- 실제 출시일은 이보다 앞설 수 있음">발견</span>
+                      )}
                     </td>
                     <td>{m.restaurant_name}</td>
                     <td className="nm-cell-name">
@@ -295,6 +316,12 @@ export default function NewMenuView() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {sorted?.length > 0 && depth < DEPTHS.length - 1 && (
+        <button className="nm-more" onClick={() => { setDepth(depth + 1); track("new_menu_show_more", { depth: depth + 1 }); }} disabled={loadingMore}>
+          {loadingMore ? "불러오는 중…" : `이전 신메뉴 더 보기 (${DEPTHS[depth + 1].label})`}
+        </button>
       )}
 
       <p className="dash-footnote">

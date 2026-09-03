@@ -32,4 +32,5 @@ export const fetchStatsQuality = () => get("/stats/quality");
 // 메뉴 탐색기. params: { sort, category?, restaurant_id?, limit? }
 export const fetchMenus = (params) => get("/menus", params);
 // 신메뉴 피드: 최근 크롤에서 새로 발견된 메뉴 + LLM 리뷰
-export const fetchNewMenus = () => get("/new-menus");
+// params: { days?, per_brand?, limit? } -- "이전 신메뉴 더 보기"가 창을 넓힐 때
+export const fetchNewMenus = (params) => get("/new-menus", params);

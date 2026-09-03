@@ -127,6 +127,11 @@ CREATE TABLE IF NOT EXISTS brand_menu_reco (
 -- 하루 이내로 잡으므로 첫 발견일이 충분한 근사치다 (NULL = 미확인, 피드가
 -- COALESCE(released_at, 첫 발견일)로 처리).
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at DATE;
+-- released_at의 출처: 'press'(보도자료 확인, seed_released_at.py) / 'youtube'(리뷰 영상
+-- 게시일로 추정, fetch_youtube_reviews.py). 크롤 발견일은 "처음 본 날"일 뿐이라
+-- 온보딩·재크롤 때 옛 메뉴가 신메뉴로 잡히는데, 리뷰 영상 게시일이 그걸 걸러준다.
+-- press가 youtube를 덮어쓰고, 그 반대는 없다.
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS released_at_source TEXT;
 
 -- 메뉴 이미지 URL (브랜드 공식 CDN). 크롤러가 자동 수집하지 않는다 -- 브랜드마다
 -- API가 달라 비용이 커서, 신메뉴 등 필요한 것만 seed_released_at.py 계열이 채운다.

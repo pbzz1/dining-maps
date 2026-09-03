@@ -51,7 +51,7 @@ WITH added_events AS (
 ), sane AS (
     SELECT run_id, restaurant_name FROM added_events
     GROUP BY run_id, restaurant_name
-    HAVING COUNT(*) <= {ONBOARDING_CAP}
+    HAVING COUNT(*) <= %(onboarding_cap)s
 ), added AS (
     -- 같은 메뉴가 빠졌다 다시 들어오면 added가 여러 번 쌓인다 -> 가장 최근 것만.
     SELECT ae.restaurant_name, ae.menu_name, MAX(ae.started_at) AS first_seen_at
@@ -65,7 +65,7 @@ WITH added_events AS (
     JOIN restaurant r ON r.id = mi.restaurant_id
     LEFT JOIN added a ON a.restaurant_name = r.name AND a.menu_name = mi.name
     WHERE COALESCE(mi.released_at, a.first_seen_at::date)
-          > (now() - interval '{WINDOW_DAYS} days')::date
+          > (now() - make_interval(days => %(days)s))::date
 ), fresh AS (
     -- 브랜드 슬롯은 base_name(=옵션 뗀 메뉴) 단위로 센다. 같은 메뉴의 옵션들은
     -- 같은 크롤에서 함께 잡혀 event_date가 같으므로 한 rank에 모인다.
@@ -92,7 +92,7 @@ WITH added_events AS (
 )
 SELECT mi.id, mi.name, f.base_name, r.id AS restaurant_id, r.name AS restaurant_name,
        mi.category_group, mi.weight_g, mi.total_weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id,
-       f.event_date, mi.released_at, f.first_seen_at,
+       f.event_date, mi.released_at, mi.released_at_source, f.first_seen_at,
        ds.score AS diet_score, ds.absolute_grade,
        MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'calorie') AS calorie_brand_pct,
        MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'protein') AS protein_brand_pct,
@@ -109,25 +109,34 @@ LEFT JOIN diet_score ds      ON ds.menu_item_id = mi.id
 LEFT JOIN nutrition_fact nf  ON nf.menu_item_id = mi.id
 LEFT JOIN brand_pct bp       ON bp.menu_item_id = mi.id
 LEFT JOIN new_menu_review rv ON rv.menu_item_id = mi.id
-WHERE f.brand_rank <= {PER_BRAND_CAP} AND f.brand_row <= {PER_BRAND_ROW_CAP}
+WHERE f.brand_rank <= %(per_brand)s AND f.brand_row <= %(per_brand_rows)s
 GROUP BY mi.id, mi.name, f.base_name, r.id, r.name, mi.category_group, mi.weight_g,
          mi.total_weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id, f.event_date, mi.released_at,
+         mi.released_at_source,
          f.first_seen_at, ds.score, ds.absolute_grade,
          rv.diet_verdict, rv.diet_comment, rv.taste_note
 ORDER BY f.event_date DESC, r.name, f.base_name, mi.id
-LIMIT %s
+LIMIT %(limit)s
 """
 
 
-def fetch_new_menus(conn, limit: int = 30):
-    return conn.execute(NEW_MENUS_SQL, (limit,)).fetchall()
+def fetch_new_menus(conn, limit: int = 30, days: int = WINDOW_DAYS,
+                    per_brand: int = PER_BRAND_CAP, per_brand_rows: int = PER_BRAND_ROW_CAP):
+    return conn.execute(NEW_MENUS_SQL, {
+        "limit": limit, "days": days, "per_brand": per_brand,
+        "per_brand_rows": per_brand_rows, "onboarding_cap": ONBOARDING_CAP,
+    }).fetchall()
 
 
 @router.get("/new-menus", response_model=list[NewMenuOut])
-def list_new_menus(limit: int = 30):
-    limit = max(1, min(limit, 100))
+def list_new_menus(limit: int = 30, days: int = WINDOW_DAYS, per_brand: int = PER_BRAND_CAP):
+    """days/per_brand는 '이전 신메뉴 더 보기'용 -- 창을 넓히면서 브랜드당 슬롯도 함께
+    늘려야 오래된 메뉴가 캡에 잘리지 않는다."""
+    limit = max(1, min(limit, 200))
+    days = max(7, min(days, 365))
+    per_brand = max(1, min(per_brand, 50))
     conn = get_connection()
-    rows = fetch_new_menus(conn, limit)
+    rows = fetch_new_menus(conn, limit, days, per_brand, per_brand * 3)
     conn.close()
     return [NewMenuOut(**_as_whole_item(dict(r))) for r in rows]
 

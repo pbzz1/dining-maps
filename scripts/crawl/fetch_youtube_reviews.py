@@ -39,27 +39,49 @@ def top_video_id(query: str) -> str | None:
     return m.group(1) if m else None
 
 
+def publish_date(video_id: str) -> str | None:
+    """영상 게시일(YYYY-MM-DD). 리뷰어는 출시 직후 올리므로 출시일의 며칠 오차 근사치 --
+    크롤 발견일보다 훨씬 낫고, 온보딩·재크롤로 잡힌 옛 메뉴를 걸러내는 근거가 된다."""
+    req = urllib.request.Request(f"https://www.youtube.com/watch?v={video_id}",
+                                 headers={"User-Agent": UA, "Accept-Language": "ko"})
+    try:
+        html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", "replace")
+    except Exception as e:
+        print(f"  게시일 조회 실패({e}): {video_id}")
+        return None
+    m = re.search(r'"publishDate":"(\d{4}-\d{2}-\d{2})', html)
+    return m.group(1) if m else None
+
+
 def main() -> None:
     with connect() as conn:
         apply_schema(conn)
         conn.commit()
-        pending = [m for m in fetch_new_menus(conn, limit=100) if not m["youtube_video_id"]]
+        # 영상 ID가 없거나, 있어도 출시일이 아직 없는 메뉴 (출시일은 press가 아닐 때만 채운다)
+        pending = [m for m in fetch_new_menus(conn, limit=200)
+                   if not m["youtube_video_id"] or not m["released_at"]]
         if not pending:
             print("조회할 신메뉴 없음")
             return
         ok = 0
         for m in pending:
-            vid = top_video_id(f"{m['restaurant_name']} {m['name']} 리뷰")
+            vid = m["youtube_video_id"] or top_video_id(f"{m['restaurant_name']} {m['name']} 리뷰")
             if not vid:
                 continue
+            date = None if m["released_at"] else publish_date(vid)
             conn.execute(
-                "UPDATE menu_item SET youtube_video_id = %s WHERE id = %s", (vid, m["id"])
+                """UPDATE menu_item SET youtube_video_id = %s,
+                       released_at = COALESCE(released_at, %s),
+                       released_at_source = CASE WHEN released_at IS NULL AND %s IS NOT NULL
+                                                 THEN 'youtube' ELSE released_at_source END
+                   WHERE id = %s""",
+                (vid, date, date, m["id"]),
             )
             conn.commit()  # 메뉴 단위 커밋 -- 중간에 죽어도 완료분은 남는다
             ok += 1
-            print(f"  {m['restaurant_name']} {m['name']}: {vid}")
+            print(f"  {m['restaurant_name']} {m['name']}: {vid} {date or ''}")
             time.sleep(1)  # 저속 요청 -- 차단 예방
-        print(f"{ok}/{len(pending)} 유튜브 영상 ID 캐시 완료")
+        print(f"{ok}/{len(pending)} 유튜브 영상 ID·출시일 캐시 완료")
 
 
 if __name__ == "__main__":

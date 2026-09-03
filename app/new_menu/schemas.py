@@ -9,7 +9,8 @@ class NewMenuOut(BaseModel):
     restaurant_name: str
     category_group: str | None
     event_date: str  # ISO date -- 정렬·표시 기준일 = COALESCE(released_at, first_seen_at)
-    released_at: str | None  # 보도자료로 확인된 실제 출시일 (seed_released_at.py)
+    released_at: str | None  # 실제 출시일 -- 출처는 released_at_source
+    released_at_source: str | None = None  # 'press'(보도자료 확인) / 'youtube'(리뷰 영상 게시일 추정)
     first_seen_at: str | None  # 크롤 diff가 처음 발견한 날 (백필 전용 메뉴는 None)
     calorie: float | None
     protein: float | None

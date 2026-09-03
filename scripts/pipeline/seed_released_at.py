@@ -89,11 +89,11 @@ def main() -> None:
         total = 0
         for brand, pattern, date in SEED:
             rows = conn.execute(
-                """UPDATE menu_item mi SET released_at = %s
+                """UPDATE menu_item mi SET released_at = %s, released_at_source = 'press'
                    FROM restaurant r
                    WHERE r.id = mi.restaurant_id AND r.name = %s
                      AND replace(mi.name, ' ', '') ILIKE %s
-                     AND mi.released_at IS NULL
+                     AND (mi.released_at IS NULL OR mi.released_at_source IS DISTINCT FROM 'press')
                    RETURNING mi.name""",
                 (date, brand, f"%{pattern}%"),
             ).fetchall()
