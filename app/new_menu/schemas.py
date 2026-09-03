@@ -18,6 +18,8 @@ class NewMenuOut(BaseModel):
     sodium: float | None
     weight_g: float | None
     nutrition_basis: str | None
+    total_weight_g: float | None = None  # 제품 전체 중량 (도미노: 한 판). weight_g가 1회분일 때만
+    scaled_to_total: bool = False  # 영양값·weight_g를 제품 전체(한 마리·한 판) 기준으로 환산했음
     diet_score: float | None
     absolute_grade: str | None
     image_url: str | None  # 브랜드 공식 CDN. 크롤 자동수집 아님 -- 시드로만 채워짐

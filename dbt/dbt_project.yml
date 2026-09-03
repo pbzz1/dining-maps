@@ -1,0 +1,22 @@
+name: dining_maps
+version: "1.0.0"
+config-version: 2
+
+profile: dining_maps
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  dining_maps:
+    staging:
+      +materialized: view
+      +schema: stg
+    marts:
+      +materialized: table
+      +schema: mart
+      rollups:
+        +schema: public

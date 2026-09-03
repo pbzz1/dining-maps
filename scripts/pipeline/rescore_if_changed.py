@@ -52,21 +52,27 @@ def main(force: bool = False) -> bool:
         )
         fp = fingerprint(conn)
         last = conn.execute("SELECT fingerprint FROM diet_score_run ORDER BY ran_at DESC LIMIT 1").fetchone()
-        if not force and last and last["fingerprint"] == fp:
+        changed = force or not last or last["fingerprint"] != fp
+        if changed:
+            print(f"inputs changed -> rescoring ({fp[:12]}…)")
+            compute_diet_score.main()
+            conn.execute("INSERT INTO diet_score_run (fingerprint) VALUES (%s)", (fp,))
+        else:
             print(f"unchanged ({fp[:12]}…); skipping")
-            return False
-        print(f"inputs changed -> rescoring ({fp[:12]}…)")
-        compute_diet_score.main()
-        conn.execute("INSERT INTO diet_score_run (fingerprint) VALUES (%s)", (fp,))
-    # 점수가 바뀌었을 때만 LLM 추천도 재생성 (키 없으면 스스로 건너뜀)
-    from scripts.llm import generate_menu_reco
-    generate_menu_reco.main()
-    # 신메뉴 LLM 리뷰는 화면에서 뺐다 -- 다시 켜려면 여기서
-    # generate_new_menu_reviews.main() 호출을 복구하면 된다.
-    # 신메뉴 유튜브 리뷰 영상 ID 캐시 (무료, 실패해도 검색 링크로 대체되므로 무해)
+    # 여기부터는 conn이 닫힌 뒤다 -- 유튜브 검색처럼 몇 분 걸리는 작업을 with 블록
+    # 안에서 하면 놀고 있던 연결을 Neon 풀러가 끊어 커밋에서 죽는다.
+    if changed:
+        # 점수가 바뀌었을 때만 LLM 추천도 재생성 (키 없으면 스스로 건너뜀)
+        from scripts.llm import generate_menu_reco
+        generate_menu_reco.main()
+        # 신메뉴 LLM 리뷰는 화면에서 뺐다 -- 다시 켜려면 여기서
+        # generate_new_menu_reviews.main() 호출을 복구하면 된다.
+    # 유튜브 영상 ID 캐시는 지문과 무관하게 돈다 -- seed_released_at이 출시일만 넣어
+    # 신메뉴가 생기면 지문은 그대로인데 영상 연결은 필요하다. 캐시된 메뉴는
+    # 건너뛰므로 평소엔 사실상 no-op.
     from scripts.crawl import fetch_youtube_reviews
     fetch_youtube_reviews.main()
-    return True
+    return changed
 
 
 if __name__ == "__main__":

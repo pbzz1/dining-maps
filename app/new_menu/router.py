@@ -91,7 +91,7 @@ WITH added_events AS (
     WHERE nf2.nutrient_name IN ('calorie', 'protein')
 )
 SELECT mi.id, mi.name, f.base_name, r.id AS restaurant_id, r.name AS restaurant_name,
-       mi.category_group, mi.weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id,
+       mi.category_group, mi.weight_g, mi.total_weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id,
        f.event_date, mi.released_at, f.first_seen_at,
        ds.score AS diet_score, ds.absolute_grade,
        MAX(bp.pct) FILTER (WHERE bp.nutrient_name = 'calorie') AS calorie_brand_pct,
@@ -111,7 +111,7 @@ LEFT JOIN brand_pct bp       ON bp.menu_item_id = mi.id
 LEFT JOIN new_menu_review rv ON rv.menu_item_id = mi.id
 WHERE f.brand_rank <= {PER_BRAND_CAP} AND f.brand_row <= {PER_BRAND_ROW_CAP}
 GROUP BY mi.id, mi.name, f.base_name, r.id, r.name, mi.category_group, mi.weight_g,
-         mi.nutrition_basis, mi.image_url, mi.youtube_video_id, f.event_date, mi.released_at,
+         mi.total_weight_g, mi.nutrition_basis, mi.image_url, mi.youtube_video_id, f.event_date, mi.released_at,
          f.first_seen_at, ds.score, ds.absolute_grade,
          rv.diet_verdict, rv.diet_comment, rv.taste_note
 ORDER BY f.event_date DESC, r.name, f.base_name, mi.id
@@ -129,15 +129,35 @@ def list_new_menus(limit: int = 30):
     conn = get_connection()
     rows = fetch_new_menus(conn, limit)
     conn.close()
-    return [
-        NewMenuOut(**{
-            **r,
-            "event_date": r["event_date"].isoformat(),
-            "released_at": r["released_at"].isoformat() if r["released_at"] else None,
-            "first_seen_at": r["first_seen_at"].date().isoformat() if r["first_seen_at"] else None,
-        })
-        for r in rows
-    ]
+    return [NewMenuOut(**_as_whole_item(dict(r))) for r in rows]
+
+
+NUTRIENT_KEYS = ("calorie", "protein", "sugar", "saturated_fat", "sodium")
+
+
+def _as_whole_item(r: dict) -> dict:
+    """신메뉴 화면은 '한 마리·한 판' 기준으로 보여준다 -- 사람들이 보는 건 "100g당
+    353kcal"이나 "1회분 360kcal"이 아니라 통째 값이다. 두 경우를 환산한다:
+      per_100g  (교촌·BHC)  x weight_g/100        -- 제품 중량이 있을 때
+      per_serving + total_weight_g (도미노 150g/한 판) x total/weight_g
+    환산하면 weight_g도 통째 중량으로 바꿔 프론트가 "총 1,248g"으로 단다.
+    근거(중량)가 없으면 손대지 않고 프론트가 원래 기준을 표시한다.
+    점수·추천·탐색기는 이 함수를 거치지 않으므로 원래 기준 그대로다."""
+    r["event_date"] = r["event_date"].isoformat()
+    r["released_at"] = r["released_at"].isoformat() if r["released_at"] else None
+    r["first_seen_at"] = r["first_seen_at"].date().isoformat() if r["first_seen_at"] else None
+    factor, total = None, None
+    if r["nutrition_basis"] == "per_100g" and r["weight_g"]:
+        factor, total = r["weight_g"] / 100, r["weight_g"]
+    elif r["weight_g"] and r.get("total_weight_g") and r["total_weight_g"] > r["weight_g"]:
+        factor, total = r["total_weight_g"] / r["weight_g"], r["total_weight_g"]
+    r["scaled_to_total"] = factor is not None
+    if factor:
+        for k in NUTRIENT_KEYS:
+            if r[k] is not None:
+                r[k] = round(r[k] * factor, 1)
+        r["weight_g"] = total
+    return r
 
 
 if __name__ == "__main__":
