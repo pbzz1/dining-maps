@@ -9,6 +9,21 @@ export const ACTIVITY_FACTORS = {
   active: { label: "활발한 활동", factor: 1.725 },
 };
 
+// 질병관리청 국민건강영양조사 성인 평균 근사치. 신체정보를 입력하지 않은 사용자의
+// 기본값이자, 신메뉴 표에서 "표준 남/여 기준"으로 쓰는 값.
+export const KOREAN_AVG = {
+  male: { heightCm: 173, weightKg: 74, age: 35 },
+  female: { heightCm: 160, weightKg: 59, age: 35 },
+};
+export const DEFAULT_PROFILE = { ...KOREAN_AVG.male, sex: "male", activity: "light" };
+export const profileFor = (sex) => ({ ...KOREAN_AVG[sex], sex, activity: "light" });
+
+// 한 끼 단백질 권장량: KDRIs 성인 권장섭취량 0.91g/kg/일을 3끼로 나눈 근사치.
+export function perMealProtein({ weightKg }) {
+  const w = Number(weightKg);
+  return w ? Math.round((w * 0.91) / 3) : null;
+}
+
 export function perMealCalorie({ heightCm, weightKg, age, sex, activity }) {
   const h = Number(heightCm), w = Number(weightKg), a = Number(age);
   if (!h || !w || !a) return null;

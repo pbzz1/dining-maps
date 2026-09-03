@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { fetchNewMenus } from "../../api";
-import { track } from "../../constants";
+import { GRADE_CLASS, GRADE_LABEL, track } from "../../constants";
+import { DEFAULT_PROFILE, perMealCalorie, perMealProtein, profileFor } from "../recommend/bmr";
+import { useLocalStorage } from "../recommend/useLocalStorage";
 
 // 신메뉴 표. 원천은 크롤 diff(menu_change_log 'added') + 보도자료로 확인한
 // released_at -- 자세한 건 app/new_menu/router.py. 정렬은 30행 이하라 클라이언트에서.
@@ -19,7 +21,7 @@ const youtubeEmbedUrl = (m) => `https://www.youtube.com/embed/${m.youtube_video_
 const youtubeSearchUrl = (m) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(ytQuery(m))}`;
 
-const COL_COUNT = 11; // 임베드 행의 colSpan -- 헤더 열 수와 같아야 한다
+const COL_COUNT = 12; // 임베드 행의 colSpan -- 헤더 열 수와 같아야 한다
 
 // 브랜드는 같은 메뉴를 옵션마다 다른 행으로 준다 (단품/세트/라지세트, L·M·라지…).
 // 옵션을 뗀 이름(base_name)은 서버가 계산해서 준다 -- app/new_menu/router.py의
@@ -50,21 +52,41 @@ const SORTS = {
   protein: { label: "단백질", get: (m) => m.protein, defaultDir: -1 },
   sugar: { label: "당류", get: (m) => m.sugar, defaultDir: 1 },
   sodium: { label: "나트륨", get: (m) => m.sodium, defaultDir: 1 },
-  score: { label: "다이어트", get: (m) => m.diet_score, defaultDir: -1 },
+  score: { label: "다이어트 적합도", get: (m) => m.diet_score, defaultDir: -1 },
 };
 
-// 같은 브랜드·같은 카테고리 내 백분위 -> "낮은 편/중간/높은 편" 배지.
-// 칼로리는 낮을수록, 단백질은 높을수록 좋은 편(초록). 정확한 백분위는 툴팁에.
-function brandBadge(pct, goodWhenLow, [lowLabel, midLabel, highLabel]) {
-  if (pct == null) return null;
-  const level = pct <= 33 ? "low" : pct >= 67 ? "high" : "mid";
-  const good = goodWhenLow ? level === "low" : level === "high";
-  const bad = goodWhenLow ? level === "high" : level === "low";
+// "내 한 끼 기준" -- 메뉴 하나를 한 끼로 먹었을 때 내 권장량 대비 어떤지.
+// 기준은 맞춤 추천 탭의 신체정보(Mifflin-St Jeor 한 끼 kcal, 체중x0.91g/3 단백질).
+// 신체정보를 입력한 적이 없으면(저장값이 기본 프로필과 같으면) 한국 성인 남/여
+// 평균 두 기준을 나란히 보여준다.
+const CALORIE_LEVELS = [[0.7, "가벼움", "good"], [1.2, "한 끼 적정", "mid"], [Infinity, "한 끼 초과", "bad"]];
+const PROTEIN_LEVELS = [[0.5, "부족", "bad"], [1.0, "보통", "mid"], [Infinity, "충분", "good"]];
+
+function level(ratio, levels) {
+  return levels.find(([max]) => ratio < max) ?? levels[levels.length - 1];
+}
+
+// bases: [{ label: "남"|"여"|null, kcal, protein }] -- 프로필이 있으면 하나, 없으면 남/여 둘.
+function mealBadge(value, bases, key, levels, unit) {
+  if (value == null || !bases.every((b) => b[key])) return null;
+  const parts = bases.map((b) => {
+    const r = value / b[key];
+    const [, txt, cls] = level(r, levels);
+    const who = b.label ? `${b.label} ` : "";
+    return { label: b.label, txt, cls, tip: `${who}한 끼 권장 ${num(b[key])}${unit}의 ${Math.round(r * 100)}%` };
+  });
+  const same = parts.every((p) => p.txt === parts[0].txt);
   return {
-    cls: good ? "good" : bad ? "bad" : "mid",
-    pos: { low: lowLabel, mid: midLabel, high: highLabel }[level],
-    tip: `같은 브랜드·카테고리 내 백분위 ${Math.round(pct)} (0=최저, 100=최고)`,
+    cls: same ? parts[0].cls : "mid",
+    txt: same ? parts[0].txt : parts.map((p) => `${p.label} ${p.txt}`).join(" · "),
+    tip: parts.map((p) => p.tip).join(" / "),
   };
+}
+
+function mealBases(profile) {
+  const entered = profile && Object.keys(DEFAULT_PROFILE).some((k) => String(profile[k]) !== String(DEFAULT_PROFILE[k]));
+  const targets = (p, label) => ({ label, kcal: perMealCalorie(p), protein: perMealProtein(p) });
+  return entered ? [targets(profile, null)] : [targets(profileFor("male"), "남"), targets(profileFor("female"), "여")];
 }
 
 export default function NewMenuView() {
@@ -75,6 +97,8 @@ export default function NewMenuView() {
   const [picked, setPicked] = useState({}); // groupKey -> 선택한 옵션의 menu_item id
   // 유튜브 임베드가 펼쳐진 행 (한 번에 하나). 옵션을 바꿔도 같은 줄이므로 groupKey 기준.
   const [openKey, setOpenKey] = useState(null);
+  const [profile] = useLocalStorage("recommend.profile", null); // 맞춤 추천 탭에서 입력한 신체정보
+  const bases = useMemo(() => mealBases(profile), [profile]);
 
   useEffect(() => {
     fetchNewMenus().then(setRows).catch((e) => setError(e.message));
@@ -146,19 +170,22 @@ export default function NewMenuView() {
                 {th("brand")}
                 <th>메뉴</th>
                 {th("category")}
+                <th title="한 마리·한 판 등 제품 전체 중량. 영양 수치도 이 중량 기준">중량</th>
                 {th("calorie")}
                 {th("protein")}
                 {th("sugar")}
                 {th("sodium")}
-                <th title="같은 브랜드·같은 카테고리 메뉴들 사이에서의 위치">브랜드 내</th>
+                <th title={bases.length === 1 ? "맞춤 추천 탭에 입력한 신체정보 기준" : "신체정보 미입력 -- 한국 성인 남/여 평균 기준"}>
+                  {bases.length === 1 ? "내 한 끼 기준" : "한 끼 기준(남/여)"}
+                </th>
                 {th("score")}
                 <th>리뷰</th>
               </tr>
             </thead>
             <tbody>
               {sorted.map(({ key, options, sel: m }) => {
-                const cal = brandBadge(m.calorie_brand_pct, true, ["낮은 편", "중간", "높은 편"]);
-                const pro = brandBadge(m.protein_brand_pct, false, ["적은 편", "중간", "많은 편"]);
+                const cal = mealBadge(m.calorie, bases, "kcal", CALORIE_LEVELS, "kcal");
+                const pro = mealBadge(m.protein, bases, "protein", PROTEIN_LEVELS, "g");
                 // 리뷰 영상은 메뉴 단위 -- 캐시된 영상 ID를 가진 옵션이 하나라도 있으면 그걸 쓴다.
                 const yt = options.find((o) => o.youtube_video_id) ?? m;
                 return (
@@ -175,16 +202,6 @@ export default function NewMenuView() {
                         <img className="nm-thumb" src={m.image_url} alt="" loading="lazy" referrerPolicy="no-referrer" />
                       )}
                       {m.base_name}
-                      {/* 서버가 한 마리·한 판 기준으로 환산해 준 행은 총 중량을 보여준다
-                          (교촌 100g당 x 중량, 도미노 1회분 150g x 한 판). 근거 중량이 없어
-                          환산 못 한 것만 원래 기준('100g당' 등)으로 남는다. */}
-                      {m.scaled_to_total ? (
-                        <span className="mx-basis" title="브랜드 공개값(100g당 또는 1회분)을 제품 전체 중량으로 환산">
-                          총 {num(m.weight_g)}g
-                        </span>
-                      ) : BASIS_LABEL[m.nutrition_basis] && (
-                        <span className="mx-basis">{BASIS_LABEL[m.nutrition_basis]}</span>
-                      )}
                       {options.length > 1 && (
                         <span className="nm-opts">
                           {options.map((o) => (
@@ -204,19 +221,32 @@ export default function NewMenuView() {
                       )}
                     </td>
                     <td className="mx-cat">{m.category_group ?? "기타"}</td>
+                    {/* 서버가 한 마리·한 판으로 환산한 행(교촌 100g당 x 중량, 도미노 1회분 x 한 판)은
+                        전체 중량, 아니면 브랜드가 준 중량. 중량 없이 100g당만 공개된 건 그렇게 표시. */}
+                    <td className="nm-cell-weight">
+                      {m.weight_g
+                        ? <span title={m.scaled_to_total ? "브랜드 공개값을 제품 전체 중량으로 환산" : undefined}>{num(m.weight_g)}g</span>
+                        : <span className="mx-basis">{BASIS_LABEL[m.nutrition_basis] || "-"}</span>}
+                    </td>
                     <td className={sortKey === "calorie" ? "dash-td-hi" : ""}>{num(m.calorie)}</td>
                     <td className={sortKey === "protein" ? "dash-td-hi" : ""}>{num(m.protein, 1)}g</td>
                     <td className={sortKey === "sugar" ? "dash-td-hi" : ""}>{num(m.sugar, 1)}g</td>
                     <td className={sortKey === "sodium" ? "dash-td-hi" : ""}>{num(m.sodium)}mg</td>
                     <td className="nm-cell-brandpos">
-                      {cal && <span className={`nm-verdict ${cal.cls}`} title={cal.tip}>칼로리 {cal.pos}</span>}
-                      {pro && <span className={`nm-verdict ${pro.cls}`} title={pro.tip}>단백질 {pro.pos}</span>}
+                      {cal && <span className={`nm-verdict ${cal.cls}`} title={cal.tip}>칼로리 {cal.txt}</span>}
+                      {pro && <span className={`nm-verdict ${pro.cls}`} title={pro.tip}>단백질 {pro.txt}</span>}
                       {!cal && !pro && "-"}
                     </td>
                     <td className={sortKey === "score" ? "dash-td-hi" : ""}>
-                      {m.diet_score == null
-                        ? "-"
-                        : `${m.diet_score.toFixed(0)}${m.absolute_grade ? ` (${m.absolute_grade})` : ""}`}
+                      {m.absolute_grade ? (
+                        <span
+                          className="nm-grade"
+                          title={`다이어트 적합도 ${m.diet_score?.toFixed(0)}/100 (WHO 기준 절대등급). A 아주 좋음 · B 좋음 · C 보통 · D 주의`}
+                        >
+                          <span className={`grade-badge ${GRADE_CLASS[m.absolute_grade]}`}>{m.absolute_grade}</span>
+                          {GRADE_LABEL[m.absolute_grade]}
+                        </span>
+                      ) : "-"}
                     </td>
                     <td>
                       <button
@@ -263,9 +293,13 @@ export default function NewMenuView() {
       )}
 
       <p className="dash-footnote">
-        영양정보는 브랜드 공식 공개값 그대로다. '브랜드 내' 위치는 같은 브랜드의 같은
-        카테고리 메뉴들 사이 백분위(칼로리는 낮을수록, 단백질은 높을수록 좋은 편).
-        실제 맛·구성은 유튜브 리뷰로 확인하세요.
+        영양정보는 브랜드 공식 공개값이며 중량 열의 제품 전체 기준으로 환산했다.
+        '한 끼 기준'은 이 메뉴 하나를 한 끼로 먹었을 때 권장량 대비 어떤지 —
+        {bases.length === 1
+          ? " 맞춤 추천 탭에 입력한 신체정보로 계산한 내 기준이다."
+          : " 지금은 한국 성인 남/여 평균 기준이며, 맞춤 추천 탭에서 신체정보를 입력하면 내 기준으로 바뀐다."}
+        {" "}다이어트 적합도는 WHO 기준 절대등급(A 아주 좋음 · B 좋음 · C 보통 · D 주의)이고
+        마우스를 올리면 0~100 점수가 보인다. 실제 맛·구성은 유튜브 리뷰로 확인하세요.
       </p>
     </div>
   );
