@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { track } from "../../constants";
 import { fetchStatsBrands } from "../../api";
+import Skel, { SkelRows, SkelBlock } from "../../components/Skeleton";
 import MenuExplorer from "./MenuExplorer";
 import BrandExplorer from "./BrandExplorer";
 
@@ -90,7 +91,28 @@ export default function Dashboard() {
   }, []);
 
   if (error) return <p className="dash-status">대시보드 로딩 실패: {error}</p>;
-  if (!brands) return <p className="dash-status">불러오는 중…</p>;
+  // 실제 레이아웃(KPI 줄 + 카드)과 같은 자리를 잡아둬서 도착할 때 화면이 튀지 않게.
+  if (!brands) return (
+    <SkelBlock label="대시보드 불러오는 중">
+      <div className="dashboard">
+        <div className="dash-kpis">
+          {[0, 1, 2, 3].map((i) => (
+            <div className="dash-kpi" key={i}>
+              <Skel w="4rem" h={12} />
+              <Skel w="5.5rem" h={24} />
+            </div>
+          ))}
+        </div>
+        {[0, 1].map((i) => (
+          <section className="dash-card" key={i}>
+            <Skel w="12rem" h={20} />
+            <Skel w="18rem" h={12} />
+            <SkelRows n={7} h={18} />
+          </section>
+        ))}
+      </div>
+    </SkelBlock>
+  );
 
   const totals = {
     brands: brands.length,

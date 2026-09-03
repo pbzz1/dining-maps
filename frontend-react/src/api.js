@@ -3,11 +3,23 @@
 // Prod: set VITE_API_BASE to the deployed FastAPI origin at build time.
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
-export async function get(path, params) {
-  const qs = params ? `?${new URLSearchParams(params)}` : "";
-  const res = await fetch(`${BASE}/api${path}${qs}`);
-  if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
-  return res.json();
+// URL -> Promise. 진행 중인 요청 dedupe와 이미 받아온 응답 재사용이 같은 한 줄로 해결된다.
+// ponytail: TTL 없음 (SPA 세션 = 캐시 수명). 크롤이 하루 1회라 새로고침이면 충분.
+// 장수 세션에서 신선도가 문제되면 { at, promise }로 바꾸고 TTL 비교를 넣는다.
+const cache = new Map();
+
+export function get(path, params) {
+  const url = `${BASE}/api${path}${params ? `?${new URLSearchParams(params)}` : ""}`;
+  let p = cache.get(url);
+  if (!p) {
+    p = fetch(url).then((res) => {
+      if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
+      return res.json();
+    });
+    p.catch(() => cache.delete(url)); // 실패는 캐시하지 않는다 -- 재시도가 살아 있어야
+    cache.set(url, p);
+  }
+  return p;
 }
 
 export const fetchRestaurants = () => get("/restaurants");

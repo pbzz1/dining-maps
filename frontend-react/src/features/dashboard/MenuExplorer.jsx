@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SkelRows, SkelBlock } from "../../components/Skeleton";
 import { fetchMenus } from "../../api";
 
 // 대시보드의 메뉴 단위 분석. 위 차트들이 브랜드를 줄 세운다면 여기는 메뉴 2천여 건을
@@ -150,7 +151,11 @@ export default function MenuExplorer({ brands }) {
       </div>
 
       {error && <p className="dash-status">메뉴 불러오기 실패: {error}</p>}
-      {!error && rows === null && <p className="dash-status">불러오는 중…</p>}
+      {!error && rows === null && (
+        <SkelBlock label="메뉴 불러오는 중">
+          <SkelRows n={8} h={28} />
+        </SkelBlock>
+      )}
       {rows?.length === 0 && (
         <p className="dash-status">
           조건에 맞는 메뉴가 없습니다. {q ? `"${q}" 검색 결과가 없거나, ` : ""}이 정렬 기준에

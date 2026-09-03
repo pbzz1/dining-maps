@@ -3,6 +3,7 @@ import { track } from "../../constants";
 import { fetchStats, fetchMenu, fetchDietGrade } from "../../api";
 import { NUTRIENT_LABELS, GRADE_RANK, SORT_OPTIONS, formatValue, recommendLabel, RECOMMEND_COLOR } from "../../constants";
 import { GradeBadges, GradeLegend } from "../../components/GradeBadges";
+import Skel, { SkelRows, SkelBlock } from "../../components/Skeleton";
 
 function nutrientValue(item, name) {
   return item.nutrition.find((n) => n.nutrient_name === name)?.value ?? null;
@@ -80,7 +81,14 @@ export default function MenuView({ restaurant, onBack }) {
       <GradeLegend />
 
       {error && <p className="error">메뉴를 불러오지 못했습니다: {error}</p>}
-      {loading && !error && <p className="loading">불러오는 중...</p>}
+      {loading && !error && (
+        <SkelBlock label="메뉴 불러오는 중">
+          <div className="stats-bar">
+            {[0, 1, 2].map((i) => <Skel key={i} w="6rem" h={28} r={999} />)}
+          </div>
+          <SkelRows n={10} h={24} />
+        </SkelBlock>
+      )}
 
       {!loading && !error && (
         <>

@@ -4,6 +4,7 @@ import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
 import { IconPin } from "../../components/NavIcons";
+import Skel, { SkelBlock } from "../../components/Skeleton";
 
 // Step 0: 목표 선택 -> Step 2: 하드 제약(한 끼 상한, 음료 제외) -> Step 1: 근처 매장
 // -> Step 3: 신체정보는 새 화면이 아니라 위 '한 끼 상한'의 기본값 계산기.
@@ -25,6 +26,8 @@ export default function RecommendView() {
   const [profile, setProfile] = useLocalStorage("recommend.profile", DEFAULT_PROFILE);
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("");
+  // status는 에러·빈 결과·위치 안내를 겸한다. 로딩만 따로 떼야 스켈레톤을 걸 수 있다.
+  const [loading, setLoading] = useState(true);
 
   const update = (patch) => setPrefs((p) => ({ ...p, ...patch }));
   const updateProfile = (patch) => setProfile((p) => ({ ...p, ...patch }));
@@ -41,7 +44,8 @@ export default function RecommendView() {
 
   useEffect(() => {
     let cancelled = false;
-    setStatus("불러오는 중...");
+    setLoading(true);
+    setStatus("");
     const params = { goal: prefs.goal, exclude_drinks: prefs.excludeDrinks, limit: 20 };
     if (effectiveMaxCalorie) params.max_calorie = effectiveMaxCalorie;
     if (prefs.maxSodium) params.max_sodium = prefs.maxSodium;
@@ -50,9 +54,14 @@ export default function RecommendView() {
       .then((list) => {
         if (cancelled) return;
         setItems(list);
+        setLoading(false);
         setStatus(list.length ? "" : "조건에 맞는 메뉴가 없습니다. 상한을 올려보세요.");
       })
-      .catch((e) => !cancelled && setStatus(`불러오지 못했습니다: ${e.message}`));
+      .catch((e) => {
+        if (cancelled) return;
+        setLoading(false);
+        setStatus(`불러오지 못했습니다: ${e.message}`);
+      });
     return () => {
       cancelled = true;
     };
@@ -232,6 +241,16 @@ export default function RecommendView() {
       </details>
 
       {status && <p className="loading">{status}</p>}
+
+      {/* 조건을 바꿔 다시 부르는 중이면 이전 결과를 그대로 두는 게 덜 튄다 --
+          스켈레톤은 보여줄 게 아직 아무것도 없을 때만. */}
+      {loading && items.length === 0 && (
+        <SkelBlock label="추천 메뉴 불러오는 중">
+          <div className="menu-list" style={{ marginTop: 16 }}>
+            {[0, 1, 2, 3, 4].map((i) => <Skel key={i} h={72} r={10} />)}
+          </div>
+        </SkelBlock>
+      )}
 
       <div className="menu-list" style={{ marginTop: 16 }}>
         {items.map((m, i) => (

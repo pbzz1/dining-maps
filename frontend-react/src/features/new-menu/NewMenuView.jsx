@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { fetchNewMenus } from "../../api";
 import { track } from "../../constants";
+import { SkelRows, SkelBlock } from "../../components/Skeleton";
 
 // 신메뉴 표. 원천은 크롤 diff(menu_change_log 'added') + 보도자료로 확인한
 // released_at -- 자세한 건 app/new_menu/router.py. 정렬은 30행 이하라 클라이언트에서.
@@ -129,7 +130,11 @@ export default function NewMenuView() {
       </p>
 
       {error && <p className="dash-status">신메뉴 불러오기 실패: {error}</p>}
-      {!error && sorted === null && <p className="dash-status">불러오는 중…</p>}
+      {!error && sorted === null && (
+        <SkelBlock label="신메뉴 불러오는 중">
+          <SkelRows n={8} h={28} />
+        </SkelBlock>
+      )}
       {sorted?.length === 0 && (
         <p className="dash-status">
           최근 90일 안에 감지된 신메뉴가 없습니다. 브랜드가 새 메뉴를 공식 사이트에

@@ -44,10 +44,28 @@ function useScrollDepthTracking(view) {
   }, [view]);
 }
 
+// 한 번 방문한 뷰는 기억해 뒀다가 계속 마운트해 둔다. App은 화면에 하나뿐이라
+// 모듈 스코프 Set이면 충분하고, 상태로 들 때처럼 렌더가 한 번 더 돌지도 않는다.
+const seen = new Set();
+
+// 방문한 적 있는 뷰만 렌더하고, 현재 뷰가 아니면 숨기기만 한다 (언마운트 X).
+function Pane({ name, view, seen, children }) {
+  if (!seen.has(name)) return null;
+  return (
+    <div className="view-wrap" style={{ display: view === name ? "flex" : "none" }}>
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend
   const [selected, setSelected] = useState(null);
   const [dataDate, setDataDate] = useState("");
+  // 한 번 방문한 뷰는 언마운트하지 않는다 -- 돌아왔을 때 이미 떠 있게. MapView가 쓰던
+  // display:none 방식을 나머지 뷰로 넓힌 것. 처음부터 전부 마운트하면 첫 진입에 API가
+  // 다섯 개 동시에 나가니, 마운트는 그 뷰를 실제로 열어본 시점에.
+  seen.add(view);
 
   // GA4 custom event; gtag is absent under ad-blockers, hence the optional call.
   function setView(v) {
@@ -127,13 +145,16 @@ export default function App() {
         <div className="map-wrap" style={{ display: view === "map" ? "flex" : "none" }}>
           <MapView onOpenMenu={openMenu} visible={view === "map"} />
         </div>
-        {view === "dashboard" && <Dashboard />}
-        {view === "recommend" && <RecommendView />}
-        {view === "new" && <NewMenuView />}
-        {view === "about" && <AboutView dataDate={dataDate} />}
-        {view === "list" && <RestaurantList onSelect={openMenu} />}
+        <Pane name="dashboard" view={view} seen={seen}><Dashboard /></Pane>
+        <Pane name="recommend" view={view} seen={seen}><RecommendView /></Pane>
+        <Pane name="new" view={view} seen={seen}><NewMenuView /></Pane>
+        <Pane name="about" view={view} seen={seen}><AboutView dataDate={dataDate} /></Pane>
+        <Pane name="list" view={view} seen={seen}><RestaurantList onSelect={openMenu} /></Pane>
+        {/* 드릴다운은 매장마다 내용이 달라 keep-alive 대상이 아니다 -- api.js 캐시가 커버. */}
         {view === "menu" && selected && (
-          <MenuView restaurant={selected} onBack={() => setView("list")} />
+          <div className="view-wrap" style={{ display: "flex" }}>
+            <MenuView restaurant={selected} onBack={() => setView("list")} />
+          </div>
         )}
       </main>
     </div>
