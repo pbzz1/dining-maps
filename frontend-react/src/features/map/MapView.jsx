@@ -150,6 +150,28 @@ export default function MapView({ onOpenMenu, visible = true }) {
       });
       overlay.setMap(map);
       popupRef.current = overlay;
+
+      // 화면 가장자리 매장을 누르면 팝업이 지도 밖으로 잘린다(특히 위쪽 -- 팝업이
+      // 핀 위로 열리니까). 삐져나온 만큼만 지도를 밀어 팝업 전체가 보이게 한다.
+      requestAnimationFrame(() => {
+        if (popupRef.current !== overlay) return;
+        const box = containerRef.current?.getBoundingClientRect();
+        if (!box) return;
+        const pt = map.getProjection().containerPointFromCoords(overlay.getPosition());
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        const M = 12; // 가장자리 여백
+        // yAnchor 1.4 / xAnchor 0.5 기준의 팝업 사각형
+        const top = pt.y - h * 1.4;
+        const left = pt.x - w / 2;
+        const right = pt.x + w / 2;
+        let dx = 0;
+        let dy = 0;
+        if (top < M) dy = top - M;
+        if (right > box.width - M) dx = right - (box.width - M);
+        else if (left < M) dx = left - M;
+        if (dx || dy) map.panBy(dx, dy);
+      });
     },
     [map, onOpenMenu, highlightPin]
   );
