@@ -160,14 +160,15 @@ export default function MapView({ onOpenMenu, visible = true }) {
         const pt = map.getProjection().containerPointFromCoords(overlay.getPosition());
         const w = el.offsetWidth;
         const h = el.offsetHeight;
-        const M = 12; // 가장자리 여백
+        const M = 12; // 좌우 여백
+        const M_TOP = 56; // 위쪽은 등급 범례 띠까지 피해야 한다
         // yAnchor 1.4 / xAnchor 0.5 기준의 팝업 사각형
         const top = pt.y - h * 1.4;
         const left = pt.x - w / 2;
         const right = pt.x + w / 2;
         let dx = 0;
         let dy = 0;
-        if (top < M) dy = top - M;
+        if (top < M_TOP) dy = top - M_TOP;
         if (right > box.width - M) dx = right - (box.width - M);
         else if (left < M) dx = left - M;
         if (dx || dy) map.panBy(dx, dy);
