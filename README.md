@@ -182,18 +182,88 @@ erDiagram
   crawl_run ||--o{ menu_change_log : "이전 run과의 diff"
   menu_snapshot ||--o{ nutrition_snapshot : ""
 
-  restaurant { int id PK  text name UK }
-  menu_item { int id PK  int restaurant_id FK  text name  text category_group  int price_krw  float weight_g  text nutrition_basis  date released_at }
-  nutrition_fact { int menu_item_id FK  text nutrient_name  float value  text unit }
-  diet_score { int menu_item_id PK  float score  text absolute_grade  text relative_grade  float percentile  text basis }
-  store { int id PK  int restaurant_id FK  text branch_name  float lat  float lng  text kakao_place_id UK  timestamptz last_seen_at }
-  brand_menu_reco { int restaurant_id PK  int menu_item_id FK  text reason  text model }
-  new_menu_review { int menu_item_id PK  text diet_verdict  text diet_comment  text taste_note }
-  crawl_run { int id PK  timestamptz started_at  text source  text status }
-  menu_snapshot { int id PK  int run_id FK  text restaurant_name  text menu_name  int price_krw }
-  nutrition_snapshot { int menu_snapshot_id FK  text nutrient_name  float value }
-  data_quality_check { int run_id FK  text check_name  text scope  text severity }
-  menu_change_log { int run_id FK  text restaurant_name  text menu_name  text change_type  text field_name  float pct_change  text verdict }
+  restaurant {
+    int id PK
+    text name UK
+  }
+  menu_item {
+    int id PK
+    int restaurant_id FK
+    text name
+    text category_group
+    int price_krw
+    float weight_g
+    text nutrition_basis
+    date released_at
+  }
+  nutrition_fact {
+    int menu_item_id FK
+    text nutrient_name
+    float value
+    text unit
+  }
+  diet_score {
+    int menu_item_id PK
+    float score
+    text absolute_grade
+    text relative_grade
+    float percentile
+    text basis
+  }
+  store {
+    int id PK
+    int restaurant_id FK
+    text branch_name
+    float lat
+    float lng
+    text kakao_place_id UK
+    timestamptz last_seen_at
+  }
+  brand_menu_reco {
+    int restaurant_id PK
+    int menu_item_id FK
+    text reason
+    text model
+  }
+  new_menu_review {
+    int menu_item_id PK
+    text diet_verdict
+    text diet_comment
+    text taste_note
+  }
+  crawl_run {
+    int id PK
+    timestamptz started_at
+    text source
+    text status
+  }
+  menu_snapshot {
+    int id PK
+    int run_id FK
+    text restaurant_name
+    text menu_name
+    int price_krw
+  }
+  nutrition_snapshot {
+    int menu_snapshot_id FK
+    text nutrient_name
+    float value
+  }
+  data_quality_check {
+    int run_id FK
+    text check_name
+    text scope
+    text severity
+  }
+  menu_change_log {
+    int run_id FK
+    text restaurant_name
+    text menu_name
+    text change_type
+    text field_name
+    float pct_change
+    text verdict
+  }
 ```
 
 이력 테이블이 `menu_item.id` 대신 `restaurant_name`·`menu_name` 문자열로 연결되는 건 의도다. 메뉴가 단종돼 서빙 행이 사라져도 스냅샷은 남아야 한다. `mart_*`는 dbt가 이력 테이블에서 매 실행마다 재계산하므로 FK가 없다.
@@ -223,7 +293,7 @@ flowchart LR
     MAP[지도]; LIST[매장 목록 → 메뉴]; RECO[맞춤 추천]; NEW[신메뉴]; DASH[대시보드]
   end
   subgraph API[FastAPI /api]
-    E1[/stores/]; E2[/restaurants, /restaurants/id/*/]; E3[/recommend/*/]; E4[/new-menus/]; E5[/menus, /stats/*/]
+    E1["/stores"]; E2["/restaurants, /restaurants/{id}/*"]; E3["/recommend/*"]; E4["/new-menus"]; E5["/menus, /stats/*"]
   end
   subgraph DB[PostgreSQL]
     SVC[(서빙 테이블<br/>UPSERT)]; HIST[(이력 테이블<br/>append-only)]; MART[(mart_*<br/>dbt 재계산)]
