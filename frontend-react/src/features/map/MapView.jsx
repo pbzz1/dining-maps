@@ -424,10 +424,13 @@ export default function MapView({ onOpenMenu, visible = true }) {
   }
 
   // 목록에서 고른 매장으로 "뚝" 튀지 않고 부드럽게 이동한다.
-  // setLevel의 animate는 확대 애니메이션, panTo는 이동 애니메이션이라 둘 다 필요.
+  // 확대와 이동 애니메이션을 동시에 걸면 panTo가 확대 전 좌표로 거리를 재서
+  // 엉뚱한 곳(2km 밖)에 멈춘다. 확대는 대상 지점을 고정점(anchor)으로 즉시 끝내고
+  // 남은 거리만 panTo로 부드럽게 이동한다.
   function focusStore(store) {
-    map.setLevel(3, { animate: true });
-    map.panTo(new window.kakao.maps.LatLng(store.lat, store.lng));
+    const pos = new window.kakao.maps.LatLng(store.lat, store.lng);
+    if (map.getLevel() !== 3) map.setLevel(3, { anchor: pos });
+    map.panTo(pos);
     showPopup(store);
   }
 
