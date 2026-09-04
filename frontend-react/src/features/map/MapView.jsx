@@ -151,28 +151,22 @@ export default function MapView({ onOpenMenu, visible = true }) {
       overlay.setMap(map);
       popupRef.current = overlay;
 
-      // 화면 가장자리 매장을 누르면 팝업이 지도 밖으로 잘린다(특히 위쪽 -- 팝업이
-      // 핀 위로 열리니까). 실제로 그려진 팝업 상자와 지도 상자를 재서 삐져나온
-      // 만큼만 지도를 민다. 좌표 계산 대신 실측이라 앵커·여백이 바뀌어도 맞는다.
-      const M = 12; // 좌우·아래 여백
-      const M_TOP = 56; // 위쪽은 등급 범례 띠까지 피한다
-      const nudgeIntoView = () => {
-        if (popupRef.current !== overlay || !containerRef.current) return 0;
+      // 팝업은 핀 위로 열려서, 지도 위쪽 매장을 누르면 머리가 잘려 나간다.
+      // 지도를 움직여 맞추는 대신(panBy는 팝업도 같이 끌고 다녀 잘 맞지 않는다)
+      // 자리가 없으면 팝업을 핀 아래로 뒤집고, 좌우도 넘친 만큼만 밀어 넣는다.
+      requestAnimationFrame(() => {
+        if (popupRef.current !== overlay || !containerRef.current) return;
         const box = containerRef.current.getBoundingClientRect();
-        const p = el.getBoundingClientRect();
-        if (!p.height) return 0;
+        const r = el.getBoundingClientRect();
+        if (!r.height) return;
+        const M = 12; // 좌우 여백
+        const M_TOP = 56; // 위쪽은 등급 범례 띠까지 피한다
         let dx = 0;
         let dy = 0;
-        if (p.top < box.top + M_TOP) dy = p.top - (box.top + M_TOP);
-        else if (p.bottom > box.bottom - M) dy = p.bottom - (box.bottom - M);
-        if (p.right > box.right - M) dx = p.right - (box.right - M);
-        else if (p.left < box.left + M) dx = p.left - (box.left + M);
-        if (dx || dy) map.panBy(dx, dy);
-        return Math.abs(dx) + Math.abs(dy);
-      };
-      // panBy는 애니메이션이라 한 번에 딱 맞지 않을 수 있다 -- 남은 만큼 한 번 더.
-      requestAnimationFrame(() => {
-        if (nudgeIntoView()) setTimeout(nudgeIntoView, 400);
+        if (r.top < box.top + M_TOP) dy = r.height + 26; // 핀 아래로 뒤집기
+        if (r.right > box.right - M) dx = box.right - M - r.right;
+        else if (r.left < box.left + M) dx = box.left + M - r.left;
+        if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`;
       });
     },
     [map, onOpenMenu, highlightPin]
