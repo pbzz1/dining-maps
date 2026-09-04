@@ -6,20 +6,21 @@ import {
   DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, formatDistance,
 } from "../../constants";
 
-// 추천 TOP 3 왕관 (범례 설명과 핀 장식에 공용)
-const CROWN_PATH = "M3.5 8.5 L8 12 L12 5.5 L16 12 L20.5 8.5 L18.5 17.5 Q12 19 5.5 17.5 Z";
-const CROWN_SVG = `<svg class="pin-crown" width="24" height="24" viewBox="0 0 24 24"><path d="${CROWN_PATH}" fill="#FFC53D" stroke="#B8860B" stroke-width="1.2" stroke-linejoin="round"></path></svg>`;
 
 // 주변 매장 전부가 아니라 "다이어트로 그나마 추천할 만한" 상위 N곳만 보여준다.
 // 기본값일 뿐 -- 사용자가 툴바에서 바꿀 수 있다 (LIMIT_OPTIONS/RADIUS_OPTIONS).
 const RECOMMEND_LIMIT = 15;
+
+// 지도를 축소하면 핀들이 서로 겹쳐 아무것도 못 읽게 된다. 화면상 이 픽셀 격자
+// 안에 들어오는 핀들은 "N곳" 요약 하나로 묶는다 (클릭하면 그 자리로 확대).
+const CLUSTER_PX = 48;
 const LIMIT_OPTIONS = [10, 15, 20, 30];
 const RADIUS_OPTIONS = [
   { value: 1000, label: "1km" },
-  { value: 2000, label: "2km" },
   { value: 3000, label: "3km" },
   { value: 5000, label: "5km" },
   { value: 10000, label: "10km" },
+  { value: 30000, label: "30km" },
 ];
 
 export default function MapView({ onOpenMenu, visible = true }) {
@@ -28,6 +29,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const popupRef = useRef(null);
   const centerRef = useRef(DEFAULT_CENTER);
   const myLocRef = useRef(null); // 현 위치 파란 점 -- 매장 핀과 별개로 유지
+  const pinsRef = useRef(new Map()); // store.id -> { el, overlay, baseZ } : 선택 강조용
+  const selectedIdRef = useRef(null); // 줌으로 핀을 다시 그려도 선택 상태를 잃지 않게
 
   const { map, places, ready, error: sdkError } = useKakaoMap(containerRef, DEFAULT_CENTER);
 
@@ -38,6 +41,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const [keyword, setKeyword] = useState("");
   const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
   const [limit, setLimit] = useState(RECOMMEND_LIMIT);
+  // 목록↔지도 호버 연동의 단일 출처. 어느 쪽에 커서를 올려도 여기로 모인다.
+  const [hoverId, setHoverId] = useState(null);
 
   function toggleGrade(g) {
     setActiveGrades((prev) => {
@@ -80,9 +85,20 @@ export default function MapView({ onOpenMenu, visible = true }) {
     }
   }, []);
 
+  // 어느 핀을 보고 있는지 지도 위에서도 알 수 있게 -- 선택된 핀만 이름을 펼친 채 둔다.
+  const highlightPin = useCallback((id) => {
+    selectedIdRef.current = id;
+    for (const [sid, pin] of pinsRef.current) {
+      const on = sid === id;
+      pin.el.classList.toggle("is-selected", on);
+      pin.overlay.setZIndex(on ? 190000 : pin.baseZ);
+    }
+  }, []);
+
   const showPopup = useCallback(
     (store) => {
       if (popupRef.current) popupRef.current.setMap(null);
+      highlightPin(store.id);
       const ratio =
         store.good_menu_ratio != null ? `${Math.round(store.good_menu_ratio * 100)}%` : "-";
 
@@ -99,6 +115,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       el.querySelector(".store-popup-close").addEventListener("click", () => {
         popupRef.current?.setMap(null);
         popupRef.current = null;
+        highlightPin(null);
       });
       el.querySelector(".store-popup-menu-btn").addEventListener("click", () => {
         popupRef.current?.setMap(null);
@@ -115,7 +132,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       overlay.setMap(map);
       popupRef.current = overlay;
     },
-    [map, onOpenMenu]
+    [map, onOpenMenu, highlightPin]
   );
 
   // 실제 위치 파악에 성공했을 때만 호출된다 -- 기본 중심(서울시청) 폴백에는
@@ -130,7 +147,9 @@ export default function MapView({ onOpenMenu, visible = true }) {
         position: new window.kakao.maps.LatLng(lat, lng),
         content: el,
         yAnchor: 0.5,
-        zIndex: 2,
+        // 매장 핀(호버 200000)보다 항상 위 -- 핀에 가려 내 위치를 잃어버리지
+        // 않도록. 팝업(300000)만 이보다 앞에 온다.
+        zIndex: 250000,
       });
       myLocRef.current.setMap(map);
     },
@@ -195,22 +214,80 @@ export default function MapView({ onOpenMenu, visible = true }) {
     loadStores(centerRef.current.lat, centerRef.current.lng);
   }, [ready, searched, gradeType, radiusM]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 클러스터링은 현재 줌 레벨의 화면 좌표 기준이라, 레벨이 바뀌면 다시 묶어야 한다.
+  const [level, setLevel] = useState(null);
+  useEffect(() => {
+    if (!ready || !map) return;
+    const sync = () => setLevel(map.getLevel());
+    window.kakao.maps.event.addListener(map, "zoom_changed", sync);
+    sync();
+    return () => window.kakao.maps.event.removeListener(map, "zoom_changed", sync);
+  }, [ready, map]);
+
   // Draw pins for whatever store list is current.
   useEffect(() => {
     if (!ready || !map) return;
     overlaysRef.current.forEach((o) => o.setMap(null));
     overlaysRef.current = [];
+    pinsRef.current = new Map();
+
+    // 화면 좌표(현재 레벨 기준)로 격자에 담아, 같은 칸에 2곳 이상이면 요약 핀 하나로.
+    const proj = map.getProjection();
+    const cells = new Map();
+    visibleStores.forEach((store, rank) => {
+      const pt = proj.pointFromCoords(new window.kakao.maps.LatLng(store.lat, store.lng));
+      const key = `${Math.floor(pt.x / CLUSTER_PX)},${Math.floor(pt.y / CLUSTER_PX)}`;
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key).push({ store, rank });
+    });
+
+    for (const group of cells.values()) {
+      if (group.length > 1) {
+        drawCluster(group);
+        continue;
+      }
+      drawPin(group[0].store, group[0].rank);
+    }
+
+    // 묶인 핀들: 대표(추천 순위가 가장 높은) 매장의 등급 색 + 개수만 보여준다.
+    function drawCluster(group) {
+      const lead = group[0].store; // visibleStores 순서를 유지하므로 첫 원소가 최상위
+      const grade = gradeType === "absolute" ? lead.absolute_grade : lead.relative_grade;
+      const lat = group.reduce((a, g) => a + g.store.lat, 0) / group.length;
+      const lng = group.reduce((a, g) => a + g.store.lng, 0) / group.length;
+      const el = document.createElement("div");
+      el.className = `map-cluster${group.some((g) => g.rank < 3) ? " map-cluster-top" : ""}`;
+      el.style.background = GRADE_COLOR[grade] ?? "#999";
+      el.title = group.map((g) => `${g.store.restaurant_name} ${g.store.branch_name ?? ""}`).join(" / ");
+      el.innerHTML = `<b>${group.length}</b><span>곳</span>`;
+      const pos = new window.kakao.maps.LatLng(lat, lng);
+      // 클릭하면 그 자리를 두 단계 확대 -- 확대하면 격자가 풀려 개별 핀으로 나뉜다.
+      el.addEventListener("click", () =>
+        map.setLevel(Math.max(1, map.getLevel() - 2), { animate: true, anchor: pos })
+      );
+      const overlay = new window.kakao.maps.CustomOverlay({
+        position: pos,
+        content: el,
+        yAnchor: 1,
+        zIndex: 150000,
+      });
+      overlay.setMap(map);
+      overlaysRef.current.push(overlay);
+    }
 
     // visibleStores는 이미 추천순 정렬 -- 앞 3곳만 순위를 달아 크게 강조한다.
-    visibleStores.forEach((store, rank) => {
+    function drawPin(store, rank) {
       const displayGrade = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
       const isTop = rank < 3;
+      const isSelected = selectedIdRef.current === store.id;
       const el = document.createElement("div");
-      el.className = `map-pin${isTop ? " map-pin-top" : ""}`;
+      el.className = `map-pin${isTop ? " map-pin-top" : ""}${isSelected ? " is-selected" : ""}`;
       el.style.background = GRADE_COLOR[displayGrade] ?? "#999";
       el.innerHTML =
-        (isTop ? `${CROWN_SVG}<em class="pin-rank">${rank + 1}</em>` : "") +
-        `<b class="pin-grade">${displayGrade ?? "?"}</b><span>${store.restaurant_name}</span>`;
+        (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
+        `<b class="pin-grade">${displayGrade ?? "?"}</b>` +
+        `<span class="pin-name">${store.restaurant_name}</span>`;
+      el.title = `${store.restaurant_name} ${store.branch_name ?? ""}`;
       el.addEventListener("click", () => showPopup(store));
 
       // 겹칠 때 아래 핀의 글자가 위 핀 뒤로 삐져나와 보이는 문제:
@@ -221,31 +298,71 @@ export default function MapView({ onOpenMenu, visible = true }) {
         position: new window.kakao.maps.LatLng(store.lat, store.lng),
         content: el,
         yAnchor: 1,
-        zIndex: baseZ,
+        zIndex: isSelected ? 190000 : baseZ,
       });
-      // 호버한 핀은 맨 앞으로 -- 가려진 핀도 커서만 대면 전체가 보인다.
-      el.addEventListener("mouseenter", () => overlay.setZIndex(200000));
-      el.addEventListener("mouseleave", () => overlay.setZIndex(baseZ));
+      el.addEventListener("mouseenter", () => setHoverId(store.id));
+      el.addEventListener("mouseleave", () => setHoverId(null));
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
-    });
-  }, [visibleStores, ready, map, gradeType, showPopup]);
+      pinsRef.current.set(store.id, { el, overlay, baseZ });
+    }
+  }, [visibleStores, ready, map, gradeType, showPopup, level]);
 
+  // 호버한 핀은 이름을 펼치고 맨 앞으로 -- 가려진 핀도 커서만 대면 전체가 보인다.
+  useEffect(() => {
+    for (const [id, pin] of pinsRef.current) {
+      const on = id === hoverId;
+      pin.el.classList.toggle("is-hover", on);
+      if (on) pin.overlay.setZIndex(200000);
+      else if (!pin.el.classList.contains("is-selected")) pin.overlay.setZIndex(pin.baseZ);
+    }
+  }, [hoverId, visibleStores, level]);
+
+  // 옵션 없이 keywordSearch를 부르면 카카오가 전국 기준으로 정렬해
+  // "커피"류 일반 검색어가 늘 서울에서 잡혔다. 현재 중심 반경 안을 먼저 보고,
+  // 결과가 없으면(= 다른 지역 이름을 친 경우) 전국 검색으로 폴백한다.
   function handleSearch() {
     const q = keyword.trim();
     if (!q || !places) return;
     setStatus("검색 중...");
-    places.keywordSearch(q, (data, s) => {
-      if (s !== window.kakao.maps.services.Status.OK || data.length === 0) {
-        setStatus(`"${q}" 검색 결과가 없습니다.`);
-        return;
-      }
-      const lat = parseFloat(data[0].y);
-      const lng = parseFloat(data[0].x);
-      map.setCenter(new window.kakao.maps.LatLng(lat, lng));
+
+    // 매장 이름을 친 경우 -- 이미 불러온 반경 안 매장 중 가장 가까운 곳을 고른다.
+    // 지역 검색으로 넘기면 반경 밖 동명 지점(예: 다른 동네 스타벅스)으로 튀어버린다.
+    const hit = stores
+      .filter((s) => `${s.restaurant_name} ${s.branch_name ?? ""}`.toLowerCase().includes(q.toLowerCase()))
+      .sort((a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity))[0];
+    if (hit) {
+      setStatus(`반경 내 "${q}" 최근접 매장: ${hit.restaurant_name} ${hit.branch_name ?? ""}`);
+      focusStore(hit);
+      return;
+    }
+
+    const { Status, SortBy } = window.kakao.maps.services;
+    const goTo = (place) => {
+      const lat = parseFloat(place.y);
+      const lng = parseFloat(place.x);
+      map.panTo(new window.kakao.maps.LatLng(lat, lng));
       setSearched(true);
       loadStores(lat, lng);
-    });
+    };
+    places.keywordSearch(
+      q,
+      (data, s) => {
+        if (s === Status.OK && data.length > 0) return goTo(data[0]);
+        places.keywordSearch(q, (all, s2) => {
+          if (s2 !== Status.OK || all.length === 0) {
+            setStatus(`"${q}" 검색 결과가 없습니다.`);
+            return;
+          }
+          goTo(all[0]);
+        });
+      },
+      {
+        location: new window.kakao.maps.LatLng(centerRef.current.lat, centerRef.current.lng),
+        radius: Math.min(radiusM, 20000), // 20km가 카카오 허용 최대치
+        sort: SortBy.DISTANCE,
+      }
+    );
   }
 
   function handleLocate() {
@@ -257,7 +374,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        map.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
+        map.panTo(new window.kakao.maps.LatLng(latitude, longitude));
         showMyLocation(latitude, longitude);
         setSearched(true);
         loadStores(latitude, longitude);
@@ -266,9 +383,11 @@ export default function MapView({ onOpenMenu, visible = true }) {
     );
   }
 
+  // 목록에서 고른 매장으로 "뚝" 튀지 않고 부드럽게 이동한다.
+  // setLevel의 animate는 확대 애니메이션, panTo는 이동 애니메이션이라 둘 다 필요.
   function focusStore(store) {
-    map.setCenter(new window.kakao.maps.LatLng(store.lat, store.lng));
-    map.setLevel(3);
+    map.setLevel(3, { animate: true });
+    map.panTo(new window.kakao.maps.LatLng(store.lat, store.lng));
     showPopup(store);
   }
 
@@ -290,16 +409,17 @@ export default function MapView({ onOpenMenu, visible = true }) {
         <div className="filter-controls">
           <div className="filter-group">
             <span className="filter-label">검색 반경</span>
-            <select
-              className="map-select"
-              value={radiusM}
-              onChange={(e) => setRadiusM(Number(e.target.value))}
-              aria-label="검색 반경"
-            >
+            <div className="grade-mode-toggle" role="group" aria-label="검색 반경">
               {RADIUS_OPTIONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
+                <button
+                  key={r.value}
+                  className={radiusM === r.value ? "active" : ""}
+                  onClick={() => { track("map_radius", { radius_m: r.value }); setRadiusM(r.value); }}
+                >
+                  {r.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
           <div className="filter-group">
             <span className="filter-label">추천 개수</span>
@@ -355,10 +475,8 @@ export default function MapView({ onOpenMenu, visible = true }) {
           ))}
           <span className="legend-divider" />
           <span>
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path d={CROWN_PATH} fill="#FFC53D" stroke="#B8860B" strokeWidth="1.2" strokeLinejoin="round" />
-            </svg>
-            1·2·3 = 다이어트 추천 순위
+            <em className="pin-rank">1</em>
+            골드 = 다이어트 추천 상위 3곳
           </span>
         </div>
         <div className="store-list">
@@ -370,7 +488,12 @@ export default function MapView({ onOpenMenu, visible = true }) {
           {visibleStores.map((store) => {
             const g = gradeType === "absolute" ? store.absolute_grade : store.relative_grade;
             return (
-              <div key={store.id} className="store-card" onClick={() => { track("map_store_focus", { name: store.name }); focusStore(store); }}>
+              <div
+                key={store.id}
+                className={`store-card${hoverId === store.id ? " is-hover" : ""}`}
+                onMouseEnter={() => setHoverId(store.id)}
+                onMouseLeave={() => setHoverId(null)}
+                onClick={() => { track("map_store_focus", { name: store.name }); focusStore(store); }}>
                 <div className="store-card-head">
                   <span className={`grade-badge ${GRADE_CLASS[g] ?? ""}`}>{g ?? "?"}</span>
                   <span className="store-card-name">
