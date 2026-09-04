@@ -3,7 +3,7 @@ import { track } from "../../constants";
 import { fetchStores } from "../../api";
 import { useKakaoMap } from "./useKakaoMap";
 import {
-  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, formatDistance,
+  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, BRAND_SLUGS, formatDistance,
 } from "../../constants";
 
 
@@ -14,6 +14,24 @@ const RECOMMEND_LIMIT = 15;
 // 지도를 축소하면 핀들이 서로 겹쳐 아무것도 못 읽게 된다. 화면상 이 픽셀 격자
 // 안에 들어오는 핀들은 "N곳" 요약 하나로 묶는다 (클릭하면 그 자리로 확대).
 const CLUSTER_PX = 48;
+
+// 등급 글자만 있는 핀은 "여기가 어느 브랜드인지"를 아무것도 말해주지 않는다.
+// 목록 카드와 같은 로고 타일을 핀 안에도 넣는다 (없는 브랜드는 첫 글자로 폴백).
+function brandTile(name) {
+  const tile = document.createElement("span");
+  tile.className = "pin-logo";
+  const slug = BRAND_SLUGS[name];
+  if (!slug) {
+    tile.textContent = name.charAt(0);
+    return tile;
+  }
+  const img = document.createElement("img");
+  img.src = `/logos/${slug}.png`;
+  img.alt = "";
+  img.addEventListener("error", () => { tile.textContent = name.charAt(0); });
+  tile.appendChild(img);
+  return tile;
+}
 const LIMIT_OPTIONS = [10, 15, 20, 30];
 const RADIUS_OPTIONS = [
   { value: 1000, label: "1km" },
@@ -235,11 +253,14 @@ export default function MapView({ onOpenMenu, visible = true }) {
     const proj = map.getProjection();
     const cells = new Map();
     visibleStores.forEach((store, rank) => {
+      if (rank < 3) return; // 추천 상위 3곳은 항상 개별 핀으로 남긴다
       const pt = proj.pointFromCoords(new window.kakao.maps.LatLng(store.lat, store.lng));
       const key = `${Math.floor(pt.x / CLUSTER_PX)},${Math.floor(pt.y / CLUSTER_PX)}`;
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key).push({ store, rank });
     });
+
+    visibleStores.slice(0, 3).forEach((store, rank) => drawPin(store, rank));
 
     for (const group of cells.values()) {
       if (group.length > 1) {
@@ -256,7 +277,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       const lat = group.reduce((a, g) => a + g.store.lat, 0) / group.length;
       const lng = group.reduce((a, g) => a + g.store.lng, 0) / group.length;
       const el = document.createElement("div");
-      el.className = `map-cluster${group.some((g) => g.rank < 3) ? " map-cluster-top" : ""}`;
+      el.className = "map-cluster";
       el.style.background = GRADE_COLOR[grade] ?? "#999";
       el.title = group.map((g) => `${g.store.restaurant_name} ${g.store.branch_name ?? ""}`).join(" / ");
       el.innerHTML = `<b>${group.length}</b><span>곳</span>`;
@@ -269,7 +290,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         position: pos,
         content: el,
         yAnchor: 1,
-        zIndex: 150000,
+        zIndex: 90000, // 상위 3곳 핀(100000+)보다는 뒤
       });
       overlay.setMap(map);
       overlaysRef.current.push(overlay);
@@ -287,6 +308,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
         `<b class="pin-grade">${displayGrade ?? "?"}</b>` +
         `<span class="pin-name">${store.restaurant_name}</span>`;
+      el.insertBefore(brandTile(store.restaurant_name), el.firstChild);
       el.title = `${store.restaurant_name} ${store.branch_name ?? ""}`;
       el.addEventListener("click", () => showPopup(store));
 
