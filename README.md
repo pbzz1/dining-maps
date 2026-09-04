@@ -169,6 +169,145 @@ mart_brand_nutrition · mart_nutrient_trend · mart_data_quality
 
 브랜드마다 공개 항목이 달라 고정 컬럼으로 만들면 대부분 브랜드에서 `carb_g`가 영구 NULL이 된다. 그래서 `nutrition_fact(nutrient_name, value, unit)`로 풀어 저장하고 서빙 테이블(UPSERT)과 이력 테이블(append-only)을 분리했다. 이력이 있어야 "매달 다시 긁는" 크롤이 diff를 남긴다. 그 diff가 신메뉴 피드와 품질 판정의 원천이다.
 
+```mermaid
+erDiagram
+  restaurant ||--o{ menu_item : ""
+  restaurant ||--o{ store : ""
+  restaurant ||--o| brand_menu_reco : "LLM 추천 캐시"
+  menu_item ||--o{ nutrition_fact : "메뉴 x 영양소"
+  menu_item ||--o| diet_score : "채점 캐시"
+  menu_item ||--o| new_menu_review : "LLM 리뷰 캐시"
+  crawl_run ||--o{ menu_snapshot : ""
+  crawl_run ||--o{ data_quality_check : ""
+  crawl_run ||--o{ menu_change_log : "이전 run과의 diff"
+  menu_snapshot ||--o{ nutrition_snapshot : ""
+
+  restaurant {
+    int id PK
+    text name UK
+  }
+  menu_item {
+    int id PK
+    int restaurant_id FK
+    text name
+    text category_group
+    int price_krw
+    float weight_g
+    text nutrition_basis
+    date released_at
+  }
+  nutrition_fact {
+    int menu_item_id FK
+    text nutrient_name
+    float value
+    text unit
+  }
+  diet_score {
+    int menu_item_id PK
+    float score
+    text absolute_grade
+    text relative_grade
+    float percentile
+    text basis
+  }
+  store {
+    int id PK
+    int restaurant_id FK
+    text branch_name
+    float lat
+    float lng
+    text kakao_place_id UK
+    timestamptz last_seen_at
+  }
+  brand_menu_reco {
+    int restaurant_id PK
+    int menu_item_id FK
+    text reason
+    text model
+  }
+  new_menu_review {
+    int menu_item_id PK
+    text diet_verdict
+    text diet_comment
+    text taste_note
+  }
+  crawl_run {
+    int id PK
+    timestamptz started_at
+    text source
+    text status
+  }
+  menu_snapshot {
+    int id PK
+    int run_id FK
+    text restaurant_name
+    text menu_name
+    int price_krw
+  }
+  nutrition_snapshot {
+    int menu_snapshot_id FK
+    text nutrient_name
+    float value
+  }
+  data_quality_check {
+    int run_id FK
+    text check_name
+    text scope
+    text severity
+  }
+  menu_change_log {
+    int run_id FK
+    text restaurant_name
+    text menu_name
+    text change_type
+    text field_name
+    float pct_change
+    text verdict
+  }
+```
+
+이력 테이블이 `menu_item.id` 대신 `restaurant_name`·`menu_name` 문자열로 연결되는 건 의도다. 메뉴가 단종돼 서빙 행이 사라져도 스냅샷은 남아야 한다. `mart_*`는 dbt가 이력 테이블에서 매 실행마다 재계산하므로 FK가 없다.
+
+### API 엔드포인트
+
+전부 `GET`, 읽기 전용. 프론트 dev 서버는 `/api`를 8000번 FastAPI로 프록시하고, 배포에서는 `VITE_API_BASE`로 Lambda Function URL을 직접 호출한다. 라우터는 `app/<feature>/router.py`, 응답 모델은 같은 폴더의 `schemas.py`.
+
+| 화면 | 엔드포인트 | 쿼리 파라미터 | 읽는 테이블 |
+|---|---|---|---|
+| 지도 | `/api/stores` | `lat, lng, radius_m, grade_type, min_grade` | store, diet_score, brand_menu_reco |
+| 매장 목록 | `/api/restaurants` | — | restaurant, diet_score |
+| 메뉴 | `/api/restaurants/{id}/menu` | — | menu_item, nutrition_fact, diet_score |
+| 메뉴 | `/api/restaurants/{id}/stats` | — | menu_item, nutrition_fact |
+| 메뉴 | `/api/restaurants/{id}/diet-grade` | — | diet_score |
+| 맞춤 추천 | `/api/recommend/goals` | — | (상수) |
+| 맞춤 추천 | `/api/recommend/menus` | `goal, max_calorie, max_sodium, max_sugar, exclude_drinks, lat, lng, radius_m` | menu_item, nutrition_fact, diet_score, store |
+| 신메뉴 | `/api/new-menus` | `limit≤200, days 7–365, per_brand≤50` | menu_change_log, menu_item, new_menu_review |
+| 대시보드 | `/api/menus` | `sort, category, restaurant_id, q, limit≤100` | menu_item, nutrition_fact, diet_score |
+| 대시보드 | `/api/stats/brands` | — | mart_brand_nutrition |
+| 대시보드 | `/api/stats/trend` | — | mart_nutrient_trend |
+| 대시보드 · 공통 | `/api/stats/quality` | — | mart_data_quality (데이터 기준일 표시에도 사용) |
+
+```mermaid
+flowchart LR
+  subgraph FE[React 화면]
+    MAP[지도]; LIST[매장 목록 → 메뉴]; RECO[맞춤 추천]; NEW[신메뉴]; DASH[대시보드]
+  end
+  subgraph API[FastAPI /api]
+    E1["/stores"]; E2["/restaurants, /restaurants/{id}/*"]; E3["/recommend/*"]; E4["/new-menus"]; E5["/menus, /stats/*"]
+  end
+  subgraph DB[PostgreSQL]
+    SVC[(서빙 테이블<br/>UPSERT)]; HIST[(이력 테이블<br/>append-only)]; MART[(mart_*<br/>dbt 재계산)]
+  end
+  MAP --> E1 --> SVC
+  LIST --> E2 --> SVC
+  RECO --> E3 --> SVC
+  NEW --> E4 --> HIST & SVC
+  DASH --> E5 --> SVC & MART
+  HIST -. dbt .-> MART
+```
+
+400은 `/api/menus`의 `sort`가 허용 목록 밖일 때, 404는 없는 `restaurant_id`일 때만 난다.
+
 ### 품질 게이트 — 적재 "전"에, 하드 블로커로
 
 `load_data.py`가 UPSERT라서 파서가 조용히 깨지면 나쁜 데이터가 정상 데이터를 덮어쓰고 에러도 안 난다. 실제로 두 번 겪었다 — 롯데리아 컬럼 밀림, 100kcal 미만 밀도 왜곡으로 아메리카노 전부 A등급. 그래서 크롤과 적재 사이에 게이트를 두고 실패하면 적재를 스킵해 기존 데이터를 살린다.
