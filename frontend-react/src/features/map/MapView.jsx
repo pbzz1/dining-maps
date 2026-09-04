@@ -130,6 +130,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         ${store.reco_menu ? `<div class="store-reco">🤖 <b>${store.reco_menu}</b><span>${store.reco_reason ?? ""}</span></div>` : ""}
         <button class="store-popup-menu-btn" type="button">이 브랜드 메뉴 보기</button>
       `;
+      el.addEventListener("click", (ev) => ev.stopPropagation()); // 팝업 안 클릭으로는 안 닫힘
       el.querySelector(".store-popup-close").addEventListener("click", () => {
         popupRef.current?.setMap(null);
         popupRef.current = null;
@@ -283,9 +284,10 @@ export default function MapView({ onOpenMenu, visible = true }) {
       el.innerHTML = `<b>${group.length}</b><span>곳</span>`;
       const pos = new window.kakao.maps.LatLng(lat, lng);
       // 클릭하면 그 자리를 두 단계 확대 -- 확대하면 격자가 풀려 개별 핀으로 나뉜다.
-      el.addEventListener("click", () =>
-        map.setLevel(Math.max(1, map.getLevel() - 2), { animate: true, anchor: pos })
-      );
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        map.setLevel(Math.max(1, map.getLevel() - 2), { animate: true, anchor: pos });
+      });
       const overlay = new window.kakao.maps.CustomOverlay({
         position: pos,
         content: el,
@@ -308,9 +310,12 @@ export default function MapView({ onOpenMenu, visible = true }) {
         (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
         `<b class="pin-grade">${displayGrade ?? "?"}</b>` +
         `<span class="pin-name">${store.restaurant_name}</span>`;
-      el.insertBefore(brandTile(store.restaurant_name), el.firstChild);
+      el.insertBefore(brandTile(store.restaurant_name), el.querySelector(".pin-grade"));
       el.title = `${store.restaurant_name} ${store.branch_name ?? ""}`;
-      el.addEventListener("click", () => showPopup(store));
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation(); // 지도 클릭(=팝업 닫기)까지 같이 타지 않게
+        showPopup(store);
+      });
 
       // 겹칠 때 아래 핀의 글자가 위 핀 뒤로 삐져나와 보이는 문제:
       // 화면상 아래(남쪽)에 있는 핀이 위에 오도록 위도 기반으로 쌓아
@@ -329,6 +334,19 @@ export default function MapView({ onOpenMenu, visible = true }) {
       pinsRef.current.set(store.id, { el, overlay, baseZ });
     }
   }, [visibleStores, ready, map, gradeType, showPopup, level]);
+
+  // 지도의 빈 곳을 누르면 열려 있던 매장 팝업을 닫는다 (닫기 버튼만으로는 답답하다).
+  useEffect(() => {
+    if (!ready || !map) return;
+    const close = () => {
+      if (!popupRef.current) return;
+      popupRef.current.setMap(null);
+      popupRef.current = null;
+      highlightPin(null);
+    };
+    window.kakao.maps.event.addListener(map, "click", close);
+    return () => window.kakao.maps.event.removeListener(map, "click", close);
+  }, [ready, map, highlightPin]);
 
   // 호버한 핀은 이름을 펼치고 맨 앞으로 -- 가려진 핀도 커서만 대면 전체가 보인다.
   useEffect(() => {
