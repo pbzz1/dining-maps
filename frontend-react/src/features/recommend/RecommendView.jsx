@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatDistance } from "../../constants";
+import { formatDistance, track } from "../../constants";
 import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
@@ -90,7 +90,7 @@ export default function RecommendView() {
                 className={`rec-segmented-btn ${prefs.goal === g.key ? "active" : ""}`}
                 aria-pressed={prefs.goal === g.key}
                 onClick={() => {
-                  window.gtag?.("event", "recommend_goal", { goal: g.key });
+                  track("recommend_goal", { goal: g.key });
                   update({ goal: g.key });
                 }}
               >
@@ -268,7 +268,7 @@ export default function RecommendView() {
                   target="_blank"
                   rel="noreferrer"
                   onClick={() =>
-                    window.gtag?.("event", "open_store", {
+                    track("open_store", {
                       brand: m.restaurant_name,
                       goal: prefs.goal,
                       distance_m: Math.round(m.nearest_store.distance_m),

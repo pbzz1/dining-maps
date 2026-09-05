@@ -29,6 +29,11 @@ PARAMS = [
     ("nutrient", "대시보드 영양소 탭 (dashboard_nutrient_tab)"),
     ("menu", "유튜브 리뷰 검색한 신메뉴명 (youtube_review_search)"),
     ("percent", "스크롤 깊이 % (scroll_depth)"),
+    ("goal", "추천 목표 키 (recommend_goal, open_store)"),
+    ("brand", "추천에서 연 매장 브랜드명 (open_store)"),
+    ("distance_m", "추천에서 연 매장까지 거리 m (open_store)"),
+    ("radius_m", "지도 반경 m (map_radius)"),
+    ("depth", "신메뉴 더보기 횟수 (new_menu_show_more)"),
 ]
 
 

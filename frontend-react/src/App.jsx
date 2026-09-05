@@ -74,6 +74,12 @@ export default function App() {
     if (VIEWS.has(v) && location.hash !== `#${v}`) history.pushState(null, "", `#${v}`);
   }
 
+  // 해시 라우팅이라 GA4 자동 page_view는 경로가 전부 "/"로 잡힌다. 뷰가 곧 페이지이므로
+  // 뷰마다 /map, /dashboard 식 경로로 직접 보낸다 (index.html에서 자동 전송은 꺼 둠).
+  useEffect(() => {
+    track("page_view", { page_path: `/${view}`, page_title: `Dining Maps - ${view}` });
+  }, [view]);
+
   useEffect(() => {
     const onHash = () => setViewRaw(viewFromHash()); // 뒤로가기
     window.addEventListener("hashchange", onHash);
