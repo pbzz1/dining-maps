@@ -11,7 +11,7 @@ test("매장 카드를 누르면 그 매장의 메뉴 화면으로 간다", asyn
   await expect(page.getByRole("heading", { name: "매장 선택" })).toBeVisible();
 
   // ponytail: 카드가 onClick 달린 div라 role이 없다 -> 텍스트로 잡는다. Day 3에서 role="button" 붙이고 getByRole로 교체.
-  await page.getByText("샐러디", { exact: true }).click();
+  await page.getByRole("button", { name: "샐러디" }).click();
 
   await expect(page.getByRole("heading", { name: "샐러디" })).toBeVisible();
   await expect(page.getByText("메뉴 2개")).toBeVisible();
@@ -19,7 +19,7 @@ test("매장 카드를 누르면 그 매장의 메뉴 화면으로 간다", asyn
 });
 
 test("메뉴 화면에서 뒤로가기를 누르면 목록으로 돌아온다", async ({ page }) => {
-  await page.getByText("샐러디", { exact: true }).click();
+  await page.getByRole("button", { name: "샐러디" }).click();
   await page.getByRole("button", { name: "매장 목록으로" }).click();
   await expect(page.getByRole("heading", { name: "매장 선택" })).toBeVisible();
 });

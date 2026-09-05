@@ -96,13 +96,13 @@ export default function RestaurantList({ onSelect }) {
       ))}
       {ungraded.length > 0 && (
         <div className="tier-row">
-          <div className="tier-label tier-label-none">
+          <div className="tier-label tier-label-none" role="button" tabIndex={0}>
             <span className="tier-letter">-</span>
             <span className="tier-caption">정보 부족</span>
           </div>
           <div className="card-grid">
             {ungraded.map((r) => (
-              <div key={r.id} className="restaurant-card" onClick={() => onSelect(r)}>
+              <div key={r.id} className="restaurant-card" role="button" tabIndex={0} onClick={() => onSelect(r)}>
                 <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} />
                 <div className="name">{r.name}</div>
                 <div className="card-grade-slot">
