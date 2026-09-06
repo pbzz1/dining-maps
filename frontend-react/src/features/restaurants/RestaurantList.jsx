@@ -84,6 +84,8 @@ export default function RestaurantList({ onSelect }) {
               <div
                 key={r.id}
                 className="restaurant-card"
+                role="button"
+                tabIndex={0}
                 style={{ background: gradeTint(grade), borderColor: gradeBorder(grade) }}
                 onClick={() => onSelect(r)}
               >
@@ -96,13 +98,13 @@ export default function RestaurantList({ onSelect }) {
       ))}
       {ungraded.length > 0 && (
         <div className="tier-row">
-          <div className="tier-label tier-label-none" role="button" tabIndex={0}>
+          <div className="tier-label tier-label-none">
             <span className="tier-letter">-</span>
             <span className="tier-caption">정보 부족</span>
           </div>
           <div className="card-grid">
             {ungraded.map((r) => (
-              <div key={r.id} className="restaurant-card" role="button" tabIndex={0} onClick={() => onSelect(r)}>
+              <div key={r.id} className="restaurant-card"  style={{ background: gradeTint(grade), borderColor: gradeBorder(grade) }} onClick={() => onSelect(r)}>
                 <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} />
                 <div className="name">{r.name}</div>
                 <div className="card-grade-slot">
