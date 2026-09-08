@@ -1,27 +1,40 @@
 name: Playwright Tests
+# PR 전용. master push 때는 deploy.yml의 frontend job이 같은 테스트를 배포 게이트로
+# 돌리므로 여기서 또 돌리면 중복이다.
+# 스펙은 tests/e2e/fixtures.js로 API를 전부 mock 하므로 DB·Secrets가 필요 없다.
 on:
-  push:
-    branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend-react # package.json이 여기에만 있다
+
 jobs:
   test:
-    timeout-minutes: 60
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
+        node-version: 22
+        cache: npm
+        cache-dependency-path: frontend-react/package-lock.json
+    - run: npm ci
+    - run: npx playwright install --with-deps chromium # config의 projects가 chromium 하나뿐
+    # API는 fixtures.js가 mock 하지만 Kakao SDK는 진짜로 로드된다 -- 키가 없으면
+    # useKakaoMap이 에러로 빠져 지도 스펙 2개가 상태 문구를 못 만든다.
+    - run: npx playwright test
+      env:
+        VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
-        path: playwright-report/
+        path: frontend-react/playwright-report/
         retention-days: 30
