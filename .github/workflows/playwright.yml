@@ -27,7 +27,11 @@ jobs:
         cache-dependency-path: frontend-react/package-lock.json
     - run: npm ci
     - run: npx playwright install --with-deps chromium # config의 projects가 chromium 하나뿐
+    # API는 fixtures.js가 mock 하지만 Kakao SDK는 진짜로 로드된다 -- 키가 없으면
+    # useKakaoMap이 에러로 빠져 지도 스펙 2개가 상태 문구를 못 만든다.
     - run: npx playwright test
+      env:
+        VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

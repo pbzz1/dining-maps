@@ -60,6 +60,8 @@ jobs:
         working-directory: frontend-react
       - run: npx playwright test
         working-directory: frontend-react
+        env:
+          VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }} # 지도 스펙이 SDK를 실제로 로드한다
       - run: bash scripts/deploy/deploy_frontend.sh
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
