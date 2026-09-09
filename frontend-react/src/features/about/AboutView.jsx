@@ -49,6 +49,10 @@ export default function AboutView({ dataDate }) {
           {dataDate && <> 현재 표시되는 데이터의 기준일은 <b>{dataDate}</b>(마지막 품질 검사 통과 수집일).</>}
         </p>
         <p className="dash-footnote">
+          갱신 주기 — 크롤은 <b>매주 월·목요일 새벽 2시</b>, 새로 받은 데이터의 검증·반영은
+          <b> 매일 새벽 3시</b>에 자동으로 돈다. 품질 검사를 통과해야 위 기준일이 바뀐다.
+        </p>
+        <p className="dash-footnote">
           영양성분 5종(열량·단백질·당류·포화지방·나트륨)을 모두 공개한 메뉴만 채점된다.
           점수가 없는 메뉴는 나쁜 게 아니라 <b>알 수 없다</b>는 뜻이다.
         </p>
