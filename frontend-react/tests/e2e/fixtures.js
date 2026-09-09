@@ -4,6 +4,8 @@
 export const restaurants = [
   { id: 1, name: "샐러디", absolute_grade: "A", relative_grade: "A", good_menu_ratio: 0.9 },
   { id: 2, name: "맥도날드", absolute_grade: "C", relative_grade: "B", good_menu_ratio: 0.3 },
+  // 등급 없는 브랜드 -- "정보 부족" 카드 분기를 태운다 (이 분기만 따로 깨진 적이 있다)
+  { id: 3, name: "맘스터치", absolute_grade: null, relative_grade: null, good_menu_ratio: null },
 ];
 
 export const stats = {

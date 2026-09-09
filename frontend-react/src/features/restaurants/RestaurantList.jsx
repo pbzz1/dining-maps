@@ -104,7 +104,7 @@ export default function RestaurantList({ onSelect }) {
           </div>
           <div className="card-grid">
             {ungraded.map((r) => (
-              <div key={r.id} className="restaurant-card"  style={{ background: gradeTint(grade), borderColor: gradeBorder(grade) }} onClick={() => onSelect(r)}>
+              <div key={r.id} className="restaurant-card" role="button" tabIndex={0} onClick={() => onSelect(r)}>
                 <BrandAvatar name={r.name} slug={BRAND_SLUGS[r.name]} />
                 <div className="name">{r.name}</div>
                 <div className="card-grade-slot">

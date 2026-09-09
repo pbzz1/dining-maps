@@ -23,3 +23,8 @@ test("메뉴 화면에서 뒤로가기를 누르면 목록으로 돌아온다", 
   await page.getByRole("button", { name: "매장 목록으로" }).click();
   await expect(page.getByRole("heading", { name: "매장 선택" })).toBeVisible();
 });
+
+test("등급 없는 매장도 카드로 뜬다", async ({ page }) => {
+  await expect(page.getByRole("button", { name: "맘스터치" })).toBeVisible();
+  await expect(page.getByText("정보 부족", { exact: true })).toBeVisible();
+});
