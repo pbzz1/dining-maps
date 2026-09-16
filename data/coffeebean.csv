@@ -1,4 +1,8 @@
 ﻿restaurant,menu_name,menu_category,weight_g,price_krw,calorie_kcal,protein_g,sugar_g,saturated_fat_g,sodium_mg,caffeine_mg,nutrition_basis,total_weight_g
+커피빈,Sparkling Apple Spice 스파클링 애플 스파이스,신음료,,,204,0,44,0,0,0,,
+커피빈,Apple Spice Tea 애플 스파이스 티,신음료,,,248,0,54,0,0,0,,
+커피빈,Apple Pie Cream Latte 애플파이 크림라떼,신음료,,,655,12,74,9,274,91,,
+커피빈,Iced Apple Pie Cream Latte 아이스 애플파이 크림라떼,신음료,,,510,7,55,5,170,91,,
 커피빈,Jeju Hallabong Mango Tea 제주 한라망고 티,신음료,,,202,0,48,0,70,0,,
 커피빈,Sparkling Jeju Hallabong Mango 제주 한라망고 스파클링,신음료,,,202,0,48,0,70,0,,
 커피빈,Lychee & Coconut Ice Blended 리치 코코넛 아이스 블렌디드,신음료,,,285,0,68,,67,0,,
