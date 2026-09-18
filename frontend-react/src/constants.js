@@ -65,6 +65,17 @@ export const BRAND_SLUGS = {
   BHC: "bhc",
 };
 
+// 지도 추천의 목표 -- app/recommend/goals.py GOALS 와 같은 키.
+export const MAP_GOALS = [
+  { key: "diet", label: "다이어트", hint: "칼로리·영양 균형" },
+  { key: "protein", label: "근성장", hint: "100kcal당 단백질" },
+  { key: "low_sodium", label: "저나트륨", hint: "나트륨 적은 순" },
+];
+
+// 음식 종류 -- app/menu_category.py GROUPS 와 같은 문자열. "기타"는 사용자가 고를 만한
+// 묶음이 아니라 뺐다(빠져도 "전체"에는 그대로 포함된다).
+export const MAP_CATEGORIES = ["버거", "치킨", "피자", "샐러드·샌드위치", "음료", "디저트", "사이드"];
+
 export const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }; // 서울시청
 export const SEARCH_RADIUS_M = 3000;
 
