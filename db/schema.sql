@@ -235,3 +235,53 @@ CREATE INDEX IF NOT EXISTS idx_change_log_run ON menu_change_log(run_id);
 -- 대시보드용 mart(mart_brand_nutrition/mart_nutrient_trend/mart_data_quality)는
 -- 더 이상 여기 정의되지 않는다 -- dbt/models/marts/rollups/의 dbt 모델이 매 파이프라인
 -- 실행마다 같은 이름의 public.mart_* 테이블로 재계산한다. 상세: dbt/README.md.
+
+-- ---------------------------------------------------------------------------
+-- 개인화(로그인) 영역. 여기부터는 크롤 파이프라인이 아니라 사용자가 만드는 데이터다.
+-- 비로그인 사용자는 이 테이블들을 전혀 건드리지 않고 기존 추천을 그대로 쓴다.
+-- ---------------------------------------------------------------------------
+
+-- OAuth 로그인 사용자. 비밀번호는 저장하지 않는다 (provider에 위임).
+-- provider를 컬럼으로 둔 건 지금은 kakao 하나뿐이어도 나중에 google을 붙일 때
+-- 같은 사람이 다른 provider로 들어오면 별개 계정이어야 하기 때문 -- UNIQUE가 (provider, uid).
+CREATE TABLE IF NOT EXISTS app_user (
+    id            INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    provider      TEXT NOT NULL,
+    provider_uid  TEXT NOT NULL,
+    nickname      TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login_at TIMESTAMPTZ,
+    UNIQUE (provider, provider_uid)
+);
+
+-- 기존 localStorage 3개 키(recommend.prefs / .pos / .profile)의 서버 사본.
+-- 컬럼명은 프론트 필드명이 아니라 API 쿼리 파라미터명(max_calorie 등)에 맞췄다 --
+-- 추천 호출에 그대로 실려 가는 값이라 중간 변환을 한 군데(라우터)로 몰기 위해서다.
+CREATE TABLE IF NOT EXISTS user_profile (
+    user_id        INTEGER PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+    goal           TEXT,
+    sex            TEXT,
+    height_cm      DOUBLE PRECISION,
+    weight_kg      DOUBLE PRECISION,
+    age            INTEGER,
+    activity       TEXT,
+    max_calorie    DOUBLE PRECISION,
+    max_sodium     DOUBLE PRECISION,
+    exclude_drinks BOOLEAN NOT NULL DEFAULT FALSE,
+    allergies      TEXT,   -- 쉼표 구분. menu_item.allergy_info 와 대조한다.
+    dislikes       TEXT,   -- 쉼표 구분. 자유 입력이라 정규화하지 않는다.
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 개인화의 실제 연료. append-only -- 같은 메뉴를 여러 번 눌렀다는 사실 자체가 신호라
+-- UPSERT 하지 않는다. 2단계의 LLM 추천이 "최근 본 브랜드 / 숨긴 메뉴"로 요약해 쓴다.
+CREATE TABLE IF NOT EXISTS user_event (
+    id           INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id      INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    menu_item_id INTEGER REFERENCES menu_item(id),
+    event_type   TEXT NOT NULL,   -- view / click / save / hide / ate
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 개인화 조회는 항상 "이 사용자의 최근 N건"이라 (user_id, created_at DESC) 복합.
+CREATE INDEX IF NOT EXISTS idx_user_event_user ON user_event(user_id, created_at DESC);

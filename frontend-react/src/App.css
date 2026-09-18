@@ -1611,3 +1611,46 @@ th.dash-td-hi { color: var(--accent); }
 .nm-calhead { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .nm-caltoggle { margin: 0; padding: 2px; }
 .nm-caltoggle button { padding: 2px 8px; font-size: 11px; }
+
+/* 상단바 오른쪽 끝 로그인/계정 버튼. margin-left:auto 로 밀어 둔다 --
+   topbar가 flex라 이 한 줄이면 순서를 안 건드리고 오른쪽에 붙는다.
+   모양은 .rec-nearby(켜짐/꺼짐 스위치)와 같은 계열로 맞췄다. */
+.auth-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 7px 10px 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.auth-btn:hover { background: var(--bg); color: var(--text); }
+
+.auth-btn.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.auth-btn-state {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+/* 좁은 화면에선 부제목이 두 줄로 흐르며 버튼을 밀어낸다 -- 라벨을 줄이고 배지를 감춘다. */
+@media (max-width: 640px) {
+  .auth-btn { padding: 6px 10px; font-size: 12px; }
+  .auth-btn-state { display: none; }
+}

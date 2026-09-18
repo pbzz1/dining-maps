@@ -7,3 +7,4 @@ pandas
 lxml
 Pillow
 mangum
+pyjwt
