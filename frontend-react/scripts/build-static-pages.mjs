@@ -8,8 +8,9 @@
 //
 //   VITE_API_BASE=https://... [SITE_URL=https://...] node scripts/build-static-pages.mjs
 //
-// API가 안 뜨면 경고만 남기고 통과한다 -- SEO 페이지 때문에 앱 배포 전체를
-// 막지는 않는다. 대신 배포 로그에서 눈에 띄게 찍는다.
+// 실패하면 0이 아닌 코드로 죽는다 = 배포가 멈춘다. 예전엔 경고만 남기고 통과했는데,
+// 그 바람에 검색용 페이지가 통째로 빠진 채 배포된 적이 있고(아래 재시도 주석 참고)
+// 아무도 몰랐다. 검색 유입이 이 페이지들에만 달려 있으니 조용히 넘어가면 안 된다.
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -206,12 +207,12 @@ async function write(relPath, content) {
 }
 
 async function main() {
-  if (!API) {
-    console.warn("[seo] VITE_API_BASE 미설정 -- 정적 페이지 생성 건너뜀");
-    return;
-  }
+  if (!API) throw new Error("VITE_API_BASE 미설정 -- 정적 페이지를 만들 데이터 출처가 없다");
 
   const brands = await api("/restaurants");
+  // 0개면 API는 떴는데 DB가 비었거나 응답 모양이 바뀐 것. 빈 sitemap을 올리면
+  // 색인돼 있던 주소가 통째로 빠지므로, 덮어쓰기 전에 여기서 멈춘다.
+  if (!brands.length) throw new Error("/restaurants 가 0개 -- 기존 페이지를 덮어쓰지 않고 중단");
   const rows = [];
   for (const brand of brands) {
     const [grade, menu] = await Promise.all([
@@ -240,5 +241,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.warn(`[seo] 정적 페이지 생성 실패 -- 앱 배포는 계속합니다: ${e.message}`);
+  console.error(`[seo] 정적 페이지 생성 실패 -- 배포를 중단합니다: ${e.message}`);
+  process.exitCode = 1;
 });

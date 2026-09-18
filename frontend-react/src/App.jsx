@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MapView from "./features/map/MapView";
 import RestaurantList from "./features/restaurants/RestaurantList";
 import MenuView from "./features/restaurants/MenuView";
@@ -25,6 +25,30 @@ const VIEWS = new Set([...NAV.map((n) => n.key), "about"]);
 // URL 해시가 곧 현재 뷰 -- "#list" 같은 링크를 공유하면 그 탭으로 바로 열린다.
 // 기본 화면은 지도: Dining Maps니까.
 const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "map");
+
+// 뷰별 문서 제목. SPA라 제목이 처음 것 그대로면 브라우저 탭·방문기록·북마크가 전부
+// 같은 이름이 되고, GA4 "페이지 제목 및 화면 클래스" 보고서에서도 모든 뷰가 한 줄로 뭉친다.
+const VIEW_LABEL = { ...Object.fromEntries(NAV.map((n) => [n.key, n.label])), menu: "메뉴", about: "소개" };
+const HOME_TITLE = "Dining Maps - 내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기"; // index.html과 같은 문구
+const titleFor = (v) => (v === "map" ? HOME_TITLE : `Dining Maps - ${VIEW_LABEL[v] ?? v}`);
+
+// SPA 뷰 전환을 GA4에 page_view로 보낸다. gtag('config')는 첫 로딩 때 한 번만 발생하고,
+// setView는 history.pushState로 해시만 바꾸므로 그 뒤의 이동은 아무 데도 안 잡혔다.
+// 2026-09 보고서에서 조회수가 사실상 첫 화면 한 줄에 몰려 있던 게 이것 때문이다.
+//
+// 주의: GA4 향상된 측정의 "브라우저 기록 이벤트 기반 변경"이 켜져 있으면 pushState마다
+// GA가 자체 page_view를 또 쏴서 두 번 집계된다 -- 속성 설정에서 그 항목을 꺼야 한다.
+function usePageViewTracking(view) {
+  const first = useRef(true);
+  useEffect(() => {
+    document.title = titleFor(view);
+    if (first.current) {
+      first.current = false; // 최초 조회는 gtag('config')가 이미 보냈다
+      return;
+    }
+    track("page_view", { page_title: document.title, page_location: location.href });
+  }, [view]);
+}
 
 function useScrollDepthTracking(view) {
   useEffect(() => {
@@ -99,6 +123,7 @@ export default function App() {
   // "menu" is a drill-down from the list, so the list item stays highlighted.
   const activeNav = view === "menu" ? "list" : view;
   useScrollDepthTracking(activeNav);
+  usePageViewTracking(view);
 
   // 모바일에서 내비는 가로 스크롤 줄이라 현재 탭이 화면 밖일 수 있다 -- 잘려 있으면 끌어온다.
   useEffect(() => {
