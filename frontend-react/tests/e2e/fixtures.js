@@ -60,10 +60,23 @@ export const stores = [
   },
 ];
 
+export const authStatusOff = { enabled: false, provider: "kakao" };
+export const authStatusOn = { enabled: true, provider: "kakao" };
+export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z" };
+// user_profile 은 가입 직후 전 필드 null 이다 -- 이 경우 프론트가 localStorage 값을 한 번 올린다.
+export const emptyProfile = {
+  goal: null, sex: null, height_cm: null, weight_kg: null, age: null, activity: null,
+  max_calorie: null, max_sodium: null, exclude_drinks: false, allergies: null, dislikes: null,
+};
+
 // 모든 스펙이 쓰는 기본 mock. 개별 테스트는 이 위에 page.route를 다시 걸어 덮어쓴다
 // (Playwright는 나중에 등록한 route가 먼저 매칭된다).
 export async function mockApi(page) {
   await page.route("**/api/stats/quality", (r) => r.fulfill({ json: [] }));
+  // 기본은 비로그인 + 서버에 로그인이 꺼진 상태 -- 기존 스펙들이 보던 화면 그대로다.
+  // 로그인 화면을 태우려면 스펙에서 이 위에 route를 다시 걸어 enabled:true로 덮는다.
+  await page.route("**/api/auth/status", (r) => r.fulfill({ json: authStatusOff }));
+  await page.route("**/api/auth/me", (r) => r.fulfill({ status: 401, json: { detail: "로그인이 필요합니다." } }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));

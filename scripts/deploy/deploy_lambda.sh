@@ -14,7 +14,7 @@ BUILD=build/lambda
 # 1. 패키지: 런타임(py3.12, x86_64)용 휠만 받는다. pandas/lxml 등 크롤러 의존성은 제외.
 rm -rf "$BUILD" && mkdir -p "$BUILD"
 pip install -q --target "$BUILD" --platform manylinux2014_x86_64 --python-version 3.12 \
-  --only-binary=:all: fastapi pydantic "psycopg[binary]" mangum
+  --only-binary=:all: fastapi pydantic "psycopg[binary]" mangum pyjwt
 cp -r app "$BUILD/"
 (cd "$BUILD" && rm -rf app/__pycache__ && python -c "import shutil; shutil.make_archive('../lambda', 'zip', '.')")
 
@@ -29,7 +29,10 @@ ROLE_ARN=$(aws iam get-role --role-name $ROLE --query Role.Arn --output text 2>/
 
 # 3. 함수 생성 또는 갱신
 # 값에 쉼표가 있어 shorthand 대신 JSON으로 넘긴다
-ENV=$(python -c 'import json,os; print(json.dumps({"Variables": {k: os.environ[k] for k in ("DATABASE_URL","ALLOWED_ORIGINS")}}))')
+# 로그인 관련 변수는 선택이다 -- 없으면 /api/auth/status 가 enabled:false 를 주고
+# 프론트가 로그인 버튼을 숨긴다 (나머지 기능은 전부 그대로 동작).
+AUTH_KEYS="JWT_SECRET KAKAO_REST_API_KEY KAKAO_REDIRECT_URI KAKAO_CLIENT_SECRET FRONTEND_URL"
+ENV=$(AUTH_KEYS="$AUTH_KEYS" python -c 'import json,os; ks=("DATABASE_URL","ALLOWED_ORIGINS")+tuple(os.environ["AUTH_KEYS"].split()); print(json.dumps({"Variables": {k: os.environ[k] for k in ks if os.environ.get(k)}}))')
 if aws lambda get-function --function-name $FN --region $REGION >/dev/null 2>&1; then
   aws lambda update-function-code --function-name $FN --region $REGION --zip-file fileb://build/lambda.zip >/dev/null
   aws lambda wait function-updated --function-name $FN --region $REGION
