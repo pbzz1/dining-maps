@@ -6,6 +6,12 @@
   --border: #e4e0d8;
   --accent: #c1440e;
   --accent-soft: #fbe9e0;
+  /* DESIGN.md 등급색. 지금까지 상수로 흩어져 있었는데, 색면을 줄이는 쪽으로
+     쓰임을 바꾸면서 CSS에서도 이름으로 부를 일이 생겼다. */
+  --grade-a: #2f8f4e;
+  --grade-b: #6fa83d;
+  --grade-c: #d99a2b;
+  --grade-d: #c1440e;
   /* 종이 위에 얹힌 카드의 쉬는 상태. 잉크색 기반이라 종이 바탕에서 회색으로 뜨지 않는다. */
   --shadow-rest: 0 1px 3px rgba(35, 32, 27, 0.05);
 }
@@ -233,6 +239,50 @@ main {
 /* 툴바 안에서는 배경이 카드색이라, 세그먼트 컨트롤을 살짝 가라앉혀 구분한다. */
 .map-toolbar .grade-mode-toggle { margin: 0; background: var(--bg); }
 
+/* 목표·음식 종류: 툴바에서 가장 먼저 읽혀야 하는 줄 */
+.goal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  width: 100%;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chip:hover { border-color: var(--accent); color: var(--text); }
+
+.chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.nearby-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.nearby-toggle input { accent-color: var(--accent); }
+
 .filter-controls {
   display: flex;
   flex-wrap: wrap;
@@ -383,6 +433,46 @@ main {
   box-shadow: var(--shadow-rest);
 }
 
+/* 지도 목록 카드의 등급 배지는 채우지 않고 테두리·글자색으로만 말한다 -- 카드가
+   좁아 배지가 유일한 색면인데, 그걸 꽉 채우면 목록 전체가 초록 점선처럼 보인다.
+   다른 화면(표·메뉴 목록)의 배지는 그대로 둔다. */
+.store-list .grade-badge {
+  background: var(--bg);
+  border: 1.5px solid currentColor;
+  font-size: 11px;
+}
+
+.store-list .grade-a { color: var(--grade-a); }
+.store-list .grade-b { color: var(--grade-b); }
+.store-list .grade-c { color: var(--grade-c); }
+.store-list .grade-d { color: var(--grade-d); }
+
+.store-list .grade-none {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.store-card-plain { border-style: dashed; }
+.store-card-plain .store-card-name { color: var(--muted); font-weight: 500; }
+
+/* 등급 있는 추천과 "그냥 근처 식당"을 목록에서 갈라 주는 줄 */
+.store-list-divider {
+  margin: 14px 2px 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.store-list-divider span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .store-card:hover,
 .store-card.is-hover {
   border-color: var(--accent);
@@ -420,17 +510,28 @@ main {
   margin-top: 4px;
 }
 
-/* LLM 추천 한 줄 (카드/팝업 공용) -- "🤖 메뉴명" 다음 줄에 이유 */
+/* 목표 기준 추천 한 줄 (카드/팝업 공용) -- 메뉴명 다음 줄에 근거.
+   배경을 칠하는 대신 왼쪽 괘선 하나만 둔다: 카드 안에 색면이 둘이면 어느 쪽이
+   판단인지 알 수 없다. */
 .store-reco {
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: var(--accent-soft);
-  border-radius: 8px;
+  margin-top: 8px;
+  padding: 2px 0 2px 8px;
+  border-left: 2px solid var(--accent);
   font-size: 11px;
   line-height: 1.5;
 }
 
-.store-reco b { color: var(--accent); }
+.store-reco b { color: var(--text); font-size: 12px; }
+
+/* 영양정보가 없다는 사실을 팝업에서 분명히 말한다 (추천이 아니라 정보 부재) */
+.store-nodata {
+  margin-top: 8px;
+  padding: 2px 0 2px 8px;
+  border-left: 2px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
 
 .store-reco span {
   display: block;
@@ -445,42 +546,48 @@ main {
   z-index: 5;
   display: flex;
   gap: 12px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.92);
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  font-size: 12px;
-  font-weight: 600;
+  box-shadow: var(--shadow-rest);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
   pointer-events: none;
 }
 
 .map-grade-legend span { display: flex; align-items: center; gap: 5px; }
 
 .map-grade-legend i {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
 /* 기본은 등급 글자만 있는 작은 핀 -- 이름은 접어 두고 호버·선택 때만 펼친다.
    축소했을 때 이름표끼리 겹쳐 지도를 덮어버리던 문제를 형태 자체로 없앤다. */
+/* 핀은 흰 종이 위의 작은 카드다. 등급색은 왼쪽 띠와 등급 글자에만 쓴다 --
+   핀 전체를 등급색으로 칠하면 첫 화면이 진한 초록 덩어리로 덮여, 정작 어느 브랜드인지
+   읽히지 않았다. 색은 판단을 가리키는 표시이지 배경이 아니다. */
 .map-pin {
-  padding: 3px 6px 3px 3px;
+  padding: 3px 7px 3px 3px;
   gap: 4px;
-  border-radius: 12px 12px 12px 2px;
+  border-radius: 10px 10px 10px 2px;
   display: flex;
   align-items: center;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--pin-color, #999);
+  box-shadow: 0 2px 6px rgba(35, 32, 27, 0.16);
   cursor: pointer;
   white-space: nowrap;
   transition: box-shadow 0.15s ease;
 }
 
 .map-pin span {
-  color: #fff;
-  font-weight: 700;
+  color: var(--text);
+  font-weight: 600;
   font-size: 12px;
 }
 
@@ -537,29 +644,48 @@ main {
 
 /* 핀 안의 등급 글자 -- 색만으론 등급이 전달되지 않아서(첫 방문·색약) 문자로도 표시 */
 .map-pin .pin-grade {
-  background: rgba(255, 255, 255, 0.95);
-  color: #333;
-  border-radius: 6px;
+  background: var(--bg);
+  color: var(--pin-color, #333);
+  border-radius: 5px;
   padding: 0 4px;
   font-size: 11px;
   font-weight: 800;
   line-height: 16px;
 }
 
+/* 로고 타일이 흰 핀 위에서 경계 없이 번지지 않게 */
+.map-pin .pin-logo { background: var(--bg); }
+
+/* 영양정보가 없는 주변 식당 -- 등급 있는 핀과 한눈에 구분되게 색도 강조도 없다 */
+.map-pin-plain {
+  border-left-color: var(--border);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(35, 32, 27, 0.12);
+  padding: 3px 8px;
+}
+
+.map-pin-plain .pin-name {
+  max-width: 120px;
+  opacity: 1;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 /* 축소했을 때 겹치는 핀들을 대체하는 요약 핀 -- 클릭하면 그 자리로 확대된다. */
 .map-cluster {
   position: relative;
-  min-width: 44px;
-  height: 44px;
+  min-width: 40px;
+  height: 40px;
   padding: 0 8px;
   border-radius: 50%;
-  border: 3px solid #fff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  background: var(--card-bg);
+  border: 2px solid var(--pin-color, #999);
+  box-shadow: 0 2px 8px rgba(35, 32, 27, 0.2);
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 1px;
-  color: #fff;
+  color: var(--pin-color, var(--text));
   cursor: pointer;
 }
 
@@ -571,9 +697,10 @@ main {
   position: relative;
   padding: 5px 10px 5px 5px;
   gap: 5px;
-  border: 3px solid #ffc53d;
-  border-radius: 14px 14px 14px 2px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  border: 1px solid #f0c968;
+  border-left: 3px solid var(--pin-color, #999);
+  border-radius: 12px 12px 12px 2px;
+  box-shadow: 0 3px 12px rgba(35, 32, 27, 0.22);
 }
 
 .map-pin-top span { font-size: 14px; }
