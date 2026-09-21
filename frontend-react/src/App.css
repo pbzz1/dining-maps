@@ -1654,3 +1654,17 @@ th.dash-td-hi { color: var(--accent); }
   .auth-btn { padding: 6px 10px; font-size: 12px; }
   .auth-btn-state { display: none; }
 }
+
+/* 제휴 링크·광고 블록 -- 추천 결과 아래에만 놓인다. 본문보다 눈에 띄면 안 되므로 테두리만 두고 면은 칠하지 않는다. */
+.aff-block {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.aff-block strong { display: block; margin-bottom: 6px; }
+.aff-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.aff-block small,
+.ad-slot small { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.ad-slot { margin-top: 20px; }
