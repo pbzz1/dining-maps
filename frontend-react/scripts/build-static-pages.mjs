@@ -266,7 +266,7 @@ ${ld}
 </head>
 <body>
 <header class="top"><a class="logo" href="/" data-app="map">Dining Maps</a>
-<a href="/#map" data-app="map">내 주변 지도</a><a href="/#recommend" data-app="recommend">맞춤 추천</a><a href="/#new" data-app="new">신메뉴</a><a href="/brand/">브랜드</a><a href="/best/">랭킹</a></header>
+<a href="/#new" data-app="new">신메뉴</a><a href="/#recommend" data-app="recommend">맞춤 추천</a><a href="/best/">랭킹</a><a href="/brand/">브랜드</a><a href="/#map" data-app="map">내 주변 지도</a></header>
 ${body}
 <footer>
 <p>모든 수치는 각 브랜드가 공식 홈페이지에 공개한 영양성분표를 옮긴 것이며 의학적 조언이 아닙니다.${ctx.dataDate ? ` 데이터 기준일 ${esc(ctx.dataDate)}.` : ""}</p>

@@ -93,6 +93,58 @@ export const personalReco = {
   ],
 };
 
+// /api/new-menus (app/new_menu/schemas.py NewMenuOut). 신메뉴 탭이 기본 화면이라
+// 대부분의 스펙이 "/"로 들어가는 순간 이 호출이 나간다. base_name이 같은 두 행으로
+// 옵션 묶기 분기(단품/라지)도 같이 태운다.
+const newMenuItem = (id, name, base_name, overrides = {}) => ({
+  id,
+  name,
+  base_name,
+  restaurant_id: 1,
+  restaurant_name: "샐러디",
+  category_group: "샐러드",
+  event_date: "2026-01-05",
+  released_at: "2026-01-05",
+  released_at_source: "press",
+  first_seen_at: "2026-01-03",
+  calorie: 320,
+  protein: 28,
+  sugar: 4,
+  saturated_fat: 2,
+  sodium: 500,
+  weight_g: 300,
+  nutrition_basis: "per_total",
+  total_weight_g: null,
+  scaled_to_total: false,
+  diet_score: 80,
+  absolute_grade: "A",
+  image_url: null,
+  youtube_video_id: null,
+  calorie_brand_pct: 50,
+  protein_brand_pct: 80,
+  diet_verdict: null,
+  diet_comment: null,
+  taste_note: null,
+  ...overrides,
+});
+export const newMenus = [
+  newMenuItem(21, "두부 포케볼", "두부 포케볼"),
+  newMenuItem(22, "두부 포케볼 (라지)", "두부 포케볼", { calorie: 420, protein: 34, sodium: 620 }),
+];
+
+// /api/recommend/menus (app/recommend/schemas.py RecommendedMenuOut 목록)
+export const recommendMenus = [
+  { menu_item_id: 31, name: "닭가슴살 샐러드", category: "샐러드", restaurant_id: 1, restaurant_name: "샐러디", calorie: 300, protein: 30, sodium: 480, sugar: 3, saturated_fat: 1, goal_score: 85, reason: "단백질 30g에 300kcal라 포만감이 큽니다.", nearest_store: null },
+  { menu_item_id: 32, name: "두부 샐러드", category: "샐러드", restaurant_id: 1, restaurant_name: "샐러디", calorie: 280, protein: 22, sodium: 420, sugar: 2, saturated_fat: 1, goal_score: 78, reason: "나트륨 420mg으로 낮습니다.", nearest_store: null },
+];
+
+// /api/recommend/goals (app/recommend/schemas.py GoalOut, app/recommend/goals.py GOALS)
+export const goals = [
+  { key: "diet", label: "다이어트" },
+  { key: "protein", label: "근성장" },
+  { key: "low_sodium", label: "저나트륨" },
+];
+
 // 모든 스펙이 쓰는 기본 mock. 개별 테스트는 이 위에 page.route를 다시 걸어 덮어쓴다
 // (Playwright는 나중에 등록한 route가 먼저 매칭된다).
 export async function mockApi(page) {
@@ -103,6 +155,10 @@ export async function mockApi(page) {
   await page.route("**/api/auth/me", (r) => r.fulfill({ status: 401, json: { detail: "로그인이 필요합니다." } }));
   // 로그인한 스펙이 맞춤 추천 탭을 열면 이 호출이 나간다 -- 실제 백엔드로 새지 않게 기본값을 둔다.
   await page.route("**/api/recommend/personal*", (r) => r.fulfill({ json: personalReco }));
+  // 신메뉴가 기본 화면이라 "/"로 들어가는 모든 스펙이 이 두 호출을 쏜다.
+  await page.route("**/api/new-menus*", (r) => r.fulfill({ json: newMenus }));
+  await page.route("**/api/recommend/menus*", (r) => r.fulfill({ json: recommendMenus }));
+  await page.route("**/api/recommend/goals", (r) => r.fulfill({ json: goals }));
   await page.route("**/api/memory", (r) => r.fulfill({ json: [] }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
