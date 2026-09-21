@@ -511,6 +511,8 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
   LLM을 부르지 않아 비용이 없다. `source:"personal"`.
 - **유료(`plan=premium`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. 메뉴명은 후보 enum으로 강제,
   같은 입력은 1시간 캐시(`llm_reco_cache`), 실패하면 무료 경로로 대체. `source:"llm"`.
+  같은 호출이 최근 행동에서 취향을 뽑아 `user_memory`에 기억하고(`new_memories`), 다음 추천 프롬프트에
+  다시 넣는다. 사용자는 `/api/memory`로 보고·지우고·직접 적는다(`app/memory/`).
   결제 연동 전까지는 `UPDATE app_user SET plan='premium'`으로 켠다. 상세는 `app/recommend/personal.py` 머리 주석.
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.

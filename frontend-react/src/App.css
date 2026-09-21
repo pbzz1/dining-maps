@@ -1742,3 +1742,57 @@ th.dash-td-hi { color: var(--accent); }
   color: var(--card-bg);
   cursor: default;
 }
+
+/* ---- AI 메모리 ---- */
+/* 새로 기억한 알림은 조언(comment)보다 한 단계 낮게 -- 알려야 하지만 추천을 가리면 안 된다. */
+.pick-memory {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mem-panel {
+  margin-top: 12px;
+}
+
+.mem-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.mem-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mem-item:last-child { border-bottom: none; }
+
+.mem-fact {
+  flex: 1;
+  font-size: 14px;
+  word-break: keep-all;
+}
+
+/* 누가 적었는지는 전제 표시라 기준 배지 모양 (.pick-basis 와 같다). */
+.mem-source {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mem-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.mem-add-field { flex: 1; }
+
+.pick-btn:disabled { opacity: 0.5; cursor: default; }

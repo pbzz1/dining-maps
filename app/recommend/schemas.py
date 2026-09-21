@@ -38,5 +38,8 @@ class PersonalRecoOut(BaseModel):
     # 프론트가 "AI 추천" 배지를 뗄지 결정한다. 화면이 비는 일은 어느 쪽이든 없다.
     source: str
     goal: str
-    comment: str | None = None  # 오늘의 한 줄 조언. rule 이면 None.
+    comment: str | None = None  # 오늘의 한 줄 조언. llm 일 때만.
     items: list[RecommendedMenuOut]
+    # 이번 호출에서 새로 기억한 취향(llm 일 때만). 화면이 "이걸 기억해 둘게요"라고 알려 주는 데 쓴다 --
+    # AI가 몰래 기억을 쌓지 않는다는 게 사용자에게 보여야 한다.
+    memory_added: list[str] = []

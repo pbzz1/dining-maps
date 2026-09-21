@@ -246,7 +246,7 @@ export default function RecommendView({ auth }) {
         </div>
       </details>
 
-      {user && <PersonalPicks pos={pos} refreshKey={picksKey} />}
+      {user && <PersonalPicks pos={pos} refreshKey={picksKey} premium={user.plan === "premium"} />}
 
       {status && <p className="loading">{status}</p>}
 

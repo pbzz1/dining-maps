@@ -17,6 +17,7 @@ import os
 from collections import Counter
 
 from app.db import connect, get_connection
+from app.memory import store as memory
 from app.recommend.goals import GOALS
 from app.recommend.ranking import fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import PersonalRecoOut
@@ -59,7 +60,10 @@ SYSTEM_PROMPT = """너는 프랜차이즈 메뉴 영양 데이터를 보고 한 
 후보 표에 있는 메뉴만 고를 수 있다. 후보는 이미 그 사람의 하드 제약(한 끼 열량 상한, 음료 제외, 알레르기, 숨긴 메뉴)을 통과한 것들이라 제약을 다시 따질 필요는 없다. 너의 일은 그중에서 이 사람의 목표·신체 조건·최근 선호에 가장 맞는 3개를 서로 다른 성격으로 고르는 것이다 (가능하면 같은 브랜드 3개는 피한다).
 
 reason 은 한국어 한 문장, 60자 이내로 쓴다. 표의 수치를 한두 개 인용해서 왜 이 사람에게 맞는지 말한다. 사람을 부르는 호칭이나 인사말은 넣지 않는다.
-comment 는 오늘 식사에 대한 조언을 한국어 1~2문장으로 쓴다. 의학적 진단이나 치료 표현은 쓰지 않는다."""
+comment 는 오늘 식사에 대한 조언을 한국어 1~2문장으로 쓴다. 의학적 진단이나 치료 표현은 쓰지 않는다.
+
+"기억하고 있는 것"은 이 사람에 대해 전에 알아낸 취향이다. 고를 때 반영한다.
+new_memories 에는 "최근 뺀 메뉴 / 최근 저장한 메뉴"에서 새로 드러난, 오래 유지될 취향만 0~2개 적는다 (예: "매운 양념 메뉴는 자주 뺀다", "점심은 샐러드를 자주 저장한다"). 한 번뿐인 행동으로 단정하지 않고, 이미 기억하고 있는 것과 같은 내용은 다시 적지 않는다. 한국어 한 줄, 40자 이내, 사실만 쓴다. 건강 상태나 질병을 추측하는 내용은 적지 않는다. 드러난 게 없으면 빈 배열."""
 
 
 def _meal_kcal(profile) -> int | None:
@@ -83,7 +87,7 @@ def load_profile(conn, user_id) -> dict:
 def load_history(conn, user_id) -> dict:
     """최근 행동을 요약. hide 는 후보에서 빼고, save/click/ate 는 브랜드 선호로 쓴다."""
     rows = conn.execute(
-        """SELECT e.event_type, e.menu_item_id, r.name AS brand
+        """SELECT e.event_type, e.menu_item_id, r.name AS brand, mi.name AS menu
            FROM user_event e
            LEFT JOIN menu_item mi ON mi.id = e.menu_item_id
            LEFT JOIN restaurant r ON r.id = mi.restaurant_id
@@ -95,7 +99,10 @@ def load_history(conn, user_id) -> dict:
     hidden = {r["menu_item_id"] for r in rows if r["event_type"] == "hide" and r["menu_item_id"]}
     saved = {r["menu_item_id"] for r in rows if r["event_type"] == "save" and r["menu_item_id"]} - hidden
     liked = Counter(r["brand"] for r in rows if r["event_type"] in ("save", "click", "ate") and r["brand"])
-    return {"hidden": hidden, "saved": saved, "liked_brands": [b for b, _ in liked.most_common(5)]}
+    # 메모리 추출용 최근 행동. 최신순 중복 제거 10개 -- 모델이 "반복"을 보려면 이름이 필요하다.
+    recent = lambda kind: list(dict.fromkeys(f"{r['brand']} · {r['menu']}" for r in rows if r["event_type"] == kind and r["menu"]))[:10]
+    return {"hidden": hidden, "saved": saved, "liked_brands": [b for b, _ in liked.most_common(5)],
+            "recent_hidden": recent("hide"), "recent_saved": recent("save")}
 
 
 def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CANDIDATE_LIMIT):
@@ -236,7 +243,7 @@ def _label(row) -> str:
     return f"{row['restaurant_name']} · {row['name']}"
 
 
-def build_prompt(goal, profile, history, candidates) -> str:
+def build_prompt(goal, profile, history, candidates, memories=()) -> str:
     fmt = lambda v: "-" if v is None else f"{v:g}"
     kcal = profile.get("max_calorie") or _meal_kcal(profile)
     who = []
@@ -262,6 +269,11 @@ def build_prompt(goal, profile, history, candidates) -> str:
         lines.append(f"알레르기(본인 입력): {profile['allergies']} -- 공개된 알레르기 정보로는 이미 걸렀다")
     if history["liked_brands"]:
         lines.append(f"최근 자주 본 브랜드: {', '.join(history['liked_brands'])}")
+    if history.get("recent_hidden"):
+        lines.append(f"최근 뺀 메뉴: {', '.join(history['recent_hidden'])}")
+    if history.get("recent_saved"):
+        lines.append(f"최근 저장한 메뉴: {', '.join(history['recent_saved'])}")
+    lines.append("기억하고 있는 것: " + (" / ".join(memories) if memories else "없음"))
 
     table = ["| 메뉴 | 분류 | kcal | 단백질g | 당류g | 나트륨mg | 포화지방g | 알레르기 |", "|---|---|---|---|---|---|---|---|"]
     for _, _, r in candidates:
@@ -291,8 +303,9 @@ def _schema(labels):
                 },
             },
             "comment": {"type": "string"},
+            "new_memories": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["picks", "comment"],
+        "required": ["picks", "comment", "new_memories"],
         "additionalProperties": False,
     }
 
@@ -329,7 +342,7 @@ def call_llm(prompt, labels) -> dict | None:
         return None
 
 
-def _input_hash(goal, profile, history, candidates) -> str:
+def _input_hash(goal, profile, history, candidates, memories=()) -> str:
     key = {
         "model": MODEL,
         "prompt": SYSTEM_PROMPT,
@@ -337,6 +350,8 @@ def _input_hash(goal, profile, history, candidates) -> str:
         "profile": {k: v for k, v in profile.items() if k not in ("user_id", "updated_at")},
         "candidates": [t[2]["id"] for t in candidates],
         "liked": history["liked_brands"],
+        "recent": [history.get("recent_hidden"), history.get("recent_saved")],
+        "memories": list(memories),
     }
     return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -350,8 +365,17 @@ def _cached(conn, user_id, input_hash):
     return row["payload"] if row else None
 
 
-def _store_cache(user_id, input_hash, payload):
+def _store_result(user_id, hash_for, payload) -> list[str]:
+    """새 메모리 추가 + 캐시 저장을 한 트랜잭션으로. 새로 들어간 메모리를 돌려준다.
+
+    hash_for(메모리 목록) -> 입력 해시. 캐시 키를 "추가한 뒤의" 메모리로 만든다 -- 추가 전
+    해시로 저장하면 다음 요청의 메모리 목록이 달라져 캐시를 놓치고, 방금 그 기억을 반영해
+    만든 결과를 두고 LLM을 한 번 더 부르게 된다.
+    """
     with connect() as conn:
+        # 한 번에 2개까지만 받아들인다 -- 프롬프트가 0~2개라고 해도 모델이 넘칠 수 있다.
+        added = memory.add_facts(conn, user_id, (payload.get("new_memories") or [])[:2], source="ai")
+        input_hash = hash_for([m["fact"] for m in memory.list_facts(conn, user_id)])
         conn.execute(
             """INSERT INTO llm_reco_cache (user_id, input_hash, payload, model, created_at)
                VALUES (%s, %s, %s, %s, now())
@@ -360,6 +384,7 @@ def _store_cache(user_id, input_hash, payload):
                    model = EXCLUDED.model, created_at = now()""",
             (user_id, input_hash, json.dumps(payload, ensure_ascii=False), MODEL),
         )
+    return added
 
 
 def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> PersonalRecoOut:
@@ -377,14 +402,16 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
         # select_candidates 는 목표 점수 순으로 하나씩 담으므로 앞 15개 = limit=15 로 뽑은 결과와 같다.
         candidates = pool[:CANDIDATE_LIMIT]
 
-        input_hash = _input_hash(goal, profile, history, candidates)
+        # 메모리는 premium 추천만 쓴다 -- free 경로는 규칙 기반이라 읽을 곳이 없다.
+        memories = [m["fact"] for m in memory.list_facts(conn, user_id)] if use_llm else []
+        input_hash = _input_hash(goal, profile, history, candidates, memories)
         result = _cached(conn, user_id, input_hash) if use_llm else None
     finally:
         conn.close()
 
     fresh = use_llm and result is None
     if fresh:
-        result = call_llm(build_prompt(goal, profile, history, candidates), [_label(t[2]) for t in candidates])
+        result = call_llm(build_prompt(goal, profile, history, candidates, memories), [_label(t[2]) for t in candidates])
 
     by_label = {_label(t[2]): t for t in candidates}
     items, seen = [], set()
@@ -402,7 +429,10 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
         return PersonalRecoOut(
             source="personal", goal=goal, items=[to_out(t[0], why, t[2], nearest) for _, why, t in picks]
         )
+    added = []
     if fresh:
         # 실패(None)는 캐시하지 않는다 -- 키를 넣거나 일시 장애가 풀리면 바로 다시 시도해야 한다.
-        _store_cache(user_id, input_hash, result)
-    return PersonalRecoOut(source="llm", goal=goal, comment=result.get("comment"), items=items)
+        added = _store_result(
+            user_id, lambda mems: _input_hash(goal, profile, history, candidates, mems), result
+        )
+    return PersonalRecoOut(source="llm", goal=goal, comment=result.get("comment"), items=items, memory_added=added)

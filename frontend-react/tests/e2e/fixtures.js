@@ -62,7 +62,13 @@ export const stores = [
 
 export const authStatusOff = { enabled: false, provider: "kakao" };
 export const authStatusOn = { enabled: true, provider: "kakao" };
-export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z" };
+export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z", plan: "free" };
+export const mePremium = { ...me, plan: "premium" };
+// /api/memory (app/memory/schemas.py MemoryOut)
+export const memoryList = [
+  { id: 1, fact: "매운 양념 메뉴는 자주 뺀다", source: "ai", created_at: "2026-01-02T00:00:00Z" },
+  { id: 2, fact: "점심은 회사 근처에서 먹는다", source: "user", created_at: "2026-01-03T00:00:00Z" },
+];
 // user_profile 은 가입 직후 전 필드 null 이다 -- 이 경우 프론트가 localStorage 값을 한 번 올린다.
 export const emptyProfile = {
   goal: null, sex: null, height_cm: null, weight_kg: null, age: null, activity: null,
@@ -79,6 +85,7 @@ export const personalReco = {
   source: "llm",
   goal: "diet",
   comment: "오늘은 단백질이 많고 나트륨이 낮은 쪽으로 골랐습니다.",
+  memory_added: [],
   items: [
     pick(11, "치킨 샐러드", "단백질 28g에 320kcal라 한 끼 상한 안에서 포만감이 큽니다."),
     pick(12, "연어 샐러드", "나트륨 500mg으로 오늘 목표에 맞습니다."),
@@ -96,6 +103,7 @@ export async function mockApi(page) {
   await page.route("**/api/auth/me", (r) => r.fulfill({ status: 401, json: { detail: "로그인이 필요합니다." } }));
   // 로그인한 스펙이 맞춤 추천 탭을 열면 이 호출이 나간다 -- 실제 백엔드로 새지 않게 기본값을 둔다.
   await page.route("**/api/recommend/personal*", (r) => r.fulfill({ json: personalReco }));
+  await page.route("**/api/memory", (r) => r.fulfill({ json: [] }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));

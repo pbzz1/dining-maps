@@ -303,3 +303,16 @@ CREATE TABLE IF NOT EXISTS llm_reco_cache (
     model      TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- AI 메모리: premium 추천이 사용자 행동에서 알아낸 지속적인 취향 한 줄씩(예: "매운 메뉴는 자주 뺀다").
+-- 추천 프롬프트에 다시 들어가 "기억"이 된다. 사용자는 목록을 보고 지우거나 직접 적을 수 있다 --
+-- 신체정보를 다루는 서비스에서 AI가 무엇을 믿고 있는지 사용자가 못 보면 안 된다.
+-- source: 'ai'(추천 호출이 추출) | 'user'(사용자가 직접 입력). 같은 사실은 한 번만 (UNIQUE).
+CREATE TABLE IF NOT EXISTS user_memory (
+    id         INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id    INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    fact       TEXT NOT NULL,
+    source     TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, fact)
+);
