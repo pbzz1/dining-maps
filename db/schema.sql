@@ -147,6 +147,15 @@ ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS total_weight_g DOUBLE PRECISION;
 -- 임베드할 수 있다. NULL이면 프론트가 검색 링크로 대체.
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS youtube_video_id TEXT;
 
+-- 메뉴 수명 주기. menu_item은 UPSERT만 하고 지우지 않아서, 브랜드가 조용히 내린 메뉴가
+-- 추천·신메뉴에 계속 남는다. load_data.py가 적재할 때마다 last_seen_at을 찍고
+-- (store.last_seen_at과 같은 방식), 일정 기간 안 보이면 is_active를 내린다.
+-- first_seen_at에 DEFAULT가 없는 건 의도다 -- now()를 주면 이 컬럼이 생기기 전부터 있던
+-- 메뉴 전부에 마이그레이션 시각이 찍힌다. NULL = "언제 처음 봤는지 모른다".
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ;
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- 신메뉴 LLM 리뷰 캐시 (scripts/llm/generate_new_menu_reviews.py).
 -- "신메뉴"의 원천은 menu_change_log(change_type='added') -- 별도 감지 로직 없음.
 -- brand_menu_reco와 같은 이유로 menu_item_id FK 저장: 환각 방지 + 표시용
