@@ -23,9 +23,10 @@
 5. [데이터를 어떻게 다뤘나](#5-데이터를-어떻게-다뤘나)
 6. [설계 결정과 그 이유](#6-설계-결정과-그-이유)
 7. [운영 — 자동화와 배포](#7-운영--자동화와-배포)
-8. [실행](#8-실행)
-9. [문서](#9-문서)
-10. [알려진 한계 · 다음 작업](#10-알려진-한계--다음-작업)
+8. [테스트](#8-테스트)
+9. [실행](#9-실행)
+10. [문서](#10-문서)
+11. [알려진 한계 · 다음 작업](#11-알려진-한계--다음-작업)
 
 ---
 
@@ -392,6 +393,7 @@ Airflow에선 `retries=0`이다. 품질 실패는 flake가 아니라 신호라�
 | `crawl.yml` | 월·목 02:00 KST | 22개 브랜드 재크롤 → `data/*.csv` 커밋 → 브랜드별 행 수를 Step Summary에 → 실패 브랜드가 있으면 커밋 후 exit 1 (알림이 커밋 뒤에 오도록) |
 | `rescore.yml` | 매일 03:00 KST | 품질 게이트 → 적재 → 지문 비교 재채점 |
 | `deploy.yml` | master push | 변경된 쪽(API / 프론트)만 배포 |
+| `playwright.yml` | `frontend-react/**`가 바뀐 PR | Playwright E2E (chromium). 실패 시 HTML 리포트를 아티팩트로 7일 보관 |
 | 실패 알림 | — | 카카오톡 "나에게 보내기" ([kakao_notify_setup.md](docs/kakao_notify_setup.md)) |
 
 자동화 밖에 있는 4곳 — 버거킹(WAF가 TLS 차단, 브라우저 리플레이), 맘스터치(이미지만 공개, 수기), 서브웨이·컴포즈커피(Actions 해외 IP에 403, 로컬 크롤). 파파존스·한솥은 수기 캡처 파일을 파싱하므로 자동 갱신되지 않는다.
@@ -417,7 +419,44 @@ Airflow에선 `retries=0`이다. 품질 실패는 flake가 아니라 신호라�
 
 ---
 
-## 8. 실행
+## 8. 테스트
+
+### 프론트 E2E — Playwright
+
+스펙 3개 · 케이스 6개, `frontend-react/tests/e2e/`. 정상 흐름 하나, 예외 흐름 하나, 첫 로딩 하나로 나눴다.
+
+| 스펙 | 흐름 | 검증하는 것 |
+|---|---|---|
+| `map.spec.js` | 지도 첫 진입 | 위치 권한 거부 → 서울시청 폴백 → "주변 매장 N곳 중 …" 상태 문구 |
+| `list-to-menu.spec.js` | 매장 목록 → 카드 클릭 → 메뉴·등급 화면 → 뒤로가기 | 헤딩·메뉴 수·메뉴명. 등급 없는 브랜드는 "정보 부족" 카드로 뜨는지 |
+| `empty-state.spec.js` | API가 `[]`를 줄 때 | 목록·지도 각각의 안내 문구. 화면이 깨지지 않는지 |
+
+**백엔드 없이 돈다.** `fixtures.js`가 `page.route()`로 `/api/*`를 전부 가짜 응답으로 바꾼다. 응답 형태는 `app/*/schemas.py`의 Pydantic 모델을 따른다. CI에 DB·Lambda가 필요 없고, 크롤 데이터가 바뀌어도 테스트가 흔들리지 않는다. 기본 mock 위에 개별 테스트가 route를 덧씌운다 — 나중에 등록한 route가 먼저 매칭된다.
+
+**카카오 지도는 DOM으로 못 잡는다.** 마커가 SDK 오버레이라 셀렉터가 없다. 그래서 마커 대신 지도 상태 문구("주변 매장 N곳")를 검증 대상으로 잡았다.
+
+**하다가 고친 것**
+
+- 매장 카드가 `onClick` 달린 `div`라 `getByRole('button')`에 안 잡혔다. 클래스 셀렉터로 우회하는 대신 카드에 `role="button" tabIndex={0}`을 붙였다 — 테스트 때문에 키보드 접근성이 같이 좋아진 경우 (`8940fb2`)
+- 지도 스펙에 `waitForTimeout(2000)` + `isVisible()`을 썼더니 `--repeat-each 10`에서 6번 실패했다. `expect().toBeVisible()`의 auto-wait로 바꿔 10/10 (`529dad8`)
+- 등급 없는 브랜드 카드가 정의되지 않은 `grade`를 참조하고 있었다. 그 분기를 태우는 케이스가 없어서 못 잡던 버그 — fixture에 등급 `null` 브랜드를 넣고 케이스를 추가했다
+
+**CI** — `playwright.yml`은 `frontend-react/**`가 바뀐 PR에서만 돈다. chromium 하나, CI에서만 `retries: 2` · `workers: 1`, 재시도 때 trace 수집. 실패하면 HTML 리포트를 아티팩트로 올린다.
+
+```bash
+cd frontend-react && npx playwright test            # dev 서버는 config의 webServer가 띄운다
+npx playwright test --repeat-each 10 map.spec.js    # flaky 확인
+```
+
+학습 순서와 초안 대비 실제 앱에서 달랐던 점은 [playwright-e2e-plan.md](docs/playwright-e2e-plan.md)에 있다.
+
+### 데이터 쪽
+
+파이프라인의 검증은 3절의 품질 게이트(4개 룰, 적재 전 하드 블로커)와 dbt test가 맡는다. 파서버그 판정 룰은 컬럼을 일부러 뒤바꾼 188건 실험으로 확인했다 ([data_quality.md](docs/data_quality.md)). `num()`·`match_nutrient()`·30% 룰의 pytest는 아직 없다 — 11절 참고.
+
+---
+
+## 9. 실행
 
 ```bash
 # DB
@@ -449,12 +488,25 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 | (파이프라인) | `DATABASE_URL`, `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
+| (API·로그인) | `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만) |
+
+로그인 관련 변수가 없으면 `/api/auth/status`가 `enabled:false`를 주고 프론트는 로그인 버튼을
+아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부 그대로 동작한다. `KAKAO_REDIRECT_URI`는
+배포된 API의 `/api/auth/kakao/callback` 전체 URL이어야 하고, developers.kakao.com 앱에
+등록한 값과 문자 하나까지 같아야 한다.
+
+새 테이블(`app_user` 등)은 API가 쓰는데 `apply_schema()`는 크롤·적재 잡만 부른다. 배포 직후
+첫 크롤 전까지 로그인이 죽지 않도록 한 번 돌려 둔다:
+
+```bash
+DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
+```
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 
 ---
 
-## 9. 문서
+## 10. 문서
 
 | 문서 | 내용 |
 |---|---|
@@ -465,12 +517,13 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 | [crawl_handoff.md](docs/crawl_handoff.md) | 브랜드별 크롤링 인수인계 메모 (제외 사유 포함) |
 | [price_data_options.md](docs/price_data_options.md) | 가격 데이터 확보 방안 조사 및 결론 |
 | [ga4_report.md](docs/ga4_report.md) | 30일 사용자 행동 리포트 |
+| [playwright-e2e-plan.md](docs/playwright-e2e-plan.md) | E2E 도입 계획과 초안 대비 실제 앱에서 달랐던 점 |
 | [dbt/README.md](dbt/README.md) | 데이터 마트 모델 구조(staging → dim/fact → rollup)와 실행법 |
 | [docker/README.md](docker/README.md) | Airflow 실행법, 2.x→3.x 아키텍처 차이 |
 
 ---
 
-## 10. 알려진 한계 · 다음 작업
+## 11. 알려진 한계 · 다음 작업
 
 **한계**
 
@@ -480,6 +533,7 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 - 매장 위치는 카카오맵 기준이라 폐업 미삭제·중복 등록이 섞여 있을 수 있다
 - 수기 의존 브랜드 3곳(버거킹·맘스터치·파파존스)은 갱신이 사람 손에 달려 있다
 - 사용자 행동 로그(GA4)는 붙였지만 표본이 30일 8명이라 KPI로 쓰기엔 이르다
+- 테스트는 프론트 E2E(chromium)뿐이다. 파이프라인 파이썬 코드는 유닛 테스트 없이 품질 게이트와 수동 실험에 기대고 있다
 
 **다음**
 
@@ -488,3 +542,4 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 3. ~~사용자 행동 로그~~ → GA4 커스텀 이벤트 수집 중, 표본 확보가 남음
 4. 버거킹 WAF 우회 없이 갱신할 방법 — 현재는 수기 리플레이 (2026-08-12 고정)
 5. 가격 데이터 — 소비자원 참가격·KOSIS 연동 ([price_data_options.md](docs/price_data_options.md))
+6. 파이프라인 유닛 테스트 — `num()`·`match_nutrient()`·파서버그 판정 룰에 pytest

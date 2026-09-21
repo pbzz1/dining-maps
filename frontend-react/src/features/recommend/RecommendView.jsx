@@ -3,17 +3,21 @@ import { formatDistance } from "../../constants";
 import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
+import { useProfileSync } from "./profileSync";
+import { logEvent } from "../auth/api";
 import { IconPin } from "../../components/NavIcons";
 import Skel, { SkelBlock } from "../../components/Skeleton";
 
 // Step 0: 목표 선택 -> Step 2: 하드 제약(한 끼 상한, 음료 제외) -> Step 1: 근처 매장
 // -> Step 3: 신체정보는 새 화면이 아니라 위 '한 끼 상한'의 기본값 계산기.
-// 전부 localStorage 에 남아서 재방문 시 그대로 복원된다. 로그인 없음.
+// 전부 localStorage 에 남아서 재방문 시 그대로 복원된다. 로그인은 선택 --
+// 로그인하면 같은 값이 서버에도 저장돼 다른 기기에서 이어진다(profileSync.js).
 const DEFAULT_PREFS = { goal: "diet", maxCalorie: "", maxSodium: "", excludeDrinks: true };
 
 // KOREAN_AVG·DEFAULT_PROFILE은 bmr.js -- 신메뉴 표도 같은 기준을 쓴다.
 
-export default function RecommendView() {
+export default function RecommendView({ auth }) {
+  const user = auth?.user ?? null;
   const [goals, setGoals] = useState([]);
   const [prefs, setPrefs] = useLocalStorage("recommend.prefs", DEFAULT_PREFS);
   const [pos, setPos] = useLocalStorage("recommend.pos", null); // {lat,lng} | null
@@ -22,6 +26,9 @@ export default function RecommendView() {
   const [status, setStatus] = useState("");
   // status는 에러·빈 결과·위치 안내를 겸한다. 로딩만 따로 떼야 스켈레톤을 걸 수 있다.
   const [loading, setLoading] = useState(true);
+
+  // 로그인했으면 서버 프로필을 끌어오고, 이후 변경을 밀어 올린다. 비로그인은 무동작.
+  useProfileSync({ user, prefs, profile, setPrefs, setProfile });
 
   const update = (patch) => setPrefs((p) => ({ ...p, ...patch }));
   const updateProfile = (patch) => setProfile((p) => ({ ...p, ...patch }));
@@ -74,7 +81,8 @@ export default function RecommendView() {
     <section>
       <h2>맞춤 추천</h2>
       <p className="legend-hint">
-        목표와 한 끼 상한만 고르면 됩니다. 선택은 이 브라우저에 저장되고 로그인은 필요 없습니다.
+        목표와 한 끼 상한만 고르면 됩니다. 로그인 없이도 이 브라우저에 저장되고,
+        로그인하면 같은 설정이 다른 기기에서도 이어집니다.
       </p>
 
       <div className="rec-bar">
@@ -267,13 +275,16 @@ export default function RecommendView() {
                   )},${m.nearest_store.lat},${m.nearest_store.lng}`}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() =>
+                  onClick={() => {
                     window.gtag?.("event", "open_store", {
                       brand: m.restaurant_name,
                       goal: prefs.goal,
                       distance_m: Math.round(m.nearest_store.distance_m),
-                    })
-                  }
+                    });
+                    // 로그인 사용자면 서버에도 남긴다 -- GA4는 집계용이라 이 사람의
+                    // 다음 추천에 되먹일 수 없다. 비로그인이면 401이 나고 무시된다.
+                    if (user) logEvent("click", m.menu_item_id);
+                  }}
                 >
                   📍 {m.nearest_store.branch_name ?? m.restaurant_name}{" "}
                   {formatDistance(m.nearest_store.distance_m)} ↗
