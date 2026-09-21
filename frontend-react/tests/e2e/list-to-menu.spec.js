@@ -10,7 +10,6 @@ test.beforeEach(async ({ page }) => {
 test("매장 카드를 누르면 그 매장의 메뉴 화면으로 간다", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "매장 선택" })).toBeVisible();
 
-  // ponytail: 카드가 onClick 달린 div라 role이 없다 -> 텍스트로 잡는다. Day 3에서 role="button" 붙이고 getByRole로 교체.
   await page.getByRole("button", { name: "샐러디" }).click();
 
   await expect(page.getByRole("heading", { name: "샐러디" })).toBeVisible();
