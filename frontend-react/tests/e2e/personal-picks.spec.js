@@ -92,7 +92,10 @@ test("이 메뉴 빼기를 누르면 바로 사라지고, 기록한 뒤 다시 �
 
   await first.getByRole("button", { name: "이 메뉴 빼기" }).click();
   await expect(s.getByText("치킨 샐러드")).toHaveCount(0);
-  await expect.poll(() => events.find((e) => e.event_type === "hide")).toEqual({ event_type: "hide", menu_item_id: 11 });
+  // 이벤트는 어느 노출의 몇 번째 카드였는지 달고 간다 -- 학습형 추천의 학습 데이터 연결고리
+  await expect.poll(() => events.find((e) => e.event_type === "hide")).toEqual({
+    event_type: "hide", menu_item_id: 11, impression_id: 501, surface: "personal_picks", position: 0,
+  });
   await expect.poll(() => calls).toBeGreaterThan(before);
   await expect(s.getByText("치킨 샐러드")).toHaveCount(0);
 });
@@ -108,5 +111,21 @@ test("저장을 누르면 저장됨으로 바뀌고 save 이벤트를 남긴다"
   const card = section(page).getByRole("article").filter({ hasText: "연어 샐러드" });
   await card.getByRole("button", { name: "저장" }).click();
   await expect(card.getByRole("button", { name: "저장됨" })).toHaveAttribute("aria-pressed", "true");
-  await expect.poll(() => events.find((e) => e.event_type === "save")).toEqual({ event_type: "save", menu_item_id: 12 });
+  await expect.poll(() => events.find((e) => e.event_type === "save")).toEqual({
+    event_type: "save", menu_item_id: 12, impression_id: 501, surface: "personal_picks", position: 1,
+  });
+});
+
+test("가운데 카드를 빼도 이벤트 위치는 처음 보여준 순서 기준이다", async ({ page }) => {
+  await loggedIn(page);
+  const events = [];
+  await page.route("**/api/events", (r) => {
+    events.push(r.request().postDataJSON());
+    r.fulfill({ status: 204 });
+  });
+  await page.goto("/?token=fake-jwt#recommend");
+  const card = section(page).getByRole("article").filter({ hasText: "연어 샐러드" });
+  await card.getByRole("button", { name: "이 메뉴 빼기" }).click();
+  // 화면에서 빠진 뒤의 인덱스(0 또는 없음)가 아니라, 서버가 보여준 순서의 1번이어야 한다
+  await expect.poll(() => events.find((e) => e.event_type === "hide")?.position).toBe(1);
 });

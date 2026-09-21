@@ -86,6 +86,8 @@ export const personalReco = {
   goal: "diet",
   comment: "오늘은 단백질이 많고 나트륨이 낮은 쪽으로 골랐습니다.",
   memory_added: [],
+  impression_id: 501,
+  variant: "ml",
   items: [
     pick(11, "치킨 샐러드", "단백질 28g에 320kcal라 한 끼 상한 안에서 포만감이 큽니다."),
     pick(12, "연어 샐러드", "나트륨 500mg으로 오늘 목표에 맞습니다."),

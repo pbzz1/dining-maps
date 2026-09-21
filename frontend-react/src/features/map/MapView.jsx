@@ -202,12 +202,16 @@ export default function MapView({ onOpenMenu, visible = true }) {
         const params = { lat, lng, radius_m: radiusM, grade_type: gradeType };
         const list = await fetchStores(params);
         setStores(list);
-        setStatus(list.length === 0 ? "주변에 매장이 없습니다." : "");
+        setStatus(
+          list.length === 0
+            ? "주변에 매장이 없습니다."
+            : `주변 매장 ${list.length}곳 중 다이어트 추천 상위 ${Math.min(limit, new Set(list.map((s) => s.restaurant_id)).size)}곳`
+        );
       } catch (e) {
         setStatus(`매장 정보를 불러오지 못했습니다: ${e.message}`);
       }
     },
-    [gradeType, radiusM, clearOverlays]
+    [gradeType, radiusM, limit, clearOverlays]
   );
 
   // The map is mounted inside a display:none wrapper when another tab is the
@@ -517,7 +521,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
             ))}
           </div>
         </div>
-        {(sdkError ?? status) && <span className="map-status">{sdkError ?? status}</span>}
+        <span className="map-status">{sdkError ?? status}</span>
       </div>
 
       <div className="map-layout">
