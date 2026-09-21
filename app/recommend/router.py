@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth.deps import current_user
 from app.db import get_connection
 from app.recommend.goals import GOALS
 from app.recommend.personal import personal_reco
-from app.recommend.ranking import fetch_menus, nearest_stores, rank, to_out
+from app.recommend.ranking import diversify, fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import GoalOut, PersonalRecoOut, RecommendedMenuOut
 
 router = APIRouter(prefix="/api/recommend", tags=["recommend"])
@@ -26,16 +26,18 @@ def recommend_menus(
     lng: float | None = None,
     radius_m: int = 3000,
     limit: int = 20,
+    per_brand: int = Query(4, ge=1, le=50),
 ):
     """goal 기준 상위 메뉴. lat/lng 를 주면 각 메뉴 브랜드의 반경 내 가장 가까운 매장을 붙인다.
-    매장 데이터는 브랜드 단위 메뉴와 동일하다고 가정한다 (지점별 메뉴 차이는 무시)."""
+    매장 데이터는 브랜드 단위 메뉴와 동일하다고 가정한다 (지점별 메뉴 차이는 무시).
+    per_brand: 한 브랜드가 목록을 독점하지 않게 하는 상한 (정적 랭킹 페이지의 BEST_PER_BRAND 와 같은 값)."""
     if goal not in GOALS:
         raise HTTPException(status_code=400, detail=f"goal must be one of {list(GOALS)}")
     limits = {"max_calorie": max_calorie, "max_sodium": max_sodium, "max_sugar": max_sugar}
 
     conn = get_connection()
     try:
-        top = rank(fetch_menus(conn), goal, limits, exclude_drinks)[:limit]
+        top = diversify(rank(fetch_menus(conn), goal, limits, exclude_drinks), per_brand, limit)
         # 근처 매장: 상위 메뉴의 브랜드만 조회해서 브랜드별 최단 거리 1곳.
         nearest = nearest_stores(conn, {t[2]["restaurant_id"] for t in top}, lat, lng, radius_m)
     finally:
