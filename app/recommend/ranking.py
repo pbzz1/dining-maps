@@ -13,7 +13,7 @@ def fetch_menus(conn):
     """전 메뉴 + 영양성분(피벗 dict) + diet_score. 영양성분은 key-value 행이라 여기서 묶는다."""
     return conn.execute(
         """SELECT mi.id, mi.name, mi.category, mi.restaurant_id, r.name AS restaurant_name,
-                  mi.allergy_info, ds.score AS diet_score,
+                  mi.allergy_info, mi.category_group, ds.score AS diet_score,
                   json_object_agg(nf.nutrient_name, nf.value) AS nutrients
            FROM menu_item mi
            JOIN restaurant r ON r.id = mi.restaurant_id

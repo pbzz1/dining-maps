@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDistance, track } from "../../constants";
 import Skel, { SkelBlock } from "../../components/Skeleton";
 import { logEvent } from "../auth/api";
@@ -19,6 +19,7 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
   const [saved, setSaved] = useState(() => new Set());
   const [reloadKey, setReloadKey] = useState(0);
   const [memoryKey, setMemoryKey] = useState(0); // 추천이 새로 기억하면 패널을 다시 불러온다
+  const shownIds = useRef([]); // 서버가 보여준 순서 -- 이벤트의 position 기준
   // 마지막으로 새로 기억한 것. 응답마다 덮지 않는다 -- 곧이어 오는 캐시 응답(memory_added 빈 배열)이
   // 방금 띄운 알림을 지워 버리면 사용자는 AI가 뭘 기억했는지 못 보고 지나간다.
   const [remembered, setRemembered] = useState([]);
@@ -35,7 +36,10 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
           setRemembered(d.memory_added);
           setMemoryKey((k) => k + 1);
         }
-        if (!cancelled) setData(d);
+        if (!cancelled) {
+          shownIds.current = d.items.map((i) => i.menu_item_id);
+          setData(d);
+        }
       })
       .catch(() => !cancelled && setData(null))
       .finally(() => !cancelled && setLoading(false));
@@ -44,18 +48,27 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
     };
   }, [pos, refreshKey, reloadKey]);
 
+  // 이벤트에 붙일 문맥: 어느 노출의 몇 번째 카드였나. 위치는 "처음 보여준 순서" 기준이라
+  // 빼기로 카드가 줄어든 뒤의 화면 인덱스가 아니라 서버가 준 순서(shownIds)에서 찾는다.
+  const ctx = (m) => ({
+    impression_id: data?.impression_id ?? null,
+    surface: "personal_picks",
+    position: shownIds.current.indexOf(m.menu_item_id),
+  });
+
   function save(m) {
     if (saved.has(m.menu_item_id)) return;
     setSaved((s) => new Set(s).add(m.menu_item_id));
-    track("personal_pick_save", { source: data?.source });
-    logEvent("save", m.menu_item_id);
+    track("personal_pick_save", { source: data?.source, variant: data?.variant });
+    logEvent("save", m.menu_item_id, ctx(m));
   }
 
   async function hide(m) {
+    const context = ctx(m); // 화면에서 빼기 전에 잡아 둔다
     // 먼저 화면에서 뺀다 -- 서버 응답(LLM 수 초)을 기다리면 누른 게 안 먹은 것처럼 보인다.
     setData((d) => ({ ...d, items: d.items.filter((i) => i.menu_item_id !== m.menu_item_id) }));
-    track("personal_pick_hide", { source: data?.source });
-    await logEvent("hide", m.menu_item_id); // 기록이 끝난 뒤에 다시 불러야 후보에서 빠진다
+    track("personal_pick_hide", { source: data?.source, variant: data?.variant });
+    await logEvent("hide", m.menu_item_id, context); // 기록이 끝난 뒤에 다시 불러야 후보에서 빠진다
     setReloadKey((k) => k + 1);
   }
 
@@ -106,7 +119,7 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
                   href={storeMapUrl(m)}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => logEvent("click", m.menu_item_id)}
+                  onClick={() => logEvent("click", m.menu_item_id, ctx(m))}
                 >
                   📍 {m.nearest_store.branch_name ?? m.restaurant_name} {formatDistance(m.nearest_store.distance_m)} ↗
                 </a>

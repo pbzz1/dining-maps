@@ -22,7 +22,16 @@ from app.recommend.goals import GOALS
 from app.recommend.ranking import fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import PersonalRecoOut
 
-MODEL = "claude-opus-5"
+# premium 전용 모델. 후보 표에서 3개 고르고 이유·기억을 쓰는 일이라 최상위 모델까지는 필요 없고,
+# 구독료 안에서 호출당 비용을 맞추려고 Sonnet 을 쓴다(운영자 결정). 바꾸면 _input_hash 에 들어가
+# 기존 캐시는 자연히 무효가 된다.
+MODEL = "claude-sonnet-5"
+# 노출 기록에 남기는 추천 방식 버전. 방식이 바뀌면 올려서 운영 지표를 버전별로 가른다.
+REC_VERSION = "personal-v1"
+# 효과 측정 비교군 비율(%). control 은 지금 규칙 방식을 계속 받는다 -- 학습형이 정말 나은지
+# 같은 기간·같은 화면에서 직접 비교하기 위한 몫이다.
+CONTROL_PERCENT = 15
+IMPRESSION_DEDUPE_SECONDS = 1800
 # ponytail: 후보 15개 / 브랜드당 3개. 점수 상위만 자르면 샐러디 15개가 되고, 그러면
 # 모델이 고를 게 없다. 브랜드 다양성이 "개인화"의 재료다.
 CANDIDATE_LIMIT = 15
@@ -318,14 +327,15 @@ def call_llm(prompt, labels) -> dict | None:
 
     try:
         client = anthropic.Anthropic(timeout=LLM_TIMEOUT_SECONDS, max_retries=0)
-        response = client.beta.messages.create(
+        # 서버 쪽 fallbacks 는 쓰지 않는다 -- Opus 5 용으로 넣었던 기능이고 Sonnet 5 의 허용
+        # 대상은 확인되지 않았다(허용 안 되면 요청 전체가 400). 거절(refusal)이 오면 아래에서
+        # None 을 돌려 규칙/학습형 추천으로 대체하므로 화면은 비지 않는다.
+        response = client.messages.create(
             model=MODEL,
             max_tokens=4000,
             # 후보 15개 중 3개 고르기는 깊은 추론이 필요 없고, 사용자가 화면 앞에서 기다린다.
+            # thinking 은 생략 -- Sonnet 5 는 기본이 adaptive 라 effort 로만 깊이를 조절한다.
             output_config={"effort": "low", "format": {"type": "json_schema", "schema": _schema(labels)}},
-            # 안전 분류기가 거절하면 서버가 다른 모델로 재시도한다 (거절 카테고리별 자동 선택).
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -387,6 +397,43 @@ def _store_result(user_id, hash_for, payload) -> list[str]:
     return added
 
 
+def variant_for(user_id) -> str:
+    """사용자 id 해시로 고정 배정. 매 요청 무작위면 같은 사람이 두 방식을 오가서 비교가 안 된다.
+    버전 문자열을 섞어 두면 나중에 실험을 새로 짤 때 배정도 새로 섞인다."""
+    h = int(hashlib.sha256(f"{user_id}:{REC_VERSION}".encode()).hexdigest(), 16)
+    return "control" if h % 100 < CONTROL_PERCENT else "ml"
+
+
+def _log_impression(user_id, source, variant, items, scores) -> int | None:
+    """보여준 카드 묶음을 남기고 id 를 돌려준다. 실패해도 추천은 나가야 하므로 None 으로 넘어간다.
+
+    같은 사용자에게 같은 묶음이 30분 안에 다시 나가면 새 행을 쓰지 않고 기존 id 를 준다 --
+    탭 이동·새로고침·첫 로그인의 연속 조회마다 쓰면 "보여줬는데 무반응"이 부풀려져 학습이
+    멀쩡한 메뉴를 싫어하는 것으로 배운다.
+    """
+    ids = [i.menu_item_id for i in items]
+    try:
+        with connect() as conn:
+            row = conn.execute(
+                """SELECT id FROM reco_impression
+                   WHERE user_id = %s AND surface = 'personal_picks' AND menu_item_ids = %s::integer[]
+                     AND created_at > now() - make_interval(secs => %s)
+                   ORDER BY id DESC LIMIT 1""",
+                (user_id, ids, IMPRESSION_DEDUPE_SECONDS),
+            ).fetchone()
+            if row:
+                return row["id"]
+            return conn.execute(
+                """INSERT INTO reco_impression
+                       (user_id, surface, source, variant, model_version, menu_item_ids, scores)
+                   VALUES (%s, 'personal_picks', %s, %s, %s, %s::integer[], %s::real[]) RETURNING id""",
+                (user_id, source, variant, MODEL if source == "llm" else REC_VERSION, ids, scores),
+            ).fetchone()["id"]
+    except Exception as e:  # noqa: BLE001 -- 계측 실패가 추천을 막으면 안 된다
+        print(f"impression log failed: {type(e).__name__}: {e}")
+        return None
+
+
 def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> PersonalRecoOut:
     """use_llm: premium 사용자만 True. free 는 키가 있어도 LLM을 부르지 않는다 -- 무료
     사용자 수만큼 과금이 늘면 안 된다. 어느 쪽이든 결과 칸은 채워진다(personal_rank)."""
@@ -424,15 +471,22 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
         if len(items) == PICKS:
             break
 
+    # 비교군은 계측만 먼저 붙인다(P0). 아직 두 군 모두 같은 규칙 방식을 받고, 학습형은 P1에서
+    # variant == "ml" 에만 켠다 -- 계측이 먼저 쌓여야 켠 뒤의 차이를 잴 수 있다.
+    variant = variant_for(user_id)
     if not items:
         picks = personal_rank(goal, pool, profile, history)
-        return PersonalRecoOut(
-            source="personal", goal=goal, items=[to_out(t[0], why, t[2], nearest) for _, why, t in picks]
-        )
+        out = [to_out(t[0], why, t[2], nearest) for _, why, t in picks]
+        impression = _log_impression(user_id, "personal", variant, out, [round(total, 4) for total, _, _ in picks])
+        return PersonalRecoOut(source="personal", goal=goal, items=out, impression_id=impression, variant=variant)
     added = []
     if fresh:
         # 실패(None)는 캐시하지 않는다 -- 키를 넣거나 일시 장애가 풀리면 바로 다시 시도해야 한다.
         added = _store_result(
             user_id, lambda mems: _input_hash(goal, profile, history, candidates, mems), result
         )
-    return PersonalRecoOut(source="llm", goal=goal, comment=result.get("comment"), items=items, memory_added=added)
+    impression = _log_impression(user_id, "llm", variant, items, [i.goal_score for i in items])
+    return PersonalRecoOut(
+        source="llm", goal=goal, comment=result.get("comment"), items=items, memory_added=added,
+        impression_id=impression, variant=variant,
+    )

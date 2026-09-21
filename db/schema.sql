@@ -316,3 +316,28 @@ CREATE TABLE IF NOT EXISTS user_memory (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, fact)
 );
+
+-- 추천 노출 기록: "보여줬는데 반응 없음"이라는 부정 신호의 원천. 이게 없으면 학습형 추천
+-- (app/recommend/taste.py)은 누른 것만 알고 안 누른 걸 몰라서, 보여줄수록 한 브랜드에 갇힌다.
+-- 한 번 그린 카드 묶음 = 한 행(메뉴 id 배열, 순서 = 화면 위치). 서버가 추천을 만들 때 남기고,
+-- 같은 사용자에게 같은 묶음이 30분 안에 다시 나오면 새로 쓰지 않는다(새로고침이 가짜 무반응을
+-- 만들지 않게). variant 는 효과 측정용 비교군('control' = 기존 규칙, 'ml' = 학습형).
+CREATE TABLE IF NOT EXISTS reco_impression (
+    id            BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    surface       TEXT NOT NULL,   -- personal_picks
+    source        TEXT NOT NULL,   -- personal / ml / llm / rule (PersonalRecoOut.source)
+    variant       TEXT NOT NULL,   -- control / ml
+    model_version TEXT,
+    menu_item_ids INTEGER[] NOT NULL,
+    scores        REAL[],
+    explore       BOOLEAN[],
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reco_impression_user ON reco_impression(user_id, created_at DESC);
+
+-- 이벤트가 어느 노출의 몇 번째 카드에서 나왔는지. 노출과 이어져야 "보여준 3개 중 이걸 골랐다"를
+-- 학습할 수 있다. 예전 이벤트와 목록 클릭은 NULL.
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS impression_id BIGINT;
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS surface TEXT;
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS position SMALLINT;

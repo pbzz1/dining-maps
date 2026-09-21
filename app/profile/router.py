@@ -49,9 +49,19 @@ def post_event(payload: EventIn, user: dict = Depends(current_user)):
     """추천 카드를 눌렀다/숨겼다 같은 신호. 응답 본문이 없다 -- 프론트는 이 호출의
     결과를 기다리지도, 실패해도 화면을 바꾸지도 않는다(개인화는 부가 기능이다)."""
     with connect() as conn:
+        impression_id = payload.impression_id
+        if impression_id is not None:
+            # 남의 노출 id 를 붙이면 그 사람의 학습 데이터를 오염시킬 수 있다 -- 내 것이 아니면 떼어 낸다.
+            # 이벤트 자체는 남긴다(행동은 진짜이고, 연결만 믿을 수 없을 뿐이다).
+            owned = conn.execute(
+                "SELECT 1 FROM reco_impression WHERE id = %s AND user_id = %s", (impression_id, user["id"])
+            ).fetchone()
+            if not owned:
+                impression_id = None
         conn.execute(
-            "INSERT INTO user_event (user_id, menu_item_id, event_type) VALUES (%s, %s, %s)",
-            (user["id"], payload.menu_item_id, payload.event_type),
+            """INSERT INTO user_event (user_id, menu_item_id, event_type, impression_id, surface, position)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (user["id"], payload.menu_item_id, payload.event_type, impression_id, payload.surface, payload.position),
         )
     return Response(status_code=204)
 
