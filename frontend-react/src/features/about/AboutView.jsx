@@ -3,6 +3,11 @@
 // 문서라 매일 쓰는 5개 탭과 나란히 둘 성질이 아니다.
 // 원문은 docs/diet_score.md. 수치를 고칠 때 여기와 app/ 쪽이 같이 움직여야 한다.
 
+import { track } from "../../constants";
+
+// 토스 송금 링크 등. 비어 있으면 후원 섹션을 아예 그리지 않는다.
+const DONATE_URL = import.meta.env.VITE_DONATE_URL;
+
 const MEAL_ROWS = [
   ["단백질", "≥6.25g", "3.75~6.25g", "2.5~3.75g", "<2.5g", "식약처 고단백 표시기준(25%E) · 한국영양학회지(15%E) · 연세대 저열량식이 논문(≈10%E)"],
   ["당류", "—", "≤1.25g", "1.25~2.5g", ">2.5g", "WHO(2015) 이상적 목표 5%E / 권고 상한 10%E"],
@@ -129,6 +134,19 @@ export default function AboutView({ dataDate }) {
           <li>이홍기 외. 비만 여성 단기 저열량 식사요법에서 체구성 성분의 변화. 가정의학회지 2004;25:21–27.</li>
         </ul>
       </section>
+
+      {DONATE_URL && (
+        <section className="dash-card">
+          <h2>운영비 후원</h2>
+          <p className="dash-sub">
+            이 서비스는 개인이 운영한다. 도움이 됐다면{" "}
+            <a href={DONATE_URL} target="_blank" rel="noopener" onClick={() => track("donate_click")}>
+              서버비를 보탤 수 있다
+            </a>
+            . 후원 여부와 기능은 아무 상관이 없다.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
