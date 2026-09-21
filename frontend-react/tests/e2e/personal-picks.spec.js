@@ -1,8 +1,7 @@
 // "오늘 당신에겐" (개인 추천 AI). 지키는 것:
 // (1) 로그인 안 했으면 칸도, 요청도 없다 -- 비로그인 화면은 1단계 이전 그대로
 // (2) AI가 고른 3개와 한 줄 조언이 뜨고, 문장의 출처를 배지로 밝힌다
-// (3) AI를 못 쓰면(source=rule) 칸을 접는다 -- 룰 상위 3개는 아래 목록 1~3위와 똑같아서
-//     같은 걸 두 번 보여줄 뿐이다
+// (3) 무료(source=personal)는 "내 설정·기록 기반" 배지로 뜬다. 후보가 없으면(rule) 칸을 접는다
 // (4) "이 메뉴 빼기"는 즉시 사라지고, 서버에 기록한 뒤 다시 고른다
 import { expect, test } from "@playwright/test";
 import { authStatusOn, emptyProfile, me, mockApi, personalReco } from "./fixtures";
@@ -44,12 +43,24 @@ test("로그인하면 AI가 고른 3개와 한 줄 조언이 뜬다", async ({ p
   await expect(page.getByRole("heading", { name: "목표 점수 순 전체" })).toBeVisible();
 });
 
-test("AI를 못 쓰면 칸을 접고 목록만 보여준다", async ({ page }) => {
+test("무료 사용자는 내 설정·기록 기반 배지로 뜬다", async ({ page }) => {
+  await loggedIn(page);
+  await page.route("**/api/recommend/personal*", (r) =>
+    r.fulfill({ json: { ...personalReco, source: "personal", comment: null } })
+  );
+  await page.goto("/?token=fake-jwt#recommend");
+  const s = section(page);
+  await expect(s.getByText("내 설정·기록 기반")).toBeVisible();
+  await expect(s.getByText("AI 추천")).toHaveCount(0);
+  await expect(s.getByRole("article")).toHaveCount(3);
+});
+
+test("고를 후보가 없으면(rule) 칸을 접고 목록만 보여준다", async ({ page }) => {
   await loggedIn(page);
   let served = false;
   await page.route("**/api/recommend/personal*", (r) => {
     served = true;
-    r.fulfill({ json: { ...personalReco, source: "rule", comment: null } });
+    r.fulfill({ json: { source: "rule", goal: "diet", comment: null, items: [] } });
   });
   await page.goto("/?token=fake-jwt#recommend");
   await expect.poll(() => served).toBe(true);

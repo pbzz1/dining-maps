@@ -254,6 +254,11 @@ CREATE TABLE IF NOT EXISTS app_user (
     UNIQUE (provider, provider_uid)
 );
 
+-- 요금제. 'free' | 'premium'. premium 만 개인 추천에 LLM을 쓴다(app/recommend/personal.py) --
+-- LLM은 호출마다 과금되므로 사용자 수에 비례해 비용이 늘지 않게 결제한 사용자로 묶는다.
+-- 결제 연동 전까지는 운영자가 직접 UPDATE 해서 켠다.
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+
 -- 기존 localStorage 3개 키(recommend.prefs / .pos / .profile)의 서버 사본.
 -- 컬럼명은 프론트 필드명이 아니라 API 쿼리 파라미터명(max_calorie 등)에 맞췄다 --
 -- 추천 호출에 그대로 실려 가는 값이라 중간 변환을 한 군데(라우터)로 몰기 위해서다.

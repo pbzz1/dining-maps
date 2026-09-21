@@ -6,8 +6,10 @@
 고르고 이유를 쓰는 일만 한다. 메뉴명은 후보 enum 으로 강제해 없는 메뉴가 나올 수 없다
 (scripts/llm/generate_menu_reco.py 와 같은 방어).
 
-실패는 전부 룰로 떨어진다 -- 키 없음, 타임아웃, 거절, 형식 오류 어느 쪽이든 룰 상위
-3개를 source="rule" 로 돌려준다. 개인 추천은 부가 기능이라 이게 화면을 비우면 안 된다.
+LLM 없이도 개인화는 된다 (personal_rank). 키 없음·타임아웃·거절·형식 오류면 같은 후보를
+설정·기록 기반 점수로 다시 줄 세워 source="personal" 로 준다. LLM은 그 위의 선택 사항이다 --
+무료 사용자는 personal, (앞으로) 유료 사용자만 llm 이 되도록 갈라 쓸 수 있게 둔 구조다.
+source="rule" 은 후보 자체가 없을 때뿐이다.
 """
 import hashlib
 import json
@@ -25,6 +27,9 @@ MODEL = "claude-opus-5"
 CANDIDATE_LIMIT = 15
 PER_BRAND_CAP = 3
 PICKS = 3
+# 무료 경로는 프롬프트 길이 제약이 없으니 더 넓게 본다 -- 목표 점수는 조금 낮아도 한 끼로는
+# 균형이 나은 메뉴가 15위 밖에 있는 경우가 많다(먹태 같은 고단백 사이드가 상위를 채운다).
+POOL_LIMIT = 60
 CACHE_TTL_SECONDS = 3600
 # Lambda 타임아웃이 30초라 그 안에 룰 폴백까지 끝나야 한다. 재시도는 하지 않는다 --
 # 재시도로 30초를 넘기느니 룰 결과라도 제때 보여주는 게 낫다.
@@ -34,6 +39,19 @@ HISTORY_LIMIT = 200
 # 프론트 bmr.js 의 ACTIVITY_FACTORS 와 같은 값. 한 끼 상한을 비워 둔 사용자에게
 # 화면과 같은 기준을 적용해야 "목록엔 있는데 AI는 무시" 같은 어긋남이 없다.
 ACTIVITY_FACTORS = {"sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725}
+# 균형 감점의 기준선 -- docs/diet_score.md 와 같은 100kcal당 밀도. 등급과 다른 잣대를 쓰면
+# "A등급인데 균형 감점" 같은 모순이 생긴다.
+SODIUM_MG_PER_100KCAL = 100  # WHO 1일 2,000mg / 2,000kcal
+SUGAR_G_PER_100KCAL = 2.5  # 총에너지 10%
+SATFAT_G_PER_100KCAL = 0.78  # 총에너지 7% (AHA)
+
+# ponytail: 개인 점수 가중치. 목표 점수(순위 정규화)가 뼈대이고 나머지는 보정이다 --
+# 보정이 뼈대를 이기면 "근성장인데 샐러드 3개" 같은 결과가 나온다. A/B 필요해지면 테이블로.
+W_GOAL = 1.0
+W_MEAL_FIT = 0.5
+W_BALANCE = 0.4
+W_BRAND = 0.3
+W_SAVED = 0.5
 ACTIVITY_LABELS = {"sedentary": "거의 안 움직임", "light": "가벼운 활동", "moderate": "보통 활동", "active": "활발한 활동"}
 
 SYSTEM_PROMPT = """너는 프랜차이즈 메뉴 영양 데이터를 보고 한 사람에게 오늘 한 끼를 골라 주는 영양 코치다.
@@ -75,11 +93,12 @@ def load_history(conn, user_id) -> dict:
         (user_id, HISTORY_LIMIT),
     ).fetchall()
     hidden = {r["menu_item_id"] for r in rows if r["event_type"] == "hide" and r["menu_item_id"]}
+    saved = {r["menu_item_id"] for r in rows if r["event_type"] == "save" and r["menu_item_id"]} - hidden
     liked = Counter(r["brand"] for r in rows if r["event_type"] in ("save", "click", "ate") and r["brand"])
-    return {"hidden": hidden, "liked_brands": [b for b, _ in liked.most_common(5)]}
+    return {"hidden": hidden, "saved": saved, "liked_brands": [b for b, _ in liked.most_common(5)]}
 
 
-def select_candidates(conn, rows, profile, history, lat, lng, radius_m):
+def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CANDIDATE_LIMIT):
     """(goal, 후보[(score, reason, row)], nearest). 룰 목록과 같은 채점 + 개인 제약."""
     goal = profile.get("goal") if profile.get("goal") in GOALS else "diet"
     limits = {
@@ -114,9 +133,102 @@ def select_candidates(conn, rows, profile, history, lat, lng, radius_m):
             continue
         per_brand[brand] += 1
         picked.append(t)
-        if len(picked) == CANDIDATE_LIMIT:
+        if len(picked) == limit:
             break
     return goal, picked, nearest
+
+
+def _balance_excess(n) -> dict:
+    """목표 외 영양소가 기준 밀도를 몇 배 넘었는지 {이름: 초과율}. 0 이하(기준 안)는 뺀다."""
+    kcal = n.get("calorie")
+    if not kcal:
+        return {}
+    unit = kcal / 100
+    out = {}
+    for key, limit in (("sodium", SODIUM_MG_PER_100KCAL), ("sugar", SUGAR_G_PER_100KCAL), ("saturated_fat", SATFAT_G_PER_100KCAL)):
+        v = n.get(key)
+        if v is not None and v / (limit * unit) > 1:
+            out[key] = v / (limit * unit) - 1
+    return out
+
+
+def _meal_fit(kcal, target) -> float | None:
+    """한 끼 목표 열량 대비 적합도 0~1. 목표의 60~100%면 1 -- 상한은 이미 걸렀으니 넘치는 쪽보다
+    "간식 수준이라 한 끼로 모자란" 쪽을 가려내는 게 주 목적이다."""
+    if not target or not kcal:
+        return None
+    r = kcal / target
+    if 0.6 <= r <= 1.0:
+        return 1.0
+    return max(0.0, r / 0.6) if r < 0.6 else max(0.0, 2 - r)
+
+
+# 조사까지 붙여 둔다 -- "당류은"처럼 받침에 따라 틀리는 걸 코드로 고르느니 3개뿐이라 적는다.
+BALANCE_TOPIC = {"sodium": "나트륨은", "sugar": "당류는", "saturated_fat": "포화지방은"}
+
+
+def personal_rank(goal, candidates, profile, history):
+    """LLM 없이 하는 개인화: [(개인점수, 이유문장, (score, reason, row))] 를 3개, 서로 다른 브랜드로.
+
+    뼈대는 목표 점수(후보 안 순위를 0~1로), 보정은 네 가지:
+      한 끼 적합도(신체정보·상한으로 잡은 한 끼 열량에 맞나) / 영양 균형(나트륨·당·포화지방
+      초과 감점) / 브랜드 선호(최근 저장·클릭) / 저장한 메뉴.
+    신규 사용자도 앞의 둘은 적용되므로 목표 점수 목록과 다른 답이 나온다 -- 기록이 쌓이면
+    뒤의 둘이 더해진다.
+    """
+    target = profile.get("max_calorie") or _meal_kcal(profile)
+    liked = history["liked_brands"]
+    size = max(len(candidates) - 1, 1)
+    scored = []
+    for i, t in enumerate(candidates):
+        row = t[2]
+        n = row["nutrients"]
+        goal_part = 1 - i / size  # 후보는 목표 점수 내림차순 -- goal 마다 점수 척도가 달라 순위로 정규화
+        fit = _meal_fit(n.get("calorie"), target)
+        excess = _balance_excess(n)
+        brand_rank = liked.index(row["restaurant_name"]) if row["restaurant_name"] in liked else None
+        saved = row["id"] in history["saved"]
+
+        total = W_GOAL * goal_part - W_BALANCE * min(sum(excess.values()), 2.0)
+        if fit is not None:
+            total += W_MEAL_FIT * fit
+        if brand_rank is not None:
+            total += W_BRAND * (1 - brand_rank / len(liked))  # 자주 본 순서대로 가점
+        if saved:
+            total += W_SAVED
+
+        # 이유: 목표 수치(t[1]) + 이 사람에게 해당하는 근거 하나. 가장 개인적인 것부터.
+        if saved:
+            why = "저장해 둔 메뉴"
+        elif brand_rank is not None:
+            why = f"최근 자주 본 {row['restaurant_name']}"
+        elif fit == 1.0:
+            why = f"한 끼 {target:g}kcal의 {n['calorie'] / target:.0%}"
+        elif not excess and n.get("sodium") is not None:
+            why = "나트륨·당류·포화지방 모두 기준 안"
+        elif excess:
+            worst = max(excess, key=excess.get)
+            # 고른 이유가 아니라 알고 먹으라는 사실 한 줄 -- goals.py 처럼 평가 대신 수치만.
+            why = f"{BALANCE_TOPIC[worst]} 기준의 {excess[worst] + 1:.1f}배"
+        else:
+            why = None
+        scored.append((total, f"{t[1]} · {why}" if why else t[1], t))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    picks, brands = [], set()
+    for item in scored:  # 서로 다른 브랜드 3개 -- 한 브랜드에서 3개면 "추천"이 아니라 "목록"이다
+        if item[2][2]["restaurant_id"] in brands:
+            continue
+        brands.add(item[2][2]["restaurant_id"])
+        picks.append(item)
+        if len(picks) == PICKS:
+            return picks
+    for item in scored:  # 브랜드가 3개 미만이면 남는 자리는 같은 브랜드로라도 채운다
+        if item not in picks:
+            picks.append(item)
+            if len(picks) == PICKS:
+                break
+    return picks
 
 
 def _label(row) -> str:
@@ -250,23 +362,27 @@ def _store_cache(user_id, input_hash, payload):
         )
 
 
-def personal_reco(user_id, lat=None, lng=None, radius_m=3000) -> PersonalRecoOut:
+def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> PersonalRecoOut:
+    """use_llm: premium 사용자만 True. free 는 키가 있어도 LLM을 부르지 않는다 -- 무료
+    사용자 수만큼 과금이 늘면 안 된다. 어느 쪽이든 결과 칸은 채워진다(personal_rank)."""
     conn = get_connection()
     try:
         profile = load_profile(conn, user_id)
         history = load_history(conn, user_id)
-        goal, candidates, nearest = select_candidates(
-            conn, fetch_menus(conn), profile, history, lat, lng, radius_m
+        goal, pool, nearest = select_candidates(
+            conn, fetch_menus(conn), profile, history, lat, lng, radius_m, limit=POOL_LIMIT
         )
-        if not candidates:
+        if not pool:
             return PersonalRecoOut(source="rule", goal=goal, items=[])
+        # select_candidates 는 목표 점수 순으로 하나씩 담으므로 앞 15개 = limit=15 로 뽑은 결과와 같다.
+        candidates = pool[:CANDIDATE_LIMIT]
 
         input_hash = _input_hash(goal, profile, history, candidates)
-        result = _cached(conn, user_id, input_hash)
+        result = _cached(conn, user_id, input_hash) if use_llm else None
     finally:
         conn.close()
 
-    fresh = result is None
+    fresh = use_llm and result is None
     if fresh:
         result = call_llm(build_prompt(goal, profile, history, candidates), [_label(t[2]) for t in candidates])
 
@@ -282,9 +398,9 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000) -> PersonalRecoOut
             break
 
     if not items:
-        top = candidates[:PICKS]
+        picks = personal_rank(goal, pool, profile, history)
         return PersonalRecoOut(
-            source="rule", goal=goal, items=[to_out(s, r, row, nearest) for s, r, row in top]
+            source="personal", goal=goal, items=[to_out(t[0], why, t[2], nearest) for _, why, t in picks]
         )
     if fresh:
         # 실패(None)는 캐시하지 않는다 -- 키를 넣거나 일시 장애가 풀리면 바로 다시 시도해야 한다.

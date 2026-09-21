@@ -504,11 +504,14 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 ```
 
-**개인 추천 AI** (`GET /api/recommend/personal`, 로그인 전용) — 룰(`app/recommend/goals.py`)로
-사용자 설정을 만족하는 후보 15개(브랜드당 최대 3개)를 뽑고, Claude가 그중 3개를 골라 한 문장씩
-이유를 쓴다. 메뉴명은 후보 enum으로 강제해 없는 메뉴가 나올 수 없다. 같은 입력이면 1시간 캐시
-(`llm_reco_cache`), 키 없음·타임아웃(20초)·거절이면 룰 상위 3개를 `source:"rule"`로 주고 프론트는
-그 칸을 접는다(아래 목록 1~3위와 같아서). 상세 설계는 `app/recommend/personal.py` 머리 주석.
+**개인 추천** (`GET /api/recommend/personal`, 로그인 전용) — 룰(`app/recommend/goals.py`)로
+사용자 설정을 만족하는 후보를 뽑은 뒤 두 갈래로 고른다.
+- **무료(`plan=free`, 기본)**: 목표 점수에 한 끼 적정 열량(신체정보), 영양 균형(나트륨·당·포화지방,
+  `docs/diet_score.md`와 같은 기준), 최근 저장·클릭한 브랜드를 더해 서로 다른 브랜드 3개를 고른다.
+  LLM을 부르지 않아 비용이 없다. `source:"personal"`.
+- **유료(`plan=premium`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. 메뉴명은 후보 enum으로 강제,
+  같은 입력은 1시간 캐시(`llm_reco_cache`), 실패하면 무료 경로로 대체. `source:"llm"`.
+  결제 연동 전까지는 `UPDATE app_user SET plan='premium'`으로 켠다. 상세는 `app/recommend/personal.py` 머리 주석.
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 
