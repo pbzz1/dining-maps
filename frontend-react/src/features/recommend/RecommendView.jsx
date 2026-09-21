@@ -7,6 +7,8 @@ import { useProfileSync } from "./profileSync";
 import { logEvent } from "../auth/api";
 import { IconPin } from "../../components/NavIcons";
 import Skel, { SkelBlock } from "../../components/Skeleton";
+import AffiliateBlock from "../../components/AffiliateBlock";
+import AdSlot from "../../components/AdSlot";
 
 // Step 0: 목표 선택 -> Step 2: 하드 제약(한 끼 상한, 음료 제외) -> Step 1: 근처 매장
 // -> Step 3: 신체정보는 새 화면이 아니라 위 '한 끼 상한'의 기본값 계산기.
@@ -305,6 +307,10 @@ export default function RecommendView({ auth }) {
       <p className="legend-hint" style={{ marginTop: 16 }}>
         영양정보는 각 브랜드 공개 자료 기준이며 의학적 조언이 아닙니다.
       </p>
+      {/* 추천 결과 아래에만 둔다 -- 결과 사이나 위에 끼우면 "현장의 1분" 원칙을 깬다.
+          슬롯 키는 목표 key(diet/protein/low_sodium)와 같다. 설정이 비어 있으면 둘 다 null. */}
+      <AffiliateBlock slot={prefs.goal} />
+      <AdSlot />
     </section>
   );
 }

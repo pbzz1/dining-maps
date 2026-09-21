@@ -514,6 +514,7 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 | [crawl_handoff.md](docs/crawl_handoff.md) | 브랜드별 크롤링 인수인계 메모 (제외 사유 포함) |
 | [price_data_options.md](docs/price_data_options.md) | 가격 데이터 확보 방안 조사 및 결론 |
 | [ga4_report.md](docs/ga4_report.md) | 30일 사용자 행동 리포트 |
+| [monetization.md](docs/monetization.md) | 검색 등록·제휴·광고 설정 — 메뉴 단위 SEO 페이지 구조와 콘솔에서 할 일 |
 | [playwright-e2e-plan.md](docs/playwright-e2e-plan.md) | E2E 도입 계획과 초안 대비 실제 앱에서 달랐던 점 |
 | [dbt/README.md](dbt/README.md) | 데이터 마트 모델 구조(staging → dim/fact → rollup)와 실행법 |
 | [docker/README.md](docker/README.md) | Airflow 실행법, 2.x→3.x 아키텍처 차이 |
