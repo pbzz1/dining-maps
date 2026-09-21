@@ -48,8 +48,11 @@ async function body(res, path) {
   return res.status === 204 ? null : res.json();
 }
 
-export function get(path, params) {
+// fresh: 캐시를 읽지도 쓰지도 않는다. 같은 URL이라도 서버 쪽 상태(숨긴 메뉴, 저장한
+// 프로필)에 따라 답이 바뀌는 개인화 응답용 -- 캐시하면 숨긴 메뉴가 그대로 다시 뜬다.
+export function get(path, params, { fresh = false } = {}) {
   const url = toUrl(path, params);
+  if (fresh) return fetch(url, { headers: authHeaders() }).then((res) => body(res, path));
   let p = cache.get(url);
   if (!p) {
     p = fetch(url, { headers: authHeaders() }).then((res) => body(res, path));

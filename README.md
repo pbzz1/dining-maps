@@ -482,7 +482,7 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 
 | 파일 | 변수 |
 |---|---|
-| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
+| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 배치는 조용히 스킵, 개인 추천은 룰 결과로 대체) |
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 
@@ -490,8 +490,10 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 (`app/env.py`). 터미널마다 `export`/`set`을 다시 할 필요가 없다. 이미 설정된 환경변수가
 있으면 그쪽이 이기므로 배포·Actions의 주입값을 .env가 덮어쓰는 일은 없다.
 
-로그인 관련 변수가 없으면 `/api/auth/status`가 `enabled:false`를 주고 프론트는 로그인 버튼을
-아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부 그대로 동작한다. `KAKAO_REDIRECT_URI`는
+로그인 관련 변수(`JWT_SECRET`·카카오 키·`FRONTEND_URL`) 중 하나라도 없으면 `/api/auth/status`가
+`enabled:false`를 주고 프론트는 로그인 버튼을 아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부
+그대로 동작한다. `FRONTEND_URL`에는 기본값이 없다(예전엔 localhost라 운영에서 빠지면 토큰이 개발
+주소로 갔다). 로컬에서 로그인을 쓰려면 `.env`에 `FRONTEND_URL=http://localhost:5173`. `KAKAO_REDIRECT_URI`는
 배포된 API의 `/api/auth/kakao/callback` 전체 URL이어야 하고, developers.kakao.com 앱에
 등록한 값과 문자 하나까지 같아야 한다.
 
@@ -501,6 +503,12 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 ```bash
 DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 ```
+
+**개인 추천 AI** (`GET /api/recommend/personal`, 로그인 전용) — 룰(`app/recommend/goals.py`)로
+사용자 설정을 만족하는 후보 15개(브랜드당 최대 3개)를 뽑고, Claude가 그중 3개를 골라 한 문장씩
+이유를 쓴다. 메뉴명은 후보 enum으로 강제해 없는 메뉴가 나올 수 없다. 같은 입력이면 1시간 캐시
+(`llm_reco_cache`), 키 없음·타임아웃(20초)·거절이면 룰 상위 3개를 `source:"rule"`로 주고 프론트는
+그 칸을 접는다(아래 목록 1~3위와 같아서). 상세 설계는 `app/recommend/personal.py` 머리 주석.
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 

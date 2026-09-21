@@ -24,14 +24,16 @@ from app.db import connect
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-DEFAULT_FRONTEND_URL = "http://localhost:5173"
 # state 는 서버에 저장하지 않고 서명해서 카카오에 맡겼다가 돌려받는다 -- Lambda는
 # 요청 간 메모리를 공유하지 않고, 이거 하나 때문에 세션 테이블을 만들 이유는 없다.
 STATE_TTL_SECONDS = 600
 
 
 def frontend_url() -> str:
-    return os.environ.get("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/")
+    # 기본값을 두지 않는다. 예전엔 localhost:5173 이 기본값이라 운영에서 이 값 하나가
+    # 빠지자 로그인은 성공하고 토큰이 개발용 주소로 날아갔다. 없으면 로그인 자체를 끈다
+    # (auth_status). 로컬 개발은 .env 에 FRONTEND_URL=http://localhost:5173 을 넣는다.
+    return os.environ["FRONTEND_URL"].rstrip("/")
 
 
 def _issue_state() -> str:
@@ -53,11 +55,15 @@ def _valid_state(state: str) -> bool:
 
 @router.get("/status", response_model=AuthStatusOut)
 def auth_status():
-    return AuthStatusOut(enabled=kakao.is_configured() and bool(os.environ.get("JWT_SECRET")), provider=kakao.PROVIDER)
+    enabled = kakao.is_configured() and all(os.environ.get(k) for k in ("JWT_SECRET", "FRONTEND_URL"))
+    return AuthStatusOut(enabled=enabled, provider=kakao.PROVIDER)
 
 
 @router.get("/kakao/login")
 def kakao_login():
+    # 콜백이 돌아갈 곳을 모르면 카카오 동의까지 받아 놓고 500을 내게 된다. 출발 전에 막는다.
+    if not os.environ.get("FRONTEND_URL"):
+        raise HTTPException(status_code=503, detail="FRONTEND_URL 환경변수가 없어 로그인을 쓸 수 없습니다.")
     try:
         return RedirectResponse(kakao.authorize_url(_issue_state()), status_code=302)
     except (kakao.KakaoError, tokens.AuthConfigError) as e:

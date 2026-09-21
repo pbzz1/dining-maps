@@ -4,6 +4,8 @@ import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
 import { useProfileSync } from "./profileSync";
+import PersonalPicks from "./PersonalPicks";
+import { nutritionLine, storeMapUrl } from "./format";
 import { logEvent } from "../auth/api";
 import { IconPin } from "../../components/NavIcons";
 import Skel, { SkelBlock } from "../../components/Skeleton";
@@ -28,7 +30,9 @@ export default function RecommendView({ auth }) {
   const [loading, setLoading] = useState(true);
 
   // 로그인했으면 서버 프로필을 끌어오고, 이후 변경을 밀어 올린다. 비로그인은 무동작.
-  useProfileSync({ user, prefs, profile, setPrefs, setProfile });
+  // picksKey: 서버 저장이 끝날 때마다 올린다 -> "오늘 당신에겐"이 새 설정으로 다시 고른다.
+  const [picksKey, setPicksKey] = useState(0);
+  useProfileSync({ user, prefs, profile, setPrefs, setProfile, onSaved: () => setPicksKey((k) => k + 1) });
 
   const update = (patch) => setPrefs((p) => ({ ...p, ...patch }));
   const updateProfile = (patch) => setProfile((p) => ({ ...p, ...patch }));
@@ -242,6 +246,8 @@ export default function RecommendView({ auth }) {
         </div>
       </details>
 
+      {user && <PersonalPicks pos={pos} refreshKey={picksKey} />}
+
       {status && <p className="loading">{status}</p>}
 
       {/* 조건을 바꿔 다시 부르는 중이면 이전 결과를 그대로 두는 게 덜 튄다 --
@@ -270,9 +276,7 @@ export default function RecommendView({ auth }) {
               {m.nearest_store ? (
                 <a
                   className="nutrient-badge"
-                  href={`https://map.kakao.com/link/map/${encodeURIComponent(
-                    m.nearest_store.branch_name ?? m.restaurant_name
-                  )},${m.nearest_store.lat},${m.nearest_store.lng}`}
+                  href={storeMapUrl(m)}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => {
@@ -294,9 +298,7 @@ export default function RecommendView({ auth }) {
               )}
               {/* 영양정보는 항상 박스 우측 하단에 -- 클릭해야 보이면 비교가 안 된다 */}
               <span className="menu-item-meta" style={{ marginLeft: "auto", alignSelf: "flex-end" }}>
-                {[["열량", m.calorie, "kcal"], ["단백질", m.protein, "g"], ["당류", m.sugar, "g"], ["포화지방", m.saturated_fat, "g"], ["나트륨", m.sodium, "mg"]]
-                  .map(([label, v, unit]) => `${label} ${v == null ? "-" : Math.round(v) + unit}`)
-                  .join(" · ")}
+                {nutritionLine(m)}
               </span>
             </div>
           </div>

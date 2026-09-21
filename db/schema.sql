@@ -285,3 +285,16 @@ CREATE TABLE IF NOT EXISTS user_event (
 
 -- 개인화 조회는 항상 "이 사용자의 최근 N건"이라 (user_id, created_at DESC) 복합.
 CREATE INDEX IF NOT EXISTS idx_user_event_user ON user_event(user_id, created_at DESC);
+
+-- 개인 추천(LLM) 결과 캐시. 사용자당 한 행 -- 최신 입력만 의미가 있어서 덮어쓴다.
+-- input_hash 는 프로필 + 후보 메뉴 id + 숨긴 메뉴 등 프롬프트를 결정하는 값 전부의 해시라,
+-- 설정을 바꾸거나 메뉴를 숨기면 해시가 달라져 자연히 다시 생성된다. 같은 입력이면
+-- 1시간 동안 재사용한다(app/recommend/personal.py) -- 탭을 오갈 때마다 수 초씩 기다리고
+-- 매번 과금되는 걸 막는다.
+CREATE TABLE IF NOT EXISTS llm_reco_cache (
+    user_id    INTEGER PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+    input_hash TEXT NOT NULL,
+    payload    JSONB NOT NULL,
+    model      TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

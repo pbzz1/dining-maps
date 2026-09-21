@@ -52,22 +52,37 @@ const isEmpty = (row) => !row || Object.values(row).every((v) => v == null || v 
  * 로그인하면 서버 프로필을 끌어오고, 이후 변경은 서버로 밀어 올린다.
  * 비로그인이면 아무 일도 하지 않는다 -- 기존 localStorage 동작 그대로.
  */
-export function useProfileSync({ user, prefs, profile, setPrefs, setProfile }) {
+export function useProfileSync({ user, prefs, profile, setPrefs, setProfile, onSaved }) {
   // 서버에서 받은 값을 state에 넣는 것 자체가 "변경"으로 보여서 곧바로 다시 저장되는
   // 왕복을 막는다. 아직 pull이 안 끝났으면 push도 하지 않는다.
   const pulled = useRef(false);
+  // 서버가 지금 들고 있는 값(직렬화). 이것과 같으면 PUT 하지 않는다 -- 방금 끌어온 값을
+  // 되돌려 보내면 onSaved가 불려 개인 추천이 한 번 더 생성된다(LLM 호출 = 수 초 + 과금).
+  const lastSaved = useRef(null);
+  // 콜백은 렌더마다 새로 만들어져도 저장 타이머를 다시 걸 이유가 없다.
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   useEffect(() => {
     if (!user) {
       pulled.current = false;
+      lastSaved.current = null;
       return;
     }
     let cancelled = false;
     fetchProfile()
       .then((row) => {
         if (cancelled) return;
-        if (isEmpty(row)) return saveProfile(toServer(prefs, profile)); // 첫 로그인 업로드
+        if (isEmpty(row)) {
+          // 첫 로그인 업로드
+          const payload = toServer(prefs, profile);
+          return saveProfile(payload).then(() => {
+            lastSaved.current = JSON.stringify(payload);
+            onSavedRef.current?.();
+          });
+        }
         const next = fromServer(row, prefs, profile);
+        lastSaved.current = JSON.stringify(toServer(next.prefs, next.profile));
         setPrefs(next.prefs);
         setProfile(next.profile);
       })
@@ -84,8 +99,20 @@ export function useProfileSync({ user, prefs, profile, setPrefs, setProfile }) {
 
   useEffect(() => {
     if (!user || !pulled.current) return;
+    const payload = toServer(prefs, profile);
+    const key = JSON.stringify(payload);
+    if (key === lastSaved.current) return;
     // 숫자 입력은 한 글자마다 바뀐다 -- 멈춘 뒤에 한 번만 보낸다.
-    const t = setTimeout(() => saveProfile(toServer(prefs, profile)).catch(() => {}), 800);
+    const t = setTimeout(
+      () =>
+        saveProfile(payload)
+          .then(() => {
+            lastSaved.current = key;
+            onSavedRef.current?.();
+          })
+          .catch(() => {}),
+      800
+    );
     return () => clearTimeout(t);
   }, [user, prefs, profile]);
 }

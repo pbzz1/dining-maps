@@ -1654,3 +1654,91 @@ th.dash-td-hi { color: var(--accent); }
   .auth-btn { padding: 6px 10px; font-size: 12px; }
   .auth-btn-state { display: none; }
 }
+
+/* ---- 맞춤 추천: "오늘 당신에겐" (로그인 사용자 전용) ---- */
+.pick-section {
+  margin-top: 20px;
+}
+
+.pick-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pick-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 목록 위 제목은 카드 섹션과 간격을 둬서 두 덩어리로 읽히게. */
+.rec-list-title {
+  margin-top: 28px;
+}
+
+/* "AI 추천" / "목표 점수 상위" -- 아래 문장을 누가 썼는지 밝히는 기준 배지.
+   강조가 아니라 전제 표시라 테라코타를 쓰지 않는다 (DESIGN.md 기준 배지, .mx-basis 와 같은 모양). */
+.pick-basis {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pick-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pick-comment {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.pick-reason {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.pick-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+/* Secondary 버튼 언어: 흰 면 + 괘선 + 잉크 글자, 호버는 종이색으로 가라앉기만. */
+.pick-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pick-btn:hover { background: var(--bg); }
+
+.pick-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 저장은 켜고 끄는 상태라 눌린 모습이 보여야 한다 -- 색 대신 잉크 면으로 (세그먼트 컨트롤과 같은 논리). */
+.pick-btn[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--card-bg);
+  cursor: default;
+}

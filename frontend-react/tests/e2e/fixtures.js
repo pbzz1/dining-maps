@@ -69,6 +69,23 @@ export const emptyProfile = {
   max_calorie: null, max_sodium: null, exclude_drinks: false, allergies: null, dislikes: null,
 };
 
+// /api/recommend/personal (app/recommend/schemas.py PersonalRecoOut). items 는 /menus 와 같은 모양.
+const pick = (id, name, reason) => ({
+  menu_item_id: id, name, category: "샐러드", restaurant_id: 1, restaurant_name: "샐러디",
+  calorie: 320, protein: 28, sodium: 500, sugar: 4, saturated_fat: 2,
+  goal_score: 80, reason, nearest_store: null,
+});
+export const personalReco = {
+  source: "llm",
+  goal: "diet",
+  comment: "오늘은 단백질이 많고 나트륨이 낮은 쪽으로 골랐습니다.",
+  items: [
+    pick(11, "치킨 샐러드", "단백질 28g에 320kcal라 한 끼 상한 안에서 포만감이 큽니다."),
+    pick(12, "연어 샐러드", "나트륨 500mg으로 오늘 목표에 맞습니다."),
+    pick(13, "두부 포케볼", "포화지방 2g으로 가볍습니다."),
+  ],
+};
+
 // 모든 스펙이 쓰는 기본 mock. 개별 테스트는 이 위에 page.route를 다시 걸어 덮어쓴다
 // (Playwright는 나중에 등록한 route가 먼저 매칭된다).
 export async function mockApi(page) {
@@ -77,6 +94,8 @@ export async function mockApi(page) {
   // 로그인 화면을 태우려면 스펙에서 이 위에 route를 다시 걸어 enabled:true로 덮는다.
   await page.route("**/api/auth/status", (r) => r.fulfill({ json: authStatusOff }));
   await page.route("**/api/auth/me", (r) => r.fulfill({ status: 401, json: { detail: "로그인이 필요합니다." } }));
+  // 로그인한 스펙이 맞춤 추천 탭을 열면 이 호출이 나간다 -- 실제 백엔드로 새지 않게 기본값을 둔다.
+  await page.route("**/api/recommend/personal*", (r) => r.fulfill({ json: personalReco }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));
