@@ -8,11 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@1,500;1,600&display=swap" rel="stylesheet" />
     <title>Dining Maps - 내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기</title>
-    <meta name="description" content="맥도날드·롯데리아·맘스터치·서브웨이·샐러디 316개 메뉴 영양정보를 같은 기준으로 비교하고, 다이어트·근성장·저나트륨 목표에 맞는 메뉴를 내 주변 매장에서 찾습니다." />
+    <!-- __BRAND_COUNT__ / __MENU_COUNT__ / head-extras 는 scripts/build-static-pages.mjs 가 빌드 후 dist/index.html 에서 실제 값으로 바꾼다 (dev 서버에선 그대로 보인다). -->
+    <meta name="description" content="맥도날드·스타벅스·BHC·서브웨이 등 프랜차이즈 __BRAND_COUNT__곳, 메뉴 __MENU_COUNT__개의 칼로리·나트륨·당류·단백질을 같은 기준으로 비교하고, 다이어트·근성장·저나트륨 목표에 맞는 메뉴를 내 주변 매장에서 찾습니다." />
+    <!--head-extras-->
     <!-- 카카오톡·커뮤니티 링크 미리보기. VITE_SITE_URL 은 배포 도메인(절대 URL 필수). -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Dining Maps - 버거 4사 + 샐러디 영양정보 비교" />
-    <meta property="og:description" content="316개 메뉴를 같은 기준으로. 목표만 고르면 내 주변 매장에서 맞는 메뉴를 추천합니다." />
+    <meta property="og:title" content="Dining Maps - 프랜차이즈 __BRAND_COUNT__곳 메뉴 칼로리·영양성분 비교" />
+    <meta property="og:description" content="메뉴 __MENU_COUNT__개를 같은 기준으로. 목표만 고르면 내 주변 매장에서 맞는 메뉴를 추천합니다." />
     <meta property="og:image" content="%SITE_URL%/og.png" />
     <meta property="og:url" content="%SITE_URL%/" />
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-B8QRKP6DTW"></script>
