@@ -446,6 +446,19 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 | (파이프라인) | `DATABASE_URL`, `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
+| (API·로그인) | `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만) |
+
+로그인 관련 변수가 없으면 `/api/auth/status`가 `enabled:false`를 주고 프론트는 로그인 버튼을
+아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부 그대로 동작한다. `KAKAO_REDIRECT_URI`는
+배포된 API의 `/api/auth/kakao/callback` 전체 URL이어야 하고, developers.kakao.com 앱에
+등록한 값과 문자 하나까지 같아야 한다.
+
+새 테이블(`app_user` 등)은 API가 쓰는데 `apply_schema()`는 크롤·적재 잡만 부른다. 배포 직후
+첫 크롤 전까지 로그인이 죽지 않도록 한 번 돌려 둔다:
+
+```bash
+DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
+```
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 

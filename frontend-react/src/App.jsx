@@ -6,6 +6,8 @@ import Dashboard from "./features/dashboard/Dashboard";
 import RecommendView from "./features/recommend/RecommendView";
 import NewMenuView from "./features/new-menu/NewMenuView";
 import AboutView from "./features/about/AboutView";
+import LoginButton from "./features/auth/LoginButton";
+import { useAuth } from "./features/auth/useAuth";
 import { fetchStatsQuality } from "./api";
 import { track } from "./constants";
 import LogoMark from "./components/Logo";
@@ -86,6 +88,8 @@ export default function App() {
   const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend
   const [selected, setSelected] = useState(null);
   const [dataDate, setDataDate] = useState("");
+  // 로그인 상태는 여기 한 곳에서만 만든다 -- 상단바 버튼과 맞춤 추천이 같은 값을 본다.
+  const auth = useAuth();
   // 한 번 방문한 뷰는 언마운트하지 않는다 -- 돌아왔을 때 이미 떠 있게. MapView가 쓰던
   // display:none 방식을 나머지 뷰로 넓힌 것. 처음부터 전부 마운트하면 첫 진입에 API가
   // 다섯 개 동시에 나가니, 마운트는 그 뷰를 실제로 열어본 시점에.
@@ -148,6 +152,7 @@ export default function App() {
             브랜드 공식 영양정보{dataDate && ` ${dataDate}`} 기준
           </a>
         </span>
+        <LoginButton auth={auth} />
       </header>
 
       <aside className="sidebar">
@@ -171,7 +176,7 @@ export default function App() {
           <MapView onOpenMenu={openMenu} visible={view === "map"} />
         </div>
         <Pane name="dashboard" view={view} seen={seen}><Dashboard /></Pane>
-        <Pane name="recommend" view={view} seen={seen}><RecommendView /></Pane>
+        <Pane name="recommend" view={view} seen={seen}><RecommendView auth={auth} /></Pane>
         <Pane name="new" view={view} seen={seen}><NewMenuView /></Pane>
         <Pane name="about" view={view} seen={seen}><AboutView dataDate={dataDate} /></Pane>
         <Pane name="list" view={view} seen={seen}><RestaurantList onSelect={openMenu} /></Pane>

@@ -4,7 +4,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.router import router as auth_router
 from app.menus.router import router as menus_router
+from app.profile.router import router as profile_router
 from app.new_menu.router import router as new_menu_router
 from app.recommend.router import router as recommend_router
 from app.restaurants.router import router as restaurants_router
@@ -28,11 +30,23 @@ ALLOWED_ORIGINS = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_methods=["GET"],
+    # 개인화(프로필 저장·행동 이벤트·탈퇴)가 생기면서 GET만으로는 부족해졌다.
+    # Authorization 헤더가 프리플라이트 대상이라 OPTIONS도 열려 있어야 한다.
+    # 인증은 Bearer 토큰이라 쿠키를 쓰지 않는다 -- allow_credentials는 그대로 꺼 둔다.
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-for r in (restaurants_router, stores_router, menus_router, stats_router, recommend_router, new_menu_router):
+for r in (
+    restaurants_router,
+    stores_router,
+    menus_router,
+    stats_router,
+    recommend_router,
+    new_menu_router,
+    auth_router,
+    profile_router,
+):
     app.include_router(r)
 
 # No StaticFiles mount here on purpose: the frontend is now its own Vite/React
