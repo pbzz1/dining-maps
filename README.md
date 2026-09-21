@@ -482,10 +482,13 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 
 | 파일 | 변수 |
 |---|---|
+| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
-| (파이프라인) | `DATABASE_URL`, `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
-| (API·로그인) | `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만) |
+
+루트 `.env`는 API와 `scripts/*.py`가 `app` 패키지를 import할 때 자동으로 읽힌다
+(`app/env.py`). 터미널마다 `export`/`set`을 다시 할 필요가 없다. 이미 설정된 환경변수가
+있으면 그쪽이 이기므로 배포·Actions의 주입값을 .env가 덮어쓰는 일은 없다.
 
 로그인 관련 변수가 없으면 `/api/auth/status`가 `enabled:false`를 주고 프론트는 로그인 버튼을
 아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부 그대로 동작한다. `KAKAO_REDIRECT_URI`는

@@ -4,6 +4,7 @@ __pycache__/
 # 시크릿이 들어가는 파일
 docker/.env
 frontend-react/.env
+/.env
 .env.deploy
 diningmaps-accessKeys/
 
