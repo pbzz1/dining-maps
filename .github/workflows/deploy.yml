@@ -3,6 +3,7 @@ name: deploy
 # 필요한 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_URL, ALLOWED_ORIGINS, VITE_API_BASE, VITE_KAKAO_JS_KEY
 # 로그인용(선택, 없으면 로그인 기능만 꺼진 채 배포됨): JWT_SECRET, KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI, KAKAO_CLIENT_SECRET, FRONTEND_URL
 # 개인 추천 AI용(선택, 없으면 룰 추천으로 대체): ANTHROPIC_API_KEY
+# 검색 등록·수익화용(선택): VITE_GOOGLE_SITE_VERIFICATION, VITE_NAVER_SITE_VERIFICATION, VITE_CONTACT_EMAIL, VITE_DONATE_URL, VITE_ADSENSE_CLIENT, VITE_ADSENSE_SLOT
 on:
   push:
     branches: [master]
@@ -93,3 +94,10 @@ jobs:
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
           VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }} # 없으면 지도 탭이 빈 화면
+          # 아래는 전부 선택 -- 없으면 해당 요소만 빠진 채 배포된다 (scripts/build-static-pages.mjs 머리말).
+          VITE_GOOGLE_SITE_VERIFICATION: ${{ secrets.VITE_GOOGLE_SITE_VERIFICATION }} # 서치콘솔 소유 확인 메타
+          VITE_NAVER_SITE_VERIFICATION: ${{ secrets.VITE_NAVER_SITE_VERIFICATION }}   # 네이버 서치어드바이저
+          VITE_CONTACT_EMAIL: ${{ secrets.VITE_CONTACT_EMAIL }}   # 있으면 /data/ 데이터 안내 페이지 생성
+          VITE_DONATE_URL: ${{ secrets.VITE_DONATE_URL }}         # 후원 링크
+          VITE_ADSENSE_CLIENT: ${{ secrets.VITE_ADSENSE_CLIENT }} # 커스텀 도메인 + 애드센스 승인 뒤에만
+          VITE_ADSENSE_SLOT: ${{ secrets.VITE_ADSENSE_SLOT }}

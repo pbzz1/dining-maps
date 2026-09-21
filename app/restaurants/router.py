@@ -61,7 +61,7 @@ def get_restaurant_menu(restaurant_id: int):
     get_restaurant_or_404(conn, restaurant_id)
 
     items = conn.execute(
-        """SELECT mi.id, mi.name, mi.category, mi.price_krw, mi.weight_g, mi.allergy_info,
+        """SELECT mi.id, mi.name, mi.category, mi.category_group, mi.price_krw, mi.weight_g, mi.allergy_info,
                   mi.origin_info, mi.data_source, mi.nutrition_basis, ds.score AS diet_score,
                   ds.absolute_grade, ds.relative_grade, ds.percentile, ds.basis
            FROM menu_item mi
@@ -96,6 +96,7 @@ def get_restaurant_menu(restaurant_id: int):
                 id=item["id"],
                 name=item["name"],
                 category=item["category"],
+                category_group=item["category_group"],
                 price_krw=item["price_krw"],
                 weight_g=item["weight_g"],
                 allergy_info=item["allergy_info"],
