@@ -515,6 +515,14 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
   다시 넣는다. 사용자는 `/api/memory`로 보고·지우고·직접 적는다(`app/memory/`).
   결제 연동 전까지는 `UPDATE app_user SET plan='premium'`으로 켠다. 상세는 `app/recommend/personal.py` 머리 주석.
 
+**대화로 찾기** (`POST /api/chat`, 로그인 전용, `app/chat/`) — 서버는 대화·조건을 저장하지 않고 브라우저가
+매번 보낸다.
+- **무료**: `parse.py`가 문장을 조건(분류·브랜드·열량/나트륨 상한·목표·매운 것·재료)으로 바꾸고,
+  `select_candidates` + `personal_rank`로 고른 뒤 템플릿으로 답한다. LLM 없음. 모르는 말은 모른다고 한다.
+- **premium**: 같은 파서로 확정 조건을 걸고 그 후보 안에서 Claude Sonnet 5가 대화하며 고른다(구조화 출력,
+  메뉴 enum 강제). 하루 30회(`llm_usage`), 넘거나 실패하면 무료 방식으로 대체. 대화에서 드러난 취향은 AI 메모리로.
+- 답은 스트리밍하지 않는다 — Lambda Function URL + Mangum 은 응답을 한 번에 돌려준다. 대신 3문장 이내로 짧게 받는다.
+
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 
 ---

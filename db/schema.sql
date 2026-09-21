@@ -341,3 +341,14 @@ CREATE INDEX IF NOT EXISTS idx_reco_impression_user ON reco_impression(user_id, 
 ALTER TABLE user_event ADD COLUMN IF NOT EXISTS impression_id BIGINT;
 ALTER TABLE user_event ADD COLUMN IF NOT EXISTS surface TEXT;
 ALTER TABLE user_event ADD COLUMN IF NOT EXISTS position SMALLINT;
+
+-- 사용자·날짜·용도별 LLM 호출 횟수. premium AI 대화의 하루 상한을 세는 데만 쓴다 --
+-- 구독료 안에서 한 사람이 쓸 수 있는 비용을 고정하려는 것. 대화 내용은 저장하지 않는다.
+-- day 는 한국 날짜(Asia/Seoul) 기준으로 넣는다 -- UTC 로 자르면 오전 9시에 한도가 풀린다.
+CREATE TABLE IF NOT EXISTS llm_usage (
+    user_id INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    day     DATE NOT NULL,
+    kind    TEXT NOT NULL,   -- chat
+    count   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day, kind)
+);

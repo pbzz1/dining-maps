@@ -1810,3 +1810,103 @@ th.dash-td-hi { color: var(--accent); }
 .aff-block small,
 .ad-slot small { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); }
 .ad-slot { margin-top: 20px; }
+
+/* ---- 대화로 찾기 ---- */
+/* 말풍선 색을 칠하지 않는다 -- 테라코타는 "지금 여기"에만(One Voice Rule), 등급색은 등급에만.
+   내 말은 종이색 면, 답은 흰 면으로만 가른다. */
+.chat-section { margin-top: 20px; }
+
+.chat-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.chat-examples .rec-note { flex-basis: 100%; margin: 0 0 2px; }
+
+.chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-turn {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+}
+
+.chat-user { background: var(--bg); }
+
+.chat-who {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.chat-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.chat-pending { color: var(--muted); font-size: 13px; }
+
+.chat-items { margin-top: 10px; }
+
+/* 지금 걸린 조건. 필터 탭 칩 언어(흰 면 + 괘선 + 알약)에 지우기 단추만 더했다. */
+.chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-chip-x {
+  border: none;
+  background: none;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.chat-chip-x:hover { color: var(--text); background: var(--bg); }
+
+.chat-chip-x:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+
+.chat-input { flex: 1; }

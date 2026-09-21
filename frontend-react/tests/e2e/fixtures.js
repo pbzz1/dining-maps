@@ -95,6 +95,24 @@ export const personalReco = {
   ],
 };
 
+// /api/chat (app/chat/schemas.py ChatOut). filters 는 서버가 누적해 돌려주는 조건.
+export const chatFilters = (over = {}) => ({
+  goal: null, max_calorie: null, max_sodium: null, exclude_drinks: null,
+  include_groups: [], exclude_groups: [], include_brands: [], exclude_brands: [], include_words: [], spicy: null,
+  ...over,
+});
+export const chatReply = (over = {}) => ({
+  reply: "치킨 · 700kcal 이하 조건으로 골랐어요.",
+  source: "filter",
+  understood: true,
+  filters: chatFilters({ include_groups: ["치킨"], max_calorie: 700 }),
+  chips: [{ key: "group:치킨", label: "치킨" }, { key: "kcal", label: "700kcal 이하" }],
+  items: personalReco.items,
+  memory_added: [],
+  limit_reached: false,
+  ...over,
+});
+
 // 모든 스펙이 쓰는 기본 mock. 개별 테스트는 이 위에 page.route를 다시 걸어 덮어쓴다
 // (Playwright는 나중에 등록한 route가 먼저 매칭된다).
 export async function mockApi(page) {
@@ -106,6 +124,7 @@ export async function mockApi(page) {
   // 로그인한 스펙이 맞춤 추천 탭을 열면 이 호출이 나간다 -- 실제 백엔드로 새지 않게 기본값을 둔다.
   await page.route("**/api/recommend/personal*", (r) => r.fulfill({ json: personalReco }));
   await page.route("**/api/memory", (r) => r.fulfill({ json: [] }));
+  await page.route("**/api/chat", (r) => r.fulfill({ json: chatReply() }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));

@@ -114,8 +114,9 @@ def load_history(conn, user_id) -> dict:
             "recent_hidden": recent("hide"), "recent_saved": recent("save")}
 
 
-def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CANDIDATE_LIMIT):
-    """(goal, 후보[(score, reason, row)], nearest). 룰 목록과 같은 채점 + 개인 제약."""
+def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CANDIDATE_LIMIT, extra_skip=None):
+    """(goal, 후보[(score, reason, row)], nearest). 룰 목록과 같은 채점 + 개인 제약.
+    extra_skip(row): 대화에서 말한 조건(분류·브랜드·매운 것…)처럼 호출부가 더하는 제외 규칙."""
     goal = profile.get("goal") if profile.get("goal") in GOALS else "diet"
     limits = {
         "max_calorie": profile.get("max_calorie") or _meal_kcal(profile),
@@ -125,7 +126,7 @@ def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CA
     allergies = _split(profile.get("allergies"))
 
     def skip(row):
-        if row["id"] in history["hidden"]:
+        if row["id"] in history["hidden"] or (extra_skip and extra_skip(row)):
             return True
         # 알레르기 정보가 공개된 메뉴만 판정할 수 있다. 미공개(None)는 걸러내지 않고
         # 프롬프트 표에 "미공개"로 드러내 모델이 알게 한다 -- 전부 빼면 후보가 거의 안 남는다.
@@ -319,8 +320,12 @@ def _schema(labels):
     }
 
 
-def call_llm(prompt, labels) -> dict | None:
-    """{"picks": [{menu, reason}], "comment"} 또는 None(키 없음/실패/거절)."""
+def claude_json(system, messages, schema, what) -> dict | None:
+    """Claude 에 구조화 출력(JSON)으로 물어본다. 키 없음·실패·거절·형식 오류면 None.
+
+    개인 추천(call_llm)과 대화(app/chat/service.py)가 같이 쓴다 -- 호출 설정과 실패 처리가
+    한 곳에 있어야 한쪽만 고쳐져 어긋나는 일이 없다. what 은 로그 구분용.
+    """
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return None
     import anthropic  # 지연 import: 키 없는 환경(로컬·CI)에서 SDK 없이도 앱이 뜬다
@@ -333,23 +338,28 @@ def call_llm(prompt, labels) -> dict | None:
         response = client.messages.create(
             model=MODEL,
             max_tokens=4000,
-            # 후보 15개 중 3개 고르기는 깊은 추론이 필요 없고, 사용자가 화면 앞에서 기다린다.
+            # 후보 표에서 고르고 짧게 답하는 일이라 깊은 추론이 필요 없고, 사용자가 화면 앞에서 기다린다.
             # thinking 은 생략 -- Sonnet 5 는 기본이 adaptive 라 effort 로만 깊이를 조절한다.
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": _schema(labels)}},
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
+            system=system,
+            messages=messages,
         )
     except anthropic.APIError as e:  # 타임아웃·연결·4xx/5xx 전부 -- 어느 쪽이든 룰로 간다
-        print(f"personal reco LLM failed: {type(e).__name__}: {e}")
+        print(f"{what} LLM failed: {type(e).__name__}: {e}")
         return None
     if response.stop_reason != "end_turn":  # refusal / max_tokens -- 본문을 믿을 수 없다
-        print(f"personal reco LLM stop_reason={response.stop_reason}")
+        print(f"{what} LLM stop_reason={response.stop_reason}")
         return None
     try:
         return json.loads(next(b.text for b in response.content if b.type == "text"))
     except (StopIteration, json.JSONDecodeError) as e:
-        print(f"personal reco LLM bad output: {e}")
+        print(f"{what} LLM bad output: {e}")
         return None
+
+
+def call_llm(prompt, labels) -> dict | None:
+    """{"picks": [{menu, reason}], "comment", "new_memories"} 또는 None(키 없음/실패/거절)."""
+    return claude_json(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], _schema(labels), "personal reco")
 
 
 def _input_hash(goal, profile, history, candidates, memories=()) -> str:

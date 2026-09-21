@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import router as auth_router
 from app.menus.router import router as menus_router
 from app.memory.router import router as memory_router
+from app.chat.router import router as chat_router
 from app.profile.router import router as profile_router
 from app.new_menu.router import router as new_menu_router
 from app.recommend.router import router as recommend_router
@@ -48,6 +49,7 @@ for r in (
     auth_router,
     profile_router,
     memory_router,
+    chat_router,
 ):
     app.include_router(r)
 

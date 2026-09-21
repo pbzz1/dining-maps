@@ -5,6 +5,7 @@ import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from ".
 import { useLocalStorage } from "./useLocalStorage";
 import { useProfileSync } from "./profileSync";
 import PersonalPicks from "./PersonalPicks";
+import ChatPanel from "../chat/ChatPanel";
 import { nutritionLine, storeMapUrl } from "./format";
 import { logEvent } from "../auth/api";
 import { IconPin } from "../../components/NavIcons";
@@ -248,7 +249,14 @@ export default function RecommendView({ auth }) {
         </div>
       </details>
 
-      {user && <PersonalPicks pos={pos} refreshKey={picksKey} premium={user.plan === "premium"} />}
+      {user && (
+        <PersonalPicks
+          pos={pos}
+          refreshKey={picksKey}
+          premium={user.plan === "premium"}
+          after={<ChatPanel pos={pos} premium={user.plan === "premium"} />}
+        />
+      )}
 
       {status && <p className="loading">{status}</p>}
 
