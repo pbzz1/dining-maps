@@ -11,49 +11,49 @@
     "meal": {
       "title": "집에서 먹는 날엔",
       "links": [
-        { "label": "닭가슴살 샐러드", "url": "" },
-        { "label": "저당 소스", "url": "" },
-        { "label": "식단 도시락", "url": "" }
+        { "label": "닭가슴살 샐러드", "url": "https://link.coupang.com/a/hdHq19rCEK" },
+        { "label": "저당 소스", "url": "https://link.coupang.com/a/hdHueSs6GO" },
+        { "label": "식단 도시락", "url": "https://link.coupang.com/a/hdHwjLAY1c" }
       ]
     },
     "drink": {
       "title": "당류를 줄이고 싶다면",
       "links": [
-        { "label": "제로 시럽", "url": "" },
-        { "label": "디카페인 원두", "url": "" },
-        { "label": "무가당 두유", "url": "" }
+        { "label": "제로 시럽", "url": "https://link.coupang.com/a/hdHxCTOrIW" },
+        { "label": "디카페인 원두", "url": "https://link.coupang.com/a/hdHzaO6uQu" },
+        { "label": "무가당 두유", "url": "https://link.coupang.com/a/hdHAMzo7J6" }
       ]
     },
     "dessert": {
       "title": "덜 단 간식",
       "links": [
-        { "label": "저당 아이스크림", "url": "" },
-        { "label": "프로틴바", "url": "" },
-        { "label": "그릭요거트", "url": "" }
+        { "label": "저당 아이스크림", "url": "https://link.coupang.com/a/hdHCulfnYO" },
+        { "label": "프로틴바", "url": "https://link.coupang.com/a/hdHDAZCtqe" },
+        { "label": "그릭요거트", "url": "https://link.coupang.com/a/hdHESotIg8" }
       ]
     },
     "diet": {
       "title": "다이어트 식단 챙기기",
       "links": [
-        { "label": "식단 도시락", "url": "" },
-        { "label": "닭가슴살", "url": "" },
-        { "label": "체중계", "url": "" }
+        { "label": "식단 도시락", "url": "https://link.coupang.com/a/hdHwjLAY1c" },
+        { "label": "닭가슴살", "url": "https://link.coupang.com/a/hdHG58tRtY" },
+        { "label": "체중계", "url": "https://link.coupang.com/a/hdHISjFPYO" }
       ]
     },
     "protein": {
       "title": "단백질 채우기",
       "links": [
-        { "label": "프로틴 파우더", "url": "" },
-        { "label": "프로틴 음료", "url": "" },
-        { "label": "닭가슴살", "url": "" }
+        { "label": "프로틴 파우더", "url": "https://link.coupang.com/a/hdHLXTMe0y" },
+        { "label": "프로틴 음료", "url": "https://link.coupang.com/a/hdHNnYm388" },
+        { "label": "닭가슴살", "url": "https://link.coupang.com/a/hdHG58tRtY" }
       ]
     },
     "low_sodium": {
       "title": "나트륨 줄이기",
       "links": [
-        { "label": "저염 간장", "url": "" },
-        { "label": "저염 식단 도시락", "url": "" },
-        { "label": "무염 견과", "url": "" }
+        { "label": "저염 간장", "url": "https://link.coupang.com/a/hdHOW3mjfw" },
+        { "label": "저염 식단 도시락", "url": "https://link.coupang.com/a/hdHQySHnX3" },
+        { "label": "무염 견과", "url": "https://link.coupang.com/a/hdHRUsBX3I" }
       ]
     }
   }
