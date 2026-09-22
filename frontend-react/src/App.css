@@ -1911,3 +1911,98 @@ th.dash-td-hi { color: var(--accent); }
 }
 
 .chat-input { flex: 1; }
+
+/* 떠 있는 "대화로 찾기". 단추는 잉크 면 -- 테라코타는 화면마다 한 곳(Primary)에 양보한다
+   (One Voice Rule). 본문 위에 뜨는 창이라 그림자는 overlay (얹힌 만큼만). */
+.chat-fab {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--card-bg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.chat-fab:hover { background: #3a3630; }
+
+.chat-fab:focus-visible {
+  outline: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 3px var(--accent-soft);
+}
+
+.chat-fab-panel {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  width: min(400px, calc(100vw - 48px));
+  max-height: min(640px, calc(100dvh - 120px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+}
+
+.chat-fab-panel .chat-section { margin-top: 0; }
+.chat-fab-panel .auth-btn { margin: 4px 0 0; }
+
+/* 대화가 길어져도 입력칸은 창 아래에 붙어 있다. */
+.chat-fab-panel .chat-form {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -16px -16px;
+  padding: 12px 16px 16px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+}
+
+.chat-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chat-close:hover { color: var(--text); background: var(--bg); }
+
+.chat-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 떠 있는 단추가 각 뷰의 마지막 줄을 덮지 않게 바닥 여백을 단추 높이만큼 더 둔다. */
+.main-page .view-wrap { padding-bottom: 96px; }
+
+@media (max-width: 760px) {
+  .chat-fab { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  /* 좁은 화면에선 아래에서 올라온 시트처럼 폭을 다 쓴다. */
+  .chat-fab-panel {
+    right: 8px;
+    left: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: calc(100dvh - 88px);
+  }
+  .main-page .view-wrap { padding-bottom: 88px; }
+}

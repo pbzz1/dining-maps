@@ -9,7 +9,8 @@ import { postChat } from "./api";
 const EXAMPLES = ["매운 거 말고 단백질 많은 거", "700kcal 이하 치킨", "맥날 빼고 버거"];
 const HISTORY_SENT = 8; // 서버가 다시 6턴으로 자른다. 여기선 전송량만 줄인다.
 
-export default function ChatPanel({ pos, premium = false }) {
+// onClose: 떠 있는 창(ChatFab)에서 열었을 때 제목 옆에 닫기 단추를 단다.
+export default function ChatPanel({ pos, premium = false, onClose = null }) {
   const [turns, setTurns] = useState([]); // { role, text, items?, source? }
   const [filters, setFilters] = useState(null);
   const [chips, setChips] = useState([]);
@@ -51,6 +52,7 @@ export default function ChatPanel({ pos, premium = false }) {
       <div className="pick-head">
         <h3 id="chat-title" className="pick-title">대화로 찾기</h3>
         <span className="pick-basis">{premium ? "AI 대화" : "조건 검색"}</span>
+        {onClose && <CloseButton onClick={onClose} />}
       </div>
 
       {turns.length === 0 && (
@@ -151,5 +153,13 @@ export default function ChatPanel({ pos, premium = false }) {
       </form>
       {error && <p className="loading">{error}</p>}
     </section>
+  );
+}
+
+export function CloseButton({ onClick }) {
+  return (
+    <button type="button" className="chat-close" onClick={onClick} aria-label="대화 닫기">
+      ×
+    </button>
   );
 }

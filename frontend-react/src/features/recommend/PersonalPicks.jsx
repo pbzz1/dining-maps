@@ -14,9 +14,7 @@ import { nutritionLine, storeMapUrl } from "./format";
 // premium: AI 메모리 패널에서 직접 추가를 열지. 메모리 목록 자체는 요금제와 무관하게 보인다.
 const BASIS = { llm: "AI 추천", ml: "내 기록으로 학습", personal: "내 설정·기록 기반" };
 
-// after: 이 칸 아래, 전체 목록 제목 위에 끼울 요소(대화로 찾기). 목록 제목을 이 컴포넌트가
-// 그리기 때문에 그 사이에 들어갈 자리를 여기서 연다.
-export default function PersonalPicks({ pos, refreshKey, premium = false, after = null }) {
+export default function PersonalPicks({ pos, refreshKey, premium = false }) {
   const [data, setData] = useState(null); // { source, goal, comment, items }
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(() => new Set());
@@ -150,9 +148,8 @@ export default function PersonalPicks({ pos, refreshKey, premium = false, after 
     </section>
     )}
     <MemoryPanel premium={premium} refreshKey={memoryKey} />
-    {after}
     {/* 두 칸이 한 목록처럼 섞여 보이지 않게, 이 칸이 펼쳐졌을 때만 아래 목록에 이름을 붙인다. */}
-    {(showPicks || after) && <h3 className="pick-title rec-list-title">목표 점수 순 전체</h3>}
+    {showPicks && <h3 className="pick-title rec-list-title">목표 점수 순 전체</h3>}
     </>
   );
 }

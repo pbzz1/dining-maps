@@ -69,7 +69,7 @@ test("기록으로 학습한 결과(ml)는 그렇다고 배지로 밝히고 근�
   await expect(s.getByText("최근 저장·클릭 5개 중 4개가 샐러드·샌드위치 메뉴", { exact: false })).toBeVisible();
 });
 
-test("고를 후보가 없으면(rule) 추천 칸만 접고, 대화 칸과 목록은 남는다", async ({ page }) => {
+test("고를 후보가 없으면(rule) 추천 칸을 접고, 목록 제목도 붙이지 않는다", async ({ page }) => {
   await loggedIn(page);
   let served = false;
   await page.route("**/api/recommend/personal*", (r) => {
@@ -79,9 +79,8 @@ test("고를 후보가 없으면(rule) 추천 칸만 접고, 대화 칸과 목�
   await page.goto("/?token=fake-jwt#recommend");
   await expect.poll(() => served).toBe(true);
   await expect(section(page)).toHaveCount(0);
-  // 추천 칸이 접혀도 그 자리에 "대화로 찾기"가 있으니, 대화와 목록이 섞이지 않게 목록 제목은 붙는다
-  await expect(page.getByRole("region", { name: "대화로 찾기" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "목표 점수 순 전체" })).toBeVisible();
+  // 대화는 떠 있는 단추로 옮겼다 -- 섞일 칸이 없으니 목록 제목도 필요 없다
+  await expect(page.getByRole("heading", { name: "목표 점수 순 전체" })).toHaveCount(0);
 });
 
 test("이 메뉴 빼기를 누르면 바로 사라지고, 기록한 뒤 다시 고른다", async ({ page }) => {
