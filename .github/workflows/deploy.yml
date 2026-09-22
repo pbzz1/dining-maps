@@ -2,7 +2,8 @@ name: deploy
 # master push 시 변경된 쪽만 배포. 로컬 deploy.sh와 같은 스크립트를 쓴다.
 # 필요한 Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DATABASE_URL, ALLOWED_ORIGINS, VITE_API_BASE, VITE_KAKAO_JS_KEY
 # 로그인용(선택, 없으면 로그인 기능만 꺼진 채 배포됨): JWT_SECRET, KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI, KAKAO_CLIENT_SECRET, FRONTEND_URL
-# 개인 추천 AI용(선택, 없으면 룰 추천으로 대체): ANTHROPIC_API_KEY
+# 유료 추천·대화 AI용(선택, 없으면 무료 방식으로 대체): ANTHROPIC_API_KEY
+# 결제용(선택, 없으면 결제 버튼만 꺼짐): TOSS_SECRET_KEY, TOSS_CLIENT_KEY (프론트 VITE_TOSS_CLIENT_KEY 는 서버가 내려 주므로 선택)
 # 검색 등록·수익화용(선택): VITE_GOOGLE_SITE_VERIFICATION, VITE_NAVER_SITE_VERIFICATION, VITE_CONTACT_EMAIL, VITE_DONATE_URL, VITE_ADSENSE_CLIENT, VITE_ADSENSE_SLOT
 on:
   push:
@@ -59,7 +60,9 @@ jobs:
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      # app_user 등 API가 쓰는 새 테이블은 크롤 잡을 기다리지 않고 배포 때 만든다.
+          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
+          TOSS_CLIENT_KEY: ${{ secrets.TOSS_CLIENT_KEY }}
+      # app_user·entitlement 등 API가 쓰는 새 테이블은 크롤 잡을 기다리지 않고 배포 때 만든다.
       - run: pip install -q "psycopg[binary]" && python scripts/migrate/apply_schema.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -94,6 +97,7 @@ jobs:
         env:
           VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
           VITE_KAKAO_JS_KEY: ${{ secrets.VITE_KAKAO_JS_KEY }} # 없으면 지도 탭이 빈 화면
+          VITE_TOSS_CLIENT_KEY: ${{ secrets.VITE_TOSS_CLIENT_KEY }} # 선택 -- 서버 TOSS_CLIENT_KEY 가 있으면 불필요
           # 아래는 전부 선택 -- 없으면 해당 요소만 빠진 채 배포된다 (scripts/build-static-pages.mjs 머리말).
           VITE_GOOGLE_SITE_VERIFICATION: ${{ secrets.VITE_GOOGLE_SITE_VERIFICATION }} # 서치콘솔 소유 확인 메타
           VITE_NAVER_SITE_VERIFICATION: ${{ secrets.VITE_NAVER_SITE_VERIFICATION }}   # 네이버 서치어드바이저

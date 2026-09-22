@@ -2,19 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { formatDistance, track } from "../../constants";
 import Skel, { SkelBlock } from "../../components/Skeleton";
 import { logEvent } from "../auth/api";
+import { quotaLine } from "../auth/plan";
 import { fetchPersonalPicks } from "./api";
 import MemoryPanel from "../memory/MemoryPanel";
 import { nutritionLine, storeMapUrl } from "./format";
 
 // 로그인 사용자에게만 뜨는 "오늘 당신에겐" 3개. source 로 누가 골랐는지가 온다:
-//   personal -- 설정·기록 기반 룰 (무료, 기본)   llm -- Claude가 고르고 이유를 씀 (premium)
+//   personal -- 설정·기록 기반 룰 (무료, 기본)   llm -- Claude가 고르고 이유를 씀 (Standard·High 이용권)
 //   ml       -- 위 룰 + 이 사람의 저장·빼기·무시 기록으로 학습한 취향 (무료, 기록이 있을 때만)
 //   rule     -- 후보가 없음. 이땐 칸을 접는다(아래 목록이 "조건에 맞는 메뉴 없음"을 이미 말한다).
 // refreshKey: 프로필 저장이 끝날 때마다 바뀐다. 저장 전에 다시 부르면 옛 설정으로 고른다.
-// premium: AI 메모리 패널에서 직접 추가를 열지. 메모리 목록 자체는 요금제와 무관하게 보인다.
+// paid: 유료 이용권. AI 메모리 패널의 직접 추가를 열고, "이번 기간 AI 남은 양"을 글자로 보여준다.
+// 메모리 목록 자체는 요금제와 무관하게 보인다.
 const BASIS = { llm: "AI 추천", ml: "내 기록으로 학습", personal: "내 설정·기록 기반" };
+// 유료인데 AI 가 고르지 않은 이유(서버 limit_reason). 막힌 걸 숨기지 않고 왜 무료 방식으로 골랐는지 말한다.
+const LIMIT_NOTE = {
+  budget: "이번 기간 AI 사용량을 다 써서 설정·기록으로 골랐어요.",
+  daily: "오늘 AI 호출 횟수를 다 써서 설정·기록으로 골랐어요.",
+  input: "입력이 너무 길어 설정·기록으로 골랐어요.",
+  no_plan: "이용권이 끝나 설정·기록으로 골랐어요.",
+};
 
-export default function PersonalPicks({ pos, refreshKey, premium = false }) {
+export default function PersonalPicks({ pos, refreshKey, paid = false }) {
   const [data, setData] = useState(null); // { source, goal, comment, items }
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(() => new Set());
@@ -86,8 +95,13 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
         <h3 id="pick-title" className="pick-title">오늘 당신에겐</h3>
         {/* 이 칸의 문장을 누가 썼는지가 이 배지의 전제다 -- 강조가 아니라 기준 표시. */}
         {data && <span className="pick-basis">{BASIS[data.source]}</span>}
+        {/* 남은 양은 막대가 아니라 글자로 -- 등급처럼 측정값이지 점수판이 아니다. */}
+        {paid && data?.ai_budget_left_pct != null && <span className="pick-quota">{quotaLine(data.ai_budget_left_pct)}</span>}
         {loading && data && <span className="pick-status">다시 고르는 중…</span>}
+        {/* 무료 사용자에게 유료 기능이 있다는 걸 알리는 유일한 자리. 배지·강조 없이 링크 한 줄. */}
+        {!paid && data && <a className="pick-plans-link" href="#plans">AI가 고르는 추천은 요금제에서</a>}
       </div>
+      {data?.limit_reason && LIMIT_NOTE[data.limit_reason] && <p className="pick-limit">{LIMIT_NOTE[data.limit_reason]}</p>}
       {data?.comment && <p className="pick-comment">{data.comment}</p>}
       {/* 새로 기억한 게 있으면 그 자리에서 말한다 -- 몰래 쌓지 않는다는 게 보여야 한다. */}
       {remembered.length > 0 && <p className="pick-memory">기억해 둘게요: {remembered.join(" · ")}</p>}
@@ -147,7 +161,7 @@ export default function PersonalPicks({ pos, refreshKey, premium = false }) {
       </div>
     </section>
     )}
-    <MemoryPanel premium={premium} refreshKey={memoryKey} />
+    <MemoryPanel premium={paid} refreshKey={memoryKey} />
     {/* 두 칸이 한 목록처럼 섞여 보이지 않게, 이 칸이 펼쳐졌을 때만 아래 목록에 이름을 붙인다. */}
     {showPicks && <h3 className="pick-title rec-list-title">목표 점수 순 전체</h3>}
     </>

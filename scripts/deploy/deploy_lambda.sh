@@ -30,9 +30,9 @@ ROLE_ARN=$(aws iam get-role --role-name $ROLE --query Role.Arn --output text 2>/
 # 3. 함수 생성 또는 갱신
 # 값에 쉼표가 있어 shorthand 대신 JSON으로 넘긴다
 # 아래 변수는 전부 선택이다. 로그인 키가 없으면 /api/auth/status 가 enabled:false 를 주고
-# 로그인 버튼이 숨고, ANTHROPIC_API_KEY 가 없으면 개인 추천이 룰 상위 3개로 대체된다.
-# 어느 쪽이든 나머지 기능은 그대로 동작한다.
-OPTIONAL_KEYS="JWT_SECRET KAKAO_REST_API_KEY KAKAO_REDIRECT_URI KAKAO_CLIENT_SECRET FRONTEND_URL ANTHROPIC_API_KEY"
+# 로그인 버튼이 숨고, ANTHROPIC_API_KEY 가 없으면 유료 추천·대화가 무료 방식으로 대체되고, TOSS_* 가 없으면
+# 결제만 꺼진다(이용권은 scripts/billing/grant_entitlement.py 로 수동 발급). 어느 쪽이든 나머지 기능은 그대로 동작한다.
+OPTIONAL_KEYS="JWT_SECRET KAKAO_REST_API_KEY KAKAO_REDIRECT_URI KAKAO_CLIENT_SECRET FRONTEND_URL ANTHROPIC_API_KEY TOSS_SECRET_KEY TOSS_CLIENT_KEY"
 ENV=$(OPTIONAL_KEYS="$OPTIONAL_KEYS" python -c 'import json,os; ks=("DATABASE_URL","ALLOWED_ORIGINS")+tuple(os.environ["OPTIONAL_KEYS"].split()); print(json.dumps({"Variables": {k: os.environ[k] for k in ks if os.environ.get(k)}}))')
 if aws lambda get-function --function-name $FN --region $REGION >/dev/null 2>&1; then
   aws lambda update-function-code --function-name $FN --region $REGION --zip-file fileb://build/lambda.zip >/dev/null

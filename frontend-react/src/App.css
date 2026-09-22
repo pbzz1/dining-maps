@@ -2133,3 +2133,32 @@ th.dash-td-hi { color: var(--accent); }
   }
   .main-page .view-wrap { padding-bottom: 88px; }
 }
+
+/* ---- 요금제 (features/billing/PlansView.jsx) ----
+   표 하나와 문장 몇 줄. 판촉 배지·강조색 없음 -- 파는 곳이 아니라 재는 곳이라는 톤을 유지한다. */
+.plans-table { min-width: 34rem; margin-top: 12px; }
+.plans-table th[scope="row"] { color: var(--text); font-weight: 500; white-space: nowrap; }
+.plans-table td { text-align: left; vertical-align: middle; white-space: normal; }
+.plans-table thead th { text-align: left; }
+.plans-status { margin: 12px 0 0; font-size: 14px; }
+.plans-status b { font-weight: 600; }
+.plans-done { margin: 12px 0 0; font-size: 14px; color: var(--text); }
+.plans-buy { white-space: nowrap; }
+
+/* 남은 AI 양·상한 안내: 기준 배지 옆의 캡션. 막대·링 없이 글자만. */
+.pick-quota {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pick-limit { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.pick-plans-link {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+.pick-plans-link:hover { color: var(--text); }

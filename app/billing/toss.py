@@ -5,7 +5,8 @@ app/auth/kakao.py 와 같이 stdlib urllib 만 쓴다 -- Lambda 번들에 HTTP �
 환경변수:
     TOSS_SECRET_KEY  -- 시크릿 키. 테스트 키(test_sk_...)면 실제 결제 없이 끝까지 돈다.
                         없으면 결제 API 전체가 503 이고 프론트는 요금제 페이지에서 결제 버튼을 비활성화한다.
-프론트의 클라이언트 키(VITE_TOSS_CLIENT_KEY)와 같은 상점의 짝이어야 한다.
+    TOSS_CLIENT_KEY  -- 클라이언트 키(공개). /api/billing/me 가 프론트에 내려 준다. 프론트 빌드 변수
+                        VITE_TOSS_CLIENT_KEY 로 줘도 되지만, 같은 상점의 짝이어야 하니 한 곳(여기)에 두는 게 안전하다.
 
 테스트는 transport 를 바꿔 끼운다 -- 실제 네트워크 없이 승인 성공·실패·중복을 흉내 낸다.
 """

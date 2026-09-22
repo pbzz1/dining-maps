@@ -76,8 +76,22 @@ export const brandReco = {
 
 export const authStatusOff = { enabled: false, provider: "kakao" };
 export const authStatusOn = { enabled: true, provider: "kakao" };
-export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z", plan: "free" };
-export const mePremium = { ...me, plan: "premium" };
+export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z", plan: "free", plan_ends_at: null, ai_budget_left_pct: null };
+// 유료 이용권(High). 예전 이름 mePremium 은 기존 스펙이 그대로 쓴다.
+export const mePaid = { ...me, plan: "high", plan_ends_at: "2026-02-01T00:00:00Z", ai_budget_left_pct: 63 };
+export const mePremium = mePaid;
+// /api/billing/plans (app/billing/schemas.py PlanOut) -- 가격·모델은 서버 설정이 정본
+export const plans = [
+  { key: "standard", label: "Standard", price_krw: 3900, model: "claude-haiku-4-5", daily_limit: 15 },
+  { key: "high", label: "High", price_krw: 9900, model: "claude-sonnet-5", daily_limit: 30 },
+];
+// /api/billing/me (BillingMeOut)
+export const billingFree = { plan: "free", plan_ends_at: null, ai_budget_left_pct: null, daily_limit: null, used_today: null, payments_enabled: true, client_key: "test_ck_e2e" };
+export const billingPaid = { plan: "high", plan_ends_at: "2026-02-01T00:00:00Z", ai_budget_left_pct: 63, daily_limit: 30, used_today: 4, payments_enabled: true, client_key: "test_ck_e2e" };
+// /api/billing/checkout (CheckoutOut)
+export const checkoutOrder = { order_id: "dm_test_order_1", order_name: "Dining Maps Standard 30일", amount: 3900, plan: "standard", customer_key: "dm_abcdef0123456789abcdef0123456789" };
+// /api/billing/confirm (EntitlementOut)
+export const entitlement = { plan: "standard", starts_at: "2026-01-10T00:00:00Z", ends_at: "2026-02-09T00:00:00Z", ai_budget_left_pct: 100 };
 // /api/memory (app/memory/schemas.py MemoryOut)
 export const memoryList = [
   { id: 1, fact: "매운 양념 메뉴는 자주 뺀다", source: "ai", created_at: "2026-01-02T00:00:00Z" },
@@ -102,6 +116,9 @@ export const personalReco = {
   memory_added: [],
   impression_id: 501,
   variant: "ml",
+  plan: "high",
+  limit_reason: null,
+  ai_budget_left_pct: 63,
   items: [
     pick(11, "치킨 샐러드", "단백질 28g에 320kcal라 한 끼 상한 안에서 포만감이 큽니다."),
     pick(12, "연어 샐러드", "나트륨 500mg으로 오늘 목표에 맞습니다."),
@@ -124,6 +141,9 @@ export const chatReply = (over = {}) => ({
   items: personalReco.items,
   memory_added: [],
   limit_reached: false,
+  limit_reason: null,
+  plan: "free",
+  ai_budget_left_pct: null,
   ...over,
 });
 
@@ -195,6 +215,8 @@ export async function mockApi(page) {
   await page.route("**/api/recommend/goals", (r) => r.fulfill({ json: goals }));
   await page.route("**/api/memory", (r) => r.fulfill({ json: [] }));
   await page.route("**/api/chat", (r) => r.fulfill({ json: chatReply() }));
+  await page.route("**/api/billing/plans", (r) => r.fulfill({ json: plans }));
+  await page.route("**/api/billing/me", (r) => r.fulfill({ json: billingFree }));
   await page.route("**/api/restaurants", (r) => r.fulfill({ json: restaurants }));
   await page.route("**/api/restaurants/1/stats", (r) => r.fulfill({ json: stats }));
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));

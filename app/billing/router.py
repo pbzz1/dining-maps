@@ -49,7 +49,10 @@ def list_plans():
 def billing_me(user: dict = Depends(current_user)):
     conn = get_connection()
     try:
-        return BillingMeOut(**budget.status(conn, user["id"]), payments_enabled=toss.is_configured())
+        return BillingMeOut(
+            **budget.status(conn, user["id"]), payments_enabled=toss.is_configured(),
+            client_key=os.environ.get("TOSS_CLIENT_KEY") or None,
+        )
     finally:
         conn.close()
 

@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { formatDistance, track } from "../../constants";
 import { logEvent } from "../auth/api";
+import { quotaLine } from "../auth/plan";
 import { nutritionLine, storeMapUrl } from "../recommend/format";
 import { postChat } from "./api";
 
-// "대화로 찾기". 무료는 조건 검색(문장 -> 조건, LLM 없음), premium 은 AI 대화.
+// "대화로 찾기". 무료는 조건 검색(문장 -> 조건, LLM 없음), 유료 이용권(Standard·High)은 AI 대화.
 // 대화와 조건은 이 컴포넌트가 들고 있고 서버는 저장하지 않는다 -- 새로고침하면 처음부터다.
 const EXAMPLES = ["매운 거 말고 단백질 많은 거", "700kcal 이하 치킨", "맥날 빼고 버거"];
 const HISTORY_SENT = 8; // 서버가 다시 6턴으로 자른다. 여기선 전송량만 줄인다.
 
 // onClose: 떠 있는 창(ChatFab)에서 열었을 때 제목 옆에 닫기 단추를 단다.
-export default function ChatPanel({ pos, premium = false, onClose = null }) {
+export default function ChatPanel({ pos, paid = false, onClose = null }) {
   const [turns, setTurns] = useState([]); // { role, text, items?, source? }
+  const [quota, setQuota] = useState(null); // 서버가 매 답에 실어 주는 남은 AI 예산 %(유료만)
   const [filters, setFilters] = useState(null);
   const [chips, setChips] = useState([]);
   const [draft, setDraft] = useState("");
@@ -36,6 +38,7 @@ export default function ChatPanel({ pos, premium = false, onClose = null }) {
       });
       setFilters(res.filters);
       setChips(res.chips);
+      if (res.ai_budget_left_pct != null) setQuota(res.ai_budget_left_pct);
       setTurns((t) => [...t, { role: "assistant", text: res.reply, items: res.items, source: res.source }]);
       track("chat_turn", { source: res.source, understood: res.understood, removed: !!remove });
       setDraft("");
@@ -51,16 +54,17 @@ export default function ChatPanel({ pos, premium = false, onClose = null }) {
     <section className="chat-section" aria-labelledby="chat-title">
       <div className="pick-head">
         <h3 id="chat-title" className="pick-title">대화로 찾기</h3>
-        <span className="pick-basis">{premium ? "AI 대화" : "조건 검색"}</span>
+        <span className="pick-basis">{paid ? "AI 대화" : "조건 검색"}</span>
+        {paid && quota != null && <span className="pick-quota">{quotaLine(quota)}</span>}
         {onClose && <CloseButton onClick={onClose} />}
       </div>
 
       {turns.length === 0 && (
         <div className="chat-examples">
           <p className="rec-note">
-            {premium
+            {paid
               ? "먹고 싶은 걸 편하게 말해 보세요. 설정과 기억을 참고해 골라 드립니다."
-              : "찾는 조건을 말로 적어 보세요. 이런 말을 알아듣습니다."}
+              : <>찾는 조건을 말로 적어 보세요. 이런 말을 알아듣습니다. 자유로운 대화는 <a href="#plans" onClick={onClose ?? undefined}>요금제</a>에서.</>}
           </p>
           {EXAMPLES.map((e) => (
             <button key={e} type="button" className="pick-btn" onClick={() => send({ message: e })} disabled={busy}>
@@ -142,7 +146,7 @@ export default function ChatPanel({ pos, premium = false, onClose = null }) {
           <input
             type="text"
             maxLength={300}
-            placeholder={premium ? "예: 어제 과식해서 오늘은 가볍게" : "예: 700kcal 이하 치킨"}
+            placeholder={paid ? "예: 어제 과식해서 오늘은 가볍게" : "예: 700kcal 이하 치킨"}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />

@@ -44,4 +44,7 @@ class BillingMeOut(BaseModel):
     ai_budget_left_pct: int | None     # 이번 이용권의 남은 AI 예산 비율. 무료면 None
     daily_limit: int | None
     used_today: int | None
-    payments_enabled: bool             # 서버에 토스 키가 있는지 -- 없으면 결제 버튼을 비활성화한다
+    payments_enabled: bool             # 서버에 토스 시크릿 키가 있는지 -- 없으면 결제 버튼을 비활성화한다
+    # 토스 클라이언트 키(공개 키, 결제창을 여는 데만 쓴다). 서버 TOSS_CLIENT_KEY 를 그대로 내려 주면
+    # 프론트 빌드 변수(VITE_TOSS_CLIENT_KEY) 없이도 키 짝을 한 곳(백엔드 환경변수)에서 맞출 수 있다.
+    client_key: str | None = None

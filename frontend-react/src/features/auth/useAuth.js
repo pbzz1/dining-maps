@@ -49,5 +49,11 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, enabled, loading, error, logout };
+  // 결제가 끝나면 요금제(plan)가 바뀐다 -- 새로고침 없이 상단바·추천·대화가 새 요금제를 보게 다시 읽는다.
+  const refresh = useCallback(() => {
+    if (!getToken()) return Promise.resolve();
+    return fetchMe().then(setUser).catch(() => {});
+  }, []);
+
+  return { user, enabled, loading, error, logout, refresh };
 }

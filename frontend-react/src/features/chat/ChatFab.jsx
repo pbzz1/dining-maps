@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { track } from "../../constants";
 import { startLogin } from "../auth/api";
+import { isPaid } from "../auth/plan";
 import ChatPanel, { CloseButton } from "./ChatPanel";
 
 // "대화로 찾기"를 어느 탭에서든 여는 떠 있는 단추. 맞춤 추천 탭 안에 묻혀 있으면
@@ -45,7 +46,7 @@ export default function ChatFab({ auth, hidden = false }) {
 
   if (!enabled || loading) return null;
 
-  const premium = user?.plan === "premium";
+  const paid = isPaid(user);
   return (
     <div className="chat-fab-root" style={hidden ? { display: "none" } : undefined}>
       {opened && (
@@ -58,7 +59,7 @@ export default function ChatFab({ auth, hidden = false }) {
         >
           {user ? (
             // 계정이 바뀌면 이전 사람의 대화를 이어 보여주지 않는다.
-            <ChatPanel key={user.id} pos={pos} premium={premium} onClose={close} />
+            <ChatPanel key={user.id} pos={pos} paid={paid} onClose={close} />
           ) : (
             <section className="chat-section" aria-labelledby="chat-title">
               <div className="pick-head">
