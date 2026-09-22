@@ -8,3 +8,5 @@ lxml
 Pillow
 mangum
 pyjwt
+python-dotenv
+anthropic

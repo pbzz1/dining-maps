@@ -8,6 +8,7 @@ class MeOut(BaseModel):
     provider: str
     nickname: str | None
     created_at: datetime
+    plan: str = "free"  # free | premium -- 프론트가 유료 기능 안내를 띄울지 정한다
 
 
 class AuthStatusOut(BaseModel):

@@ -380,6 +380,7 @@ main {
   display: flex;
   min-height: 0;
   position: relative; /* 지도 위 범례 오버레이 기준 */
+  padding-bottom: 16px; /* 지도·목록이 화면 바닥에 딱 붙지 않게 */
 }
 
 #map-container {
@@ -1780,4 +1781,355 @@ th.dash-td-hi { color: var(--accent); }
 @media (max-width: 640px) {
   .auth-btn { padding: 6px 10px; font-size: 12px; }
   .auth-btn-state { display: none; }
+}
+
+/* ---- 맞춤 추천: "오늘 당신에겐" (로그인 사용자 전용) ---- */
+.pick-section {
+  margin-top: 20px;
+}
+
+.pick-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pick-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 목록 위 제목은 카드 섹션과 간격을 둬서 두 덩어리로 읽히게. */
+.rec-list-title {
+  margin-top: 28px;
+}
+
+/* "AI 추천" / "목표 점수 상위" -- 아래 문장을 누가 썼는지 밝히는 기준 배지.
+   강조가 아니라 전제 표시라 테라코타를 쓰지 않는다 (DESIGN.md 기준 배지, .mx-basis 와 같은 모양). */
+.pick-basis {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pick-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pick-comment {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.pick-reason {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.pick-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+/* Secondary 버튼 언어: 흰 면 + 괘선 + 잉크 글자, 호버는 종이색으로 가라앉기만. */
+.pick-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pick-btn:hover { background: var(--bg); }
+
+.pick-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 저장은 켜고 끄는 상태라 눌린 모습이 보여야 한다 -- 색 대신 잉크 면으로 (세그먼트 컨트롤과 같은 논리). */
+.pick-btn[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--card-bg);
+  cursor: default;
+}
+
+/* ---- AI 메모리 ---- */
+/* 새로 기억한 알림은 조언(comment)보다 한 단계 낮게 -- 알려야 하지만 추천을 가리면 안 된다. */
+.pick-memory {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mem-panel {
+  margin-top: 12px;
+}
+
+.mem-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.mem-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mem-item:last-child { border-bottom: none; }
+
+.mem-fact {
+  flex: 1;
+  font-size: 14px;
+  word-break: keep-all;
+}
+
+/* 누가 적었는지는 전제 표시라 기준 배지 모양 (.pick-basis 와 같다). */
+.mem-source {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mem-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.mem-add-field { flex: 1; }
+
+.pick-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* 제휴 링크·광고 블록 -- 추천 결과 아래에만 놓인다. 본문보다 눈에 띄면 안 되므로 테두리만 두고 면은 칠하지 않는다. */
+.aff-block {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.aff-block strong { display: block; margin-bottom: 6px; }
+.aff-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.aff-block small,
+.ad-slot small { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.ad-slot { margin-top: 20px; }
+
+/* ---- 대화로 찾기 ---- */
+/* 말풍선 색을 칠하지 않는다 -- 테라코타는 "지금 여기"에만(One Voice Rule), 등급색은 등급에만.
+   내 말은 종이색 면, 답은 흰 면으로만 가른다. */
+.chat-section { margin-top: 20px; }
+
+.chat-examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.chat-examples .rec-note { flex-basis: 100%; margin: 0 0 2px; }
+
+.chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-turn {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+}
+
+.chat-user { background: var(--bg); }
+
+.chat-who {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.chat-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.chat-pending { color: var(--muted); font-size: 13px; }
+
+.chat-items { margin-top: 10px; }
+
+/* 지금 걸린 조건. 필터 탭 칩 언어(흰 면 + 괘선 + 알약)에 지우기 단추만 더했다. */
+.chat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-chip-x {
+  border: none;
+  background: none;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.chat-chip-x:hover { color: var(--text); background: var(--bg); }
+
+.chat-chip-x:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+
+.chat-input { flex: 1; }
+
+/* 떠 있는 "대화로 찾기". 단추는 잉크 면 -- 테라코타는 화면마다 한 곳(Primary)에 양보한다
+   (One Voice Rule). 본문 위에 뜨는 창이라 그림자는 overlay (얹힌 만큼만). */
+.chat-fab {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--card-bg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+}
+
+.chat-fab:hover { background: #3a3630; }
+
+.chat-fab:focus-visible {
+  outline: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 0 3px var(--accent-soft);
+}
+
+.chat-fab-panel {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  width: min(400px, calc(100vw - 48px));
+  max-height: min(640px, calc(100dvh - 120px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+}
+
+.chat-fab-panel .chat-section { margin-top: 0; }
+.chat-fab-panel .auth-btn { margin: 4px 0 0; }
+
+/* 대화가 길어져도 입력칸은 창 아래에 붙어 있다. */
+.chat-fab-panel .chat-form {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -16px -16px;
+  padding: 12px 16px 16px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border);
+}
+
+.chat-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.chat-close:hover { color: var(--text); background: var(--bg); }
+
+.chat-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* 떠 있는 단추가 각 뷰의 마지막 줄을 덮지 않게 바닥 여백을 단추 높이만큼 더 둔다. */
+.main-page .view-wrap { padding-bottom: 96px; }
+
+@media (max-width: 760px) {
+  .chat-fab { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  /* 좁은 화면에선 아래에서 올라온 시트처럼 폭을 다 쓴다. */
+  .chat-fab-panel {
+    right: 8px;
+    left: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: calc(100dvh - 88px);
+  }
+  .main-page .view-wrap { padding-bottom: 88px; }
 }

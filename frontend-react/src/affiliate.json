@@ -1,0 +1,60 @@
+{
+  "_readme": [
+    "쿠팡 파트너스 제휴 링크 설정. 정적 SEO 페이지(scripts/build-static-pages.mjs)와 React 앱(components/AffiliateBlock.jsx)이 같이 읽는다.",
+    "url 이 빈 문자열인 링크는 렌더링되지 않고, 한 슬롯의 링크가 전부 비면 블록 자체가 안 나온다 -- 즉 이 파일을 채우기 전에는 화면에 아무 변화가 없다.",
+    "url 채우는 법: partners.coupang.com -> 링크 생성 -> '검색 결과 페이지' 또는 상품 링크 -> 단축 URL(https://link.coupang.com/a/...)을 복사해 붙인다.",
+    "Open API 로 자동 생성하지 않는 이유: API 키는 최종 승인(누적 판매 15만원) 뒤에만 발급되고 검색 API는 시간당 10회 제한이라, 신규 계정이 매일 도는 빌드에서 쓸 수 없다.",
+    "메뉴 영양 맥락과 무관한 상품은 넣지 않는다 (PRODUCT.md 원칙 2·3)."
+  ],
+  "disclosure": "이 페이지는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.",
+  "slots": {
+    "meal": {
+      "title": "집에서 먹는 날엔",
+      "links": [
+        { "label": "닭가슴살 샐러드", "url": "https://link.coupang.com/a/hdHq19rCEK" },
+        { "label": "저당 소스", "url": "https://link.coupang.com/a/hdHueSs6GO" },
+        { "label": "식단 도시락", "url": "https://link.coupang.com/a/hdHwjLAY1c" }
+      ]
+    },
+    "drink": {
+      "title": "당류를 줄이고 싶다면",
+      "links": [
+        { "label": "제로 시럽", "url": "https://link.coupang.com/a/hdHxCTOrIW" },
+        { "label": "디카페인 원두", "url": "https://link.coupang.com/a/hdHzaO6uQu" },
+        { "label": "무가당 두유", "url": "https://link.coupang.com/a/hdHAMzo7J6" }
+      ]
+    },
+    "dessert": {
+      "title": "덜 단 간식",
+      "links": [
+        { "label": "저당 아이스크림", "url": "https://link.coupang.com/a/hdHCulfnYO" },
+        { "label": "프로틴바", "url": "https://link.coupang.com/a/hdHDAZCtqe" },
+        { "label": "그릭요거트", "url": "https://link.coupang.com/a/hdHESotIg8" }
+      ]
+    },
+    "diet": {
+      "title": "다이어트 식단 챙기기",
+      "links": [
+        { "label": "식단 도시락", "url": "https://link.coupang.com/a/hdHwjLAY1c" },
+        { "label": "닭가슴살", "url": "https://link.coupang.com/a/hdHG58tRtY" },
+        { "label": "체중계", "url": "https://link.coupang.com/a/hdHISjFPYO" }
+      ]
+    },
+    "protein": {
+      "title": "단백질 채우기",
+      "links": [
+        { "label": "프로틴 파우더", "url": "https://link.coupang.com/a/hdHLXTMe0y" },
+        { "label": "프로틴 음료", "url": "https://link.coupang.com/a/hdHNnYm388" },
+        { "label": "닭가슴살", "url": "https://link.coupang.com/a/hdHG58tRtY" }
+      ]
+    },
+    "low_sodium": {
+      "title": "나트륨 줄이기",
+      "links": [
+        { "label": "저염 간장", "url": "https://link.coupang.com/a/hdHOW3mjfw" },
+        { "label": "저염 식단 도시락", "url": "https://link.coupang.com/a/hdHQySHnX3" },
+        { "label": "무염 견과", "url": "https://link.coupang.com/a/hdHRUsBX3I" }
+      ]
+    }
+  }
+}

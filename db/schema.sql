@@ -147,6 +147,15 @@ ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS total_weight_g DOUBLE PRECISION;
 -- 임베드할 수 있다. NULL이면 프론트가 검색 링크로 대체.
 ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS youtube_video_id TEXT;
 
+-- 메뉴 수명 주기. menu_item은 UPSERT만 하고 지우지 않아서, 브랜드가 조용히 내린 메뉴가
+-- 추천·신메뉴에 계속 남는다. load_data.py가 적재할 때마다 last_seen_at을 찍고
+-- (store.last_seen_at과 같은 방식), 일정 기간 안 보이면 is_active를 내린다.
+-- first_seen_at에 DEFAULT가 없는 건 의도다 -- now()를 주면 이 컬럼이 생기기 전부터 있던
+-- 메뉴 전부에 마이그레이션 시각이 찍힌다. NULL = "언제 처음 봤는지 모른다".
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ;
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+ALTER TABLE menu_item ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
 -- 신메뉴 LLM 리뷰 캐시 (scripts/llm/generate_new_menu_reviews.py).
 -- "신메뉴"의 원천은 menu_change_log(change_type='added') -- 별도 감지 로직 없음.
 -- brand_menu_reco와 같은 이유로 menu_item_id FK 저장: 환각 방지 + 표시용
@@ -254,6 +263,11 @@ CREATE TABLE IF NOT EXISTS app_user (
     UNIQUE (provider, provider_uid)
 );
 
+-- 요금제. 'free' | 'premium'. premium 만 개인 추천에 LLM을 쓴다(app/recommend/personal.py) --
+-- LLM은 호출마다 과금되므로 사용자 수에 비례해 비용이 늘지 않게 결제한 사용자로 묶는다.
+-- 결제 연동 전까지는 운영자가 직접 UPDATE 해서 켠다.
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+
 -- 기존 localStorage 3개 키(recommend.prefs / .pos / .profile)의 서버 사본.
 -- 컬럼명은 프론트 필드명이 아니라 API 쿼리 파라미터명(max_calorie 등)에 맞췄다 --
 -- 추천 호출에 그대로 실려 가는 값이라 중간 변환을 한 군데(라우터)로 몰기 위해서다.
@@ -285,3 +299,65 @@ CREATE TABLE IF NOT EXISTS user_event (
 
 -- 개인화 조회는 항상 "이 사용자의 최근 N건"이라 (user_id, created_at DESC) 복합.
 CREATE INDEX IF NOT EXISTS idx_user_event_user ON user_event(user_id, created_at DESC);
+
+-- 개인 추천(LLM) 결과 캐시. 사용자당 한 행 -- 최신 입력만 의미가 있어서 덮어쓴다.
+-- input_hash 는 프로필 + 후보 메뉴 id + 숨긴 메뉴 등 프롬프트를 결정하는 값 전부의 해시라,
+-- 설정을 바꾸거나 메뉴를 숨기면 해시가 달라져 자연히 다시 생성된다. 같은 입력이면
+-- 1시간 동안 재사용한다(app/recommend/personal.py) -- 탭을 오갈 때마다 수 초씩 기다리고
+-- 매번 과금되는 걸 막는다.
+CREATE TABLE IF NOT EXISTS llm_reco_cache (
+    user_id    INTEGER PRIMARY KEY REFERENCES app_user(id) ON DELETE CASCADE,
+    input_hash TEXT NOT NULL,
+    payload    JSONB NOT NULL,
+    model      TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- AI 메모리: premium 추천이 사용자 행동에서 알아낸 지속적인 취향 한 줄씩(예: "매운 메뉴는 자주 뺀다").
+-- 추천 프롬프트에 다시 들어가 "기억"이 된다. 사용자는 목록을 보고 지우거나 직접 적을 수 있다 --
+-- 신체정보를 다루는 서비스에서 AI가 무엇을 믿고 있는지 사용자가 못 보면 안 된다.
+-- source: 'ai'(추천 호출이 추출) | 'user'(사용자가 직접 입력). 같은 사실은 한 번만 (UNIQUE).
+CREATE TABLE IF NOT EXISTS user_memory (
+    id         INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id    INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    fact       TEXT NOT NULL,
+    source     TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, fact)
+);
+
+-- 추천 노출 기록: "보여줬는데 반응 없음"이라는 부정 신호의 원천. 이게 없으면 학습형 추천
+-- (app/recommend/taste.py)은 누른 것만 알고 안 누른 걸 몰라서, 보여줄수록 한 브랜드에 갇힌다.
+-- 한 번 그린 카드 묶음 = 한 행(메뉴 id 배열, 순서 = 화면 위치). 서버가 추천을 만들 때 남기고,
+-- 같은 사용자에게 같은 묶음이 30분 안에 다시 나오면 새로 쓰지 않는다(새로고침이 가짜 무반응을
+-- 만들지 않게). variant 는 효과 측정용 비교군('control' = 기존 규칙, 'ml' = 학습형).
+CREATE TABLE IF NOT EXISTS reco_impression (
+    id            BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id       INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    surface       TEXT NOT NULL,   -- personal_picks
+    source        TEXT NOT NULL,   -- personal / ml / llm / rule (PersonalRecoOut.source)
+    variant       TEXT NOT NULL,   -- control / ml
+    model_version TEXT,
+    menu_item_ids INTEGER[] NOT NULL,
+    scores        REAL[],
+    explore       BOOLEAN[],
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_reco_impression_user ON reco_impression(user_id, created_at DESC);
+
+-- 이벤트가 어느 노출의 몇 번째 카드에서 나왔는지. 노출과 이어져야 "보여준 3개 중 이걸 골랐다"를
+-- 학습할 수 있다. 예전 이벤트와 목록 클릭은 NULL.
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS impression_id BIGINT;
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS surface TEXT;
+ALTER TABLE user_event ADD COLUMN IF NOT EXISTS position SMALLINT;
+
+-- 사용자·날짜·용도별 LLM 호출 횟수. premium AI 대화의 하루 상한을 세는 데만 쓴다 --
+-- 구독료 안에서 한 사람이 쓸 수 있는 비용을 고정하려는 것. 대화 내용은 저장하지 않는다.
+-- day 는 한국 날짜(Asia/Seoul) 기준으로 넣는다 -- UTC 로 자르면 오전 9시에 한도가 풀린다.
+CREATE TABLE IF NOT EXISTS llm_usage (
+    user_id INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    day     DATE NOT NULL,
+    kind    TEXT NOT NULL,   -- chat
+    count   INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day, kind)
+);

@@ -206,9 +206,11 @@ def load_file(conn, config):
             menu_item_id = conn.execute(
                 """INSERT INTO menu_item
                        (restaurant_id, name, category, category_group, price_krw, weight_g,
-                        allergy_info, origin_info, data_source, nutrition_basis, total_weight_g)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        allergy_info, origin_info, data_source, nutrition_basis, total_weight_g,
+                        first_seen_at, last_seen_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
                    ON CONFLICT (restaurant_id, name) DO UPDATE SET
+                       last_seen_at=now(),
                        category=excluded.category, category_group=excluded.category_group,
                        price_krw=excluded.price_krw,
                        weight_g=excluded.weight_g, allergy_info=excluded.allergy_info,

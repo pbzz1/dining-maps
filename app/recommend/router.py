@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.auth.deps import current_user
 from app.db import get_connection
-from app.geo import haversine_m
-from app.recommend.goals import GOALS, is_drink, score_item
-from app.recommend.schemas import GoalOut, NearestStoreOut, RecommendedMenuOut
+from app.recommend.goals import GOALS
+from app.recommend.personal import personal_reco
+from app.recommend.ranking import diversify, fetch_menus, nearest_stores, rank, to_out
+from app.recommend.schemas import GoalOut, PersonalRecoOut, RecommendedMenuOut
 
 router = APIRouter(prefix="/api/recommend", tags=["recommend"])
 
@@ -24,78 +26,32 @@ def recommend_menus(
     lng: float | None = None,
     radius_m: int = 3000,
     limit: int = 20,
+    per_brand: int = Query(4, ge=1, le=50),
 ):
     """goal 기준 상위 메뉴. lat/lng 를 주면 각 메뉴 브랜드의 반경 내 가장 가까운 매장을 붙인다.
-    매장 데이터는 브랜드 단위 메뉴와 동일하다고 가정한다 (지점별 메뉴 차이는 무시)."""
+    매장 데이터는 브랜드 단위 메뉴와 동일하다고 가정한다 (지점별 메뉴 차이는 무시).
+    per_brand: 한 브랜드가 목록을 독점하지 않게 하는 상한 (정적 랭킹 페이지의 BEST_PER_BRAND 와 같은 값)."""
     if goal not in GOALS:
         raise HTTPException(status_code=400, detail=f"goal must be one of {list(GOALS)}")
     limits = {"max_calorie": max_calorie, "max_sodium": max_sodium, "max_sugar": max_sugar}
 
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT mi.id, mi.name, mi.category, mi.restaurant_id, r.name AS restaurant_name,
-                  ds.score AS diet_score,
-                  json_object_agg(nf.nutrient_name, nf.value) AS nutrients
-           FROM menu_item mi
-           JOIN restaurant r ON r.id = mi.restaurant_id
-           JOIN nutrition_fact nf ON nf.menu_item_id = mi.id
-           LEFT JOIN diet_score ds ON ds.menu_item_id = mi.id
-           GROUP BY mi.id, r.name, ds.score"""
-    ).fetchall()
+    try:
+        top = diversify(rank(fetch_menus(conn), goal, limits, exclude_drinks), per_brand, limit)
+        # 근처 매장: 상위 메뉴의 브랜드만 조회해서 브랜드별 최단 거리 1곳.
+        nearest = nearest_stores(conn, {t[2]["restaurant_id"] for t in top}, lat, lng, radius_m)
+    finally:
+        conn.close()
+    return [to_out(score, reason, row, nearest) for score, reason, row in top]
 
-    scored = []
-    for row in rows:
-        drink = is_drink(row["category"], row["name"])
-        if exclude_drinks and drink:
-            continue
-        hit = score_item(goal, row["nutrients"], row["diet_score"], limits, drink=drink)
-        if hit:
-            scored.append((hit[0], hit[1], row))
-    scored.sort(key=lambda t: t[0], reverse=True)
-    top = scored[:limit]
 
-    # 근처 매장: 상위 메뉴의 브랜드만 조회해서 브랜드별 최단 거리 1곳.
-    nearest = {}
-    if lat is not None and lng is not None and top:
-        ids = list({t[2]["restaurant_id"] for t in top})
-        stores = conn.execute(
-            "SELECT id, restaurant_id, branch_name, address, lat, lng FROM store WHERE restaurant_id = ANY(%s)",
-            (ids,),
-        ).fetchall()
-        for s in stores:
-            d = haversine_m(lat, lng, s["lat"], s["lng"])
-            if d <= radius_m and (s["restaurant_id"] not in nearest or d < nearest[s["restaurant_id"]][0]):
-                nearest[s["restaurant_id"]] = (d, s)
-    conn.close()
-
-    out = []
-    for score, reason, row in top:
-        n = row["nutrients"]
-        ns = nearest.get(row["restaurant_id"])
-        out.append(
-            RecommendedMenuOut(
-                menu_item_id=row["id"],
-                name=row["name"],
-                category=row["category"],
-                restaurant_id=row["restaurant_id"],
-                restaurant_name=row["restaurant_name"],
-                calorie=n.get("calorie"),
-                protein=n.get("protein"),
-                sodium=n.get("sodium"),
-                sugar=n.get("sugar"),
-                saturated_fat=n.get("saturated_fat"),
-                goal_score=round(score, 2),
-                reason=reason,
-                nearest_store=NearestStoreOut(
-                    id=ns[1]["id"],
-                    branch_name=ns[1]["branch_name"],
-                    address=ns[1]["address"],
-                    lat=ns[1]["lat"],
-                    lng=ns[1]["lng"],
-                    distance_m=round(ns[0], 1),
-                )
-                if ns
-                else None,
-            )
-        )
-    return out
+@router.get("/personal", response_model=PersonalRecoOut)
+def recommend_personal(
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_m: int = 3000,
+    user: dict = Depends(current_user),
+):
+    """로그인 사용자의 서버 프로필·행동 이력으로 고른 3개 + 한 줄 조언.
+    위치는 서버에 저장하지 않으므로 매 요청 쿼리로 받는다 (/menus 와 같다)."""
+    return personal_reco(user["id"], lat, lng, radius_m, use_llm=user.get("plan") == "premium")

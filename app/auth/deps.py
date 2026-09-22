@@ -31,7 +31,7 @@ def optional_user(request: Request) -> dict | None:
     conn = get_connection()
     try:
         return conn.execute(
-            "SELECT id, provider, nickname, created_at FROM app_user WHERE id = %s", (user_id,)
+            "SELECT id, provider, nickname, created_at, plan FROM app_user WHERE id = %s", (user_id,)
         ).fetchone()
     finally:
         conn.close()

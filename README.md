@@ -427,13 +427,14 @@ Airflow에선 `retries=0`이다. 품질 실패는 flake가 아니라 신호라�
 
 | 스펙 | 흐름 | 검증하는 것 |
 |---|---|---|
-| `map.spec.js` | 지도 첫 진입 | 위치 권한 거부 → 서울시청 폴백 → "주변 매장 N곳 중 …" 상태 문구 |
+| `home.spec.js` | 첫 화면(신메뉴) | 해시 없이 들어오면 신메뉴가 뜨는지, 탭 순서, 홈에서는 `/api/stores` 요청이 안 나가고 지도 탭을 열어야 매장이 뜨는지 |
+| `map.spec.js` | 지도 첫 진입(`/#map`) | 위치 권한 거부 → 서울시청 폴백 → 주변 매장이 목록 카드로 뜨는지 |
 | `list-to-menu.spec.js` | 매장 목록 → 카드 클릭 → 메뉴·등급 화면 → 뒤로가기 | 헤딩·메뉴 수·메뉴명. 등급 없는 브랜드는 "정보 부족" 카드로 뜨는지 |
 | `empty-state.spec.js` | API가 `[]`를 줄 때 | 목록·지도 각각의 안내 문구. 화면이 깨지지 않는지 |
 
 **백엔드 없이 돈다.** `fixtures.js`가 `page.route()`로 `/api/*`를 전부 가짜 응답으로 바꾼다. 응답 형태는 `app/*/schemas.py`의 Pydantic 모델을 따른다. CI에 DB·Lambda가 필요 없고, 크롤 데이터가 바뀌어도 테스트가 흔들리지 않는다. 기본 mock 위에 개별 테스트가 route를 덧씌운다 — 나중에 등록한 route가 먼저 매칭된다.
 
-**카카오 지도는 DOM으로 못 잡는다.** 마커가 SDK 오버레이라 셀렉터가 없다. 그래서 마커 대신 지도 상태 문구("주변 매장 N곳")를 검증 대상으로 잡았다.
+**카카오 지도는 DOM으로 못 잡는다.** 마커가 SDK 오버레이라 셀렉터가 없다. 그래서 마커 대신 옆 목록의 매장 카드(`.store-card`)를 검증 대상으로 잡았다.
 
 **하다가 고친 것**
 
@@ -485,13 +486,18 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 
 | 파일 | 변수 |
 |---|---|
+| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 배치는 조용히 스킵, 개인 추천은 룰 결과로 대체) |
 | `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
-| (파이프라인) | `DATABASE_URL`, `ANTHROPIC_API_KEY`(없으면 LLM 단계는 조용히 스킵) |
-| (API·로그인) | `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만) |
 
-로그인 관련 변수가 없으면 `/api/auth/status`가 `enabled:false`를 주고 프론트는 로그인 버튼을
-아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부 그대로 동작한다. `KAKAO_REDIRECT_URI`는
+루트 `.env`는 API와 `scripts/*.py`가 `app` 패키지를 import할 때 자동으로 읽힌다
+(`app/env.py`). 터미널마다 `export`/`set`을 다시 할 필요가 없다. 이미 설정된 환경변수가
+있으면 그쪽이 이기므로 배포·Actions의 주입값을 .env가 덮어쓰는 일은 없다.
+
+로그인 관련 변수(`JWT_SECRET`·카카오 키·`FRONTEND_URL`) 중 하나라도 없으면 `/api/auth/status`가
+`enabled:false`를 주고 프론트는 로그인 버튼을 아예 그리지 않는다 — 나머지 기능은 로그인 없이 전부
+그대로 동작한다. `FRONTEND_URL`에는 기본값이 없다(예전엔 localhost라 운영에서 빠지면 토큰이 개발
+주소로 갔다). 로컬에서 로그인을 쓰려면 `.env`에 `FRONTEND_URL=http://localhost:5173`. `KAKAO_REDIRECT_URI`는
 배포된 API의 `/api/auth/kakao/callback` 전체 URL이어야 하고, developers.kakao.com 앱에
 등록한 값과 문자 하나까지 같아야 한다.
 
@@ -501,6 +507,29 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 ```bash
 DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 ```
+
+**개인 추천** (`GET /api/recommend/personal`, 로그인 전용) — 룰(`app/recommend/goals.py`)로
+사용자 설정을 만족하는 후보를 뽑은 뒤 두 갈래로 고른다.
+- **무료(`plan=free`, 기본)**: 목표 점수에 한 끼 적정 열량(신체정보), 영양 균형(나트륨·당·포화지방,
+  `docs/diet_score.md`와 같은 기준), 최근 저장·클릭한 브랜드를 더해 서로 다른 브랜드 3개를 고른다.
+  LLM을 부르지 않아 비용이 없다. `source:"personal"`.
+  비교군 `ml`(사용자 id 해시 85%)은 여기에 **학습형 취향 모델**(`app/recommend/taste.py`)을 더한다: 요청 때
+  최근 60일 노출·행동으로 사용자별 베이지안 로지스틱 회귀를 즉석 학습(순수 파이썬, 수 ms), 보정 폭 ±0.6,
+  목표 영양소 부호 제약, 톰슨 샘플링 + 탐색 칸. 기록이 있을 때만 켜지고 그때 `source:"ml"`.
+  바꾸기 전에 `python scripts/eval/simulate_personal.py`(가상 사용자 8유형 시뮬레이션, 통과 조건 내장)를 돌린다.
+- **유료(`plan=premium`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. 메뉴명은 후보 enum으로 강제,
+  같은 입력은 1시간 캐시(`llm_reco_cache`), 실패하면 무료 경로로 대체. `source:"llm"`.
+  같은 호출이 최근 행동에서 취향을 뽑아 `user_memory`에 기억하고(`new_memories`), 다음 추천 프롬프트에
+  다시 넣는다. 사용자는 `/api/memory`로 보고·지우고·직접 적는다(`app/memory/`).
+  결제 연동 전까지는 `UPDATE app_user SET plan='premium'`으로 켠다. 상세는 `app/recommend/personal.py` 머리 주석.
+
+**대화로 찾기** (`POST /api/chat`, 로그인 전용, `app/chat/`) — 서버는 대화·조건을 저장하지 않고 브라우저가
+매번 보낸다.
+- **무료**: `parse.py`가 문장을 조건(분류·브랜드·열량/나트륨 상한·목표·매운 것·재료)으로 바꾸고,
+  `select_candidates` + `personal_rank`로 고른 뒤 템플릿으로 답한다. LLM 없음. 모르는 말은 모른다고 한다.
+- **premium**: 같은 파서로 확정 조건을 걸고 그 후보 안에서 Claude Sonnet 5가 대화하며 고른다(구조화 출력,
+  메뉴 enum 강제). 하루 30회(`llm_usage`), 넘거나 실패하면 무료 방식으로 대체. 대화에서 드러난 취향은 AI 메모리로.
+- 답은 스트리밍하지 않는다 — Lambda Function URL + Mangum 은 응답을 한 번에 돌려준다. 대신 3문장 이내로 짧게 받는다.
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 
@@ -517,6 +546,7 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 | [crawl_handoff.md](docs/crawl_handoff.md) | 브랜드별 크롤링 인수인계 메모 (제외 사유 포함) |
 | [price_data_options.md](docs/price_data_options.md) | 가격 데이터 확보 방안 조사 및 결론 |
 | [ga4_report.md](docs/ga4_report.md) | 30일 사용자 행동 리포트 |
+| [monetization.md](docs/monetization.md) | 검색 등록·제휴·광고 설정 — 메뉴 단위 SEO 페이지 구조와 콘솔에서 할 일 |
 | [playwright-e2e-plan.md](docs/playwright-e2e-plan.md) | E2E 도입 계획과 초안 대비 실제 앱에서 달랐던 점 |
 | [dbt/README.md](dbt/README.md) | 데이터 마트 모델 구조(staging → dim/fact → rollup)와 실행법 |
 | [docker/README.md](docker/README.md) | Airflow 실행법, 2.x→3.x 아키텍처 차이 |

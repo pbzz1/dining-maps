@@ -20,6 +20,9 @@ class MenuItemOut(BaseModel):
     id: int
     name: str
     category: str | None
+    # 브랜드 제각각인 category 를 버거/치킨/음료… 로 정규화한 값 (app/menu_category.py).
+    # SEO 정적 페이지가 "같은 분류의 대안 메뉴"와 제휴 블록 문맥을 고르는 데 쓴다.
+    category_group: str | None = None
     price_krw: int | None
     weight_g: float | None
     allergy_info: str | None
