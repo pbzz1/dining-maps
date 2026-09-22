@@ -28,7 +28,7 @@ async function loggedIn(page, user = me) {
         }),
       });
     }
-    r.fulfill({ json: chatReply(user.plan === "premium" ? { source: "llm", reply: "가볍게 치킨으로 골라봤어요." } : {}) });
+    r.fulfill({ json: chatReply(user.plan !== "free" ? { source: "llm", reply: "가볍게 치킨으로 골라봤어요.", plan: user.plan, ai_budget_left_pct: 63 } : {}) });
   });
   return bodies;
 }

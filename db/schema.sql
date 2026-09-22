@@ -365,3 +365,67 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     count   INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, day, kind)
 );
+
+-- ---------------------------------------------------------------------------
+-- 유료 요금제 (app/billing/). 결제 1건 = 이용권 1개(30일 + AI 예산 원화).
+-- 요금제 판정은 app_user.plan 이 아니라 "지금 유효한 entitlement" 로 한다. app_user.plan 과
+-- llm_usage 는 호환을 위해 남겨 두되 읽지 않는다.
+-- ---------------------------------------------------------------------------
+
+-- 결제 기록(토스페이먼츠). 회계 기록이라 탈퇴해도 지우지 않고 user_id 만 NULL 로 익명화한다
+-- (CASCADE 가 아니라 SET NULL). amount 는 서버의 요금제 설정 값만 들어간다 -- 프론트가 보낸 금액은
+-- 승인 단계에서 이 값과 대조만 한다. raw 는 토스 승인 응답 원문.
+CREATE TABLE IF NOT EXISTS payment (
+    order_id    TEXT PRIMARY KEY,
+    user_id     INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    plan        TEXT NOT NULL,          -- standard / high
+    amount      INTEGER NOT NULL,       -- 부가세 포함 원
+    status      TEXT NOT NULL DEFAULT 'ready',  -- ready / paid / failed / canceled
+    payment_key TEXT,
+    approved_at TIMESTAMPTZ,
+    raw         JSONB,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_payment_user ON payment(user_id, created_at DESC);
+
+-- 이용권. 기간(starts_at~ends_at)과 AI 예산(원)을 가진다. 손해 없음의 핵심:
+--   spent_krw    -- 정산이 끝난 실제 비용 누계
+--   reserved_krw -- 호출 전에 최악 비용으로 잡아 둔 예약 누계(정산되면 풀린다)
+-- 예약은 spent + reserved + 이번 최악 비용 <= budget 일 때만 한 SQL 문으로 원자적으로 된다
+-- (app/billing/budget.py reserve). 서버가 죽어 예약이 안 풀려도 예산만 줄지 넘치지는 않는다.
+-- 금액은 NUMERIC(12,3) 원 -- 호출당 비용이 몇 원 단위라 정수 원으로는 버림 오차가 예산을 넘길 수 있다.
+CREATE TABLE IF NOT EXISTS entitlement (
+    id               INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id          INTEGER NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    plan             TEXT NOT NULL,
+    starts_at        TIMESTAMPTZ NOT NULL,
+    ends_at          TIMESTAMPTZ NOT NULL,
+    budget_krw       NUMERIC(12,3) NOT NULL,
+    spent_krw        NUMERIC(12,3) NOT NULL DEFAULT 0,
+    reserved_krw     NUMERIC(12,3) NOT NULL DEFAULT 0,
+    payment_order_id TEXT REFERENCES payment(order_id),
+    revoked_at       TIMESTAMPTZ,        -- 환불·취소 웹훅이 채운다. 채워지면 즉시 무효.
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_entitlement_user ON entitlement(user_id, ends_at DESC);
+
+-- LLM 호출 원장. 호출마다 한 행 -- 예약 시점에 worst_krw 로 쓰고, 정산 시점에 usage 와 actual_krw 를
+-- 채운다. est_input_tokens 와 input_tokens 의 차이가 "입력 추정이 상한인가"를 감시하는 지표다.
+-- 하루 상한(요금제별)은 이 표의 오늘 행 수로 센다. 대화 내용은 저장하지 않는다.
+CREATE TABLE IF NOT EXISTS llm_spend (
+    id               BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id          INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    entitlement_id   INTEGER REFERENCES entitlement(id) ON DELETE SET NULL,
+    kind             TEXT NOT NULL,      -- reco / chat
+    model            TEXT NOT NULL,
+    est_input_tokens INTEGER NOT NULL,
+    max_tokens       INTEGER NOT NULL,
+    input_tokens     INTEGER,
+    output_tokens    INTEGER,
+    worst_krw        NUMERIC(12,3) NOT NULL,
+    actual_krw       NUMERIC(12,3),
+    outcome          TEXT,               -- ok / refusal / max_tokens / error / unknown(타임아웃: 최악으로 정산)
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    settled_at       TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_llm_spend_user ON llm_spend(user_id, created_at DESC);

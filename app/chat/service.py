@@ -1,8 +1,10 @@
 """대화로 메뉴 찾기.
 
 무료: 문장 -> 조건(parse.py) -> 기존 후보 선택·개인화 랭킹 -> 템플릿 답. LLM 호출 없음.
-premium: 같은 파서로 사용자가 분명히 말한 조건은 확정적으로 걸고(모델이 무시하지 못하게),
-그 후보 안에서 Claude가 대화하며 고른다. 대화에서 드러난 취향은 AI 메모리에 쌓는다.
+유료(유효한 이용권, app/billing): 같은 파서로 사용자가 분명히 말한 조건은 확정적으로 걸고(모델이 무시하지
+못하게), 그 후보 안에서 Claude(Standard=Haiku 4.5, High=Sonnet 5)가 대화하며 고른다. 대화에서 드러난 취향은
+AI 메모리에 쌓는다. 호출마다 이용권 예산에서 최악 비용을 먼저 예약하고, 예산·하루 상한에 걸리면 그 턴은
+무료 방식으로 답한다(대화가 끊기지 않게).
 
 서버는 대화도 조건도 저장하지 않는다. 브라우저가 둘 다 들고 매번 보낸다 -- Lambda 는 요청 간
 상태가 없고, 대화 내용을 서버에 남기지 않는 편이 개인정보 면에서도 낫다.
@@ -12,6 +14,8 @@ premium: 같은 파서로 사용자가 분명히 말한 조건은 확정적으�
 """
 from datetime import datetime, timedelta, timezone
 
+from app.billing import budget
+from app.billing.plans import INPUT_TOKEN_CAP
 from app.chat import parse as P
 from app.chat.schemas import ChatFilters, ChatOut, Chip
 from app.db import connect, get_connection
@@ -24,10 +28,9 @@ from app.recommend.personal import (
 )
 from app.recommend.ranking import fetch_menus, to_out
 
-# ponytail: premium 1인 하루 AI 대화 30회. 호출당 약 12원이라 한 사람 하루 최대 약 360원.
-# 넘으면 그날은 무료 방식으로 답한다(대화가 끊기지 않게).
-CHAT_DAILY_LIMIT = 30
+# 하루 상한과 예산은 요금제가 정한다(app/billing/plans.py). 예전의 llm_usage 하루 30회는 이용권 예약으로 대체됐다.
 # 모델에 넘기는 이전 대화. 길수록 매 호출 비용이 는다 -- 최근 6턴(사용자·AI 합쳐)이면 맥락은 충분하다.
+# 그래도 입력 추정이 INPUT_TOKEN_CAP 을 넘으면 앞 턴부터 더 잘라 맞춘다(넘으면 호출하지 않는다).
 HISTORY_TURNS = 6
 # 한국은 서머타임이 없어 고정 오프셋이면 된다 -- zoneinfo 는 tz 데이터가 없는 환경(Windows,
 # 일부 Lambda 이미지)에서 실패한다.
@@ -98,25 +101,13 @@ def make_skip(f: dict):
     return skip
 
 
-def _take_quota(user_id) -> int:
-    """오늘 사용 횟수를 1 올리고 올린 값을 돌려준다. 호출 전에 센다 -- 실패한 호출도 비용이 들 수 있다."""
-    today = datetime.now(KST).date()
-    with connect() as conn:
-        return conn.execute(
-            """INSERT INTO llm_usage (user_id, day, kind, count) VALUES (%s, %s, 'chat', 1)
-               ON CONFLICT (user_id, day, kind) DO UPDATE SET count = llm_usage.count + 1
-               RETURNING count""",
-            (user_id, today),
-        ).fetchone()["count"]
-
-
 def _summary(f: dict) -> str:
     return " · ".join(c["label"] for c in P.chips(f))
 
 
-def _free_reply(understood: bool, f: dict, n_items: int, premium: bool) -> str:
+def _free_reply(understood: bool, f: dict, n_items: int, paid: bool) -> str:
     if not understood:
-        hint = "" if premium else " 자유로운 대화는 premium에서 할 수 있어요."
+        hint = "" if paid else " 자유로운 대화는 Standard·High 요금제에서 할 수 있어요."
         return "아직 메뉴 찾는 말만 알아들어요. 예: " + ", ".join(f"'{e}'" for e in EXAMPLES) + "." + hint
     if not n_items:
         return "그 조건에 맞는 메뉴가 없어요. 조건을 하나 지워 보세요."
@@ -124,7 +115,15 @@ def _free_reply(understood: bool, f: dict, n_items: int, premium: bool) -> str:
     return f"{summary} 조건으로 골랐어요." if summary else "지금 설정으로 골랐어요."
 
 
-def _llm_turn(profile, history_turns, message, f, candidates, memories):
+LIMIT_NOTES = {
+    "budget": "이번 기간 AI 사용량을 다 써서 조건 검색으로 답했어요. ",
+    "daily": "오늘 AI 대화 {n}회를 다 써서 조건 검색으로 답했어요. ",
+    "input": "대화가 너무 길어 조건 검색으로 답했어요. ",
+    "no_plan": "이용권이 끝나 조건 검색으로 답했어요. ",
+}
+
+
+def _llm_turn(profile, history_turns, message, f, candidates, memories, plan, user_id, entitlement_id):
     kcal = profile.get("max_calorie") or _meal_kcal(profile)
     fmt = lambda v: "-" if v is None else f"{v:g}"
     ctx = [
@@ -141,18 +140,26 @@ def _llm_turn(profile, history_turns, message, f, candidates, memories):
         n = r["nutrients"]
         ctx.append(f"| {_label(r)} | {r.get('category_group') or r['category'] or '-'} | {fmt(n.get('calorie'))} |"
                    f" {fmt(n.get('protein'))} | {fmt(n.get('sugar'))} | {fmt(n.get('sodium'))} | {fmt(n.get('saturated_fat'))} |")
-    messages = [{"role": t.role, "content": t.text} for t in history_turns[-HISTORY_TURNS:]]
-    # API 는 user 로 시작해야 한다 -- 잘린 기록이 assistant 로 시작하면 앞을 버린다.
-    while messages and messages[0]["role"] != "user":
-        messages.pop(0)
-    messages.append({"role": "user", "content": "[참고 정보]\n" + "\n".join(ctx) + "\n\n[사용자]\n" + message})
-    return claude_json(CHAT_SYSTEM, messages, _chat_schema([_label(t[2]) for t in candidates]), "chat")
+    schema = _chat_schema([_label(t[2]) for t in candidates])
+    last = {"role": "user", "content": "[참고 정보]\n" + "\n".join(ctx) + "\n\n[사용자]\n" + message}
+    history = [{"role": t.role, "content": t.text} for t in history_turns[-HISTORY_TURNS:]]
+    while True:
+        # API 는 user 로 시작해야 한다 -- 잘린 기록이 assistant 로 시작하면 앞을 버린다.
+        while history and history[0]["role"] != "user":
+            history.pop(0)
+        messages = history + [last]
+        if budget.estimate_input_tokens(CHAT_SYSTEM, messages, schema) <= INPUT_TOKEN_CAP or not history:
+            break
+        history.pop(0)  # 입력 상한에 맞을 때까지 가장 오래된 턴부터 버린다
+    return claude_json(CHAT_SYSTEM, messages, schema, "chat", plan, user_id, entitlement_id)
 
 
 def chat(user: dict, body) -> ChatOut:
-    premium = user.get("plan") == "premium"
     conn = get_connection()
     try:
+        entitlement = budget.active_entitlement(conn, user["id"])
+        plan = budget.plan_of(entitlement)
+        paid = plan is not None
         profile = load_profile(conn, user["id"])
         history = load_history(conn, user["id"])
         rows = fetch_menus(conn)
@@ -168,45 +175,57 @@ def chat(user: dict, body) -> ChatOut:
         )
         # 무료 대화도 "오늘 당신에겐"과 같은 모델로 고른다(비교군 ml 이면 학습형 취향 포함).
         taste = load_taste(conn, user["id"], goal, rows)
-        memories = [m["fact"] for m in memory.list_facts(conn, user["id"])] if premium else []
+        memories = [m["fact"] for m in memory.list_facts(conn, user["id"])] if paid else []
     finally:
         conn.close()
 
-    out = lambda reply, source, items, **kw: ChatOut(
-        reply=reply, source=source, understood=understood, filters=ChatFilters(**f),
-        chips=[Chip(**c) for c in P.chips(f)], items=items, **kw,
-    )
+    def out(reply, source, items, **kw):
+        pct = None
+        if paid:  # 정산이 끝난 뒤의 남은 예산 -- 화면의 "이번 기간 AI 남은 양"
+            c = get_connection()
+            try:
+                pct = budget.budget_left_pct(budget.active_entitlement(c, user["id"]))
+            finally:
+                c.close()
+        return ChatOut(
+            reply=reply, source=source, understood=understood, filters=ChatFilters(**f),
+            chips=[Chip(**c) for c in P.chips(f)], items=items, plan=plan.key if plan else "free",
+            ai_budget_left_pct=pct, **kw,
+        )
     free_items = lambda: [
         to_out(t[0], why, t[2], nearest)
         for _, why, t in personal_rank(goal, pool, eff, history, taste=taste, rng=hourly_rng(user["id"]))
     ]
 
-    # premium: 메시지가 있으면(칩 지우기만 한 건 제외) 모델에게 묻는다. 파서가 못 알아들은 말도 모델은 안다.
-    limit_reached = False
-    if premium and body.message.strip() and not body.remove:
-        limit_reached = _take_quota(user["id"]) > CHAT_DAILY_LIMIT
-        if not limit_reached:
-            candidates = pool[:CANDIDATE_LIMIT]
-            result = _llm_turn(eff, body.history, body.message.strip(), f, candidates, memories)
-            if result is not None:
-                by_label = {_label(t[2]): t for t in candidates}
-                items, seen = [], set()
-                for pick in result.get("picks", []):
-                    t = by_label.get(pick.get("menu"))
-                    if t and t[2]["id"] not in seen:
-                        seen.add(t[2]["id"])
-                        items.append(to_out(t[0], pick.get("reason") or t[1], t[2], nearest))
-                    if len(items) == PICKS:
-                        break
-                added = []
-                if result.get("new_memories"):
-                    with connect() as c:
-                        added = memory.add_facts(c, user["id"], result["new_memories"][:2], source="ai")
-                return out(result.get("reply") or "", "llm", items, memory_added=added)
+    # 유료: 메시지가 있으면(칩 지우기만 한 건 제외) 모델에게 묻는다. 파서가 못 알아들은 말도 모델은 안다.
+    limit_reason = None
+    if paid and body.message.strip() and not body.remove:
+        candidates = pool[:CANDIDATE_LIMIT]
+        try:
+            result = _llm_turn(
+                eff, body.history, body.message.strip(), f, candidates, memories, plan, user["id"], entitlement["id"]
+            )
+        except budget.Denied as e:  # 예산·하루 상한 -- LLM 을 부르지 않았다. 아래 무료 방식으로.
+            result, limit_reason = None, e.reason
+        if result is not None:
+            by_label = {_label(t[2]): t for t in candidates}
+            items, seen = [], set()
+            for pick in result.get("picks", []):
+                t = by_label.get(pick.get("menu"))
+                if t and t[2]["id"] not in seen:
+                    seen.add(t[2]["id"])
+                    items.append(to_out(t[0], pick.get("reason") or t[1], t[2], nearest))
+                if len(items) == PICKS:
+                    break
+            added = []
+            if result.get("new_memories"):
+                with connect() as c:
+                    added = memory.add_facts(c, user["id"], result["new_memories"][:2], source="ai")
+            return out(result.get("reply") or "", "llm", items, memory_added=added)
 
-    # 무료, 또는 premium 이 한도 초과·실패한 경우
+    # 무료, 또는 유료가 예산·상한 초과·실패한 경우
     items = free_items() if (understood or body.remove) else []
-    reply = _free_reply(understood, f, len(items), premium)
-    if limit_reached:
-        reply = f"오늘 AI 대화 {CHAT_DAILY_LIMIT}회를 다 써서 조건 검색으로 답했어요. " + reply
-    return out(reply, "filter", items, limit_reached=limit_reached)
+    reply = _free_reply(understood, f, len(items), paid)
+    if limit_reason:
+        reply = LIMIT_NOTES[limit_reason].format(n=plan.daily_limit) + reply
+    return out(reply, "filter", items, limit_reached=bool(limit_reason), limit_reason=limit_reason)

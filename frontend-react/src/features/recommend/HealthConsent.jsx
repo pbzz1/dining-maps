@@ -53,7 +53,7 @@ export default function HealthConsent({ auth }) {
       <p className="rec-consent-title">내 정보를 계정에도 저장할까요? (선택)</p>
       <ul>
         <li><b>항목</b> 성별, 키, 몸무게, 나이, 알레르기</li>
-        <li><b>목적</b> 한 끼 적정 열량 계산, 알레르기 메뉴 제외, 다른 기기와 설정 동기화, AI 맞춤 추천(premium 이용자, Anthropic·미국으로 전송)</li>
+        <li><b>목적</b> 한 끼 적정 열량 계산, 알레르기 메뉴 제외, 다른 기기와 설정 동기화, 유료 요금제의 AI 맞춤 추천(Anthropic, 미국으로 전송)</li>
         <li><b>보관</b> 동의 철회 또는 탈퇴 즉시 삭제</li>
         <li><b>거부할 수 있어요</b> 거부해도 이 브라우저에 저장돼 추천은 그대로 쓸 수 있고, 다른 기기와 AI 추천에만 반영되지 않습니다.</li>
       </ul>

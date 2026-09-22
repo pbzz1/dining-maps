@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { addMemory, deleteMemory, fetchMemory } from "./api";
 
-// "AI가 기억하는 것" -- premium 추천이 행동에서 알아낸 취향 + 사용자가 직접 적은 것.
+// "AI가 기억하는 것" -- 유료(Standard·High) 추천이 행동에서 알아낸 취향 + 사용자가 직접 적은 것.
 // 무엇을 믿고 추천하는지 사용자가 보고 지울 수 있어야 한다(특히 신체정보를 다루는 서비스라서).
 // refreshKey: 추천이 새로 기억할 때마다 바뀐다.
-// premium: 아니면 추가 입력칸을 숨긴다(추천에 쓰이지 않으니). 남아 있는 기억은 보고 지울 수 있다.
+// premium(유료 이용권): 아니면 추가 입력칸을 숨긴다(추천에 쓰이지 않으니). 남아 있는 기억은 보고 지울 수 있다.
 export default function MemoryPanel({ premium, refreshKey }) {
   const [facts, setFacts] = useState(null);
   const [draft, setDraft] = useState("");

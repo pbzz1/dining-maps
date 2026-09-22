@@ -30,7 +30,7 @@ test("콜백 토큰을 받으면 주소창에서 지우고 닉네임을 띄운�
   await page.route("**/api/profile", (r) => r.fulfill({ json: emptyProfile }));
 
   await page.goto("/?token=fake-jwt#recommend");
-  await expect(page.getByRole("button", { name: /테스트유저/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /테스트유저/ })).toBeVisible();
   // 토큰이 주소에 남으면 링크를 공유하는 순간 계정이 넘어간다. 해시는 라우팅이라 살아 있어야 한다.
   await expect(page).toHaveURL(/#recommend$/);
   expect(page.url()).not.toContain("token=");

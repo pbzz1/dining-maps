@@ -42,7 +42,9 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // PW_CHANNEL=msedge: Chromium 실행이 OS 정책으로 막힌 PC 에서 설치된 Edge 로 같은 스펙을 돌린다.
+      // CI 와 기본값은 그대로 번들 chromium.
+      use: { ...devices['Desktop Chrome'], ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}) },
     },
 
     // {

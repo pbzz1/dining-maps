@@ -431,6 +431,7 @@ Airflow에선 `retries=0`이다. 품질 실패는 flake가 아니라 신호라�
 | `map.spec.js` | 지도 첫 진입(`/#map`) | 위치 권한 거부 → 서울시청 폴백 → 주변 매장이 목록 카드로 뜨는지 |
 | `list-to-menu.spec.js` | 매장 목록 → 카드 클릭 → 메뉴·등급 화면 → 뒤로가기 | 헤딩·메뉴 수·메뉴명. 등급 없는 브랜드는 "정보 부족" 카드로 뜨는지 |
 | `empty-state.spec.js` | API가 `[]`를 줄 때 | 목록·지도 각각의 안내 문구. 화면이 깨지지 않는지 |
+| `billing.spec.js` | 요금제·결제(`#plans`) | 서버 가격·모델 표, 결제 버튼 → checkout → 토스(가짜 `window.TossPayments`) → 성공 복귀 → 승인 → 완료 문구, 실패 복귀, 결제 전·후 추천 화면 차이, AI 예산 소진 안내, 업그레이드 차단 |
 
 **백엔드 없이 돈다.** `fixtures.js`가 `page.route()`로 `/api/*`를 전부 가짜 응답으로 바꾼다. 응답 형태는 `app/*/schemas.py`의 Pydantic 모델을 따른다. CI에 DB·Lambda가 필요 없고, 크롤 데이터가 바뀌어도 테스트가 흔들리지 않는다. 기본 mock 위에 개별 테스트가 route를 덧씌운다 — 나중에 등록한 route가 먼저 매칭된다.
 
@@ -486,8 +487,8 @@ python scripts/crawl/crawl_new_brands.py megacoffee
 
 | 파일 | 변수 |
 |---|---|
-| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 배치는 조용히 스킵, 개인 추천은 룰 결과로 대체) |
-| `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE` |
+| `.env` (루트) | `DATABASE_URL`, `JWT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`, `FRONTEND_URL`, `KAKAO_CLIENT_SECRET`(앱 보안 설정을 켠 경우만), `ANTHROPIC_API_KEY`(없으면 LLM 배치는 조용히 스킵, 유료 추천·대화는 무료 방식으로 대체), `TOSS_SECRET_KEY`·`TOSS_CLIENT_KEY`(없으면 결제만 꺼진다, 이용권은 `scripts/billing/grant_entitlement.py`로 수동 발급 가능) |
+| `frontend-react/.env` | `VITE_KAKAO_JS_KEY`, `VITE_API_BASE`, `VITE_TOSS_CLIENT_KEY`(선택 — 서버가 `TOSS_CLIENT_KEY`를 내려 주면 필요 없다) |
 | `docker/.env` | `KAKAO_REST_API_KEY`, `AIRFLOW__API_AUTH__JWT_SECRET` |
 
 루트 `.env`는 API와 `scripts/*.py`가 `app` 패키지를 import할 때 자동으로 읽힌다
@@ -517,19 +518,38 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
   최근 60일 노출·행동으로 사용자별 베이지안 로지스틱 회귀를 즉석 학습(순수 파이썬, 수 ms), 보정 폭 ±0.6,
   목표 영양소 부호 제약, 톰슨 샘플링 + 탐색 칸. 기록이 있을 때만 켜지고 그때 `source:"ml"`.
   바꾸기 전에 `python scripts/eval/simulate_personal.py`(가상 사용자 8유형 시뮬레이션, 통과 조건 내장)를 돌린다.
-- **유료(`plan=premium`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. 메뉴명은 후보 enum으로 강제,
-  같은 입력은 1시간 캐시(`llm_reco_cache`), 실패하면 무료 경로로 대체. `source:"llm"`.
+- **유료(유효한 이용권, `app/billing/`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. Standard 는
+  `claude-haiku-4-5`(effort 없음, max_tokens 1200), High 는 `claude-sonnet-5`(effort low, max_tokens 2000).
+  메뉴명은 후보 enum으로 강제, 같은 입력은 1시간 캐시(`llm_reco_cache`, 캐시 적중은 예산을 쓰지 않는다),
+  실패·예산 소진·하루 상한이면 무료 경로로 대체하고 `limit_reason`으로 이유를 준다. `source:"llm"`.
   같은 호출이 최근 행동에서 취향을 뽑아 `user_memory`에 기억하고(`new_memories`), 다음 추천 프롬프트에
   다시 넣는다. 사용자는 `/api/memory`로 보고·지우고·직접 적는다(`app/memory/`).
-  결제 연동 전까지는 `UPDATE app_user SET plan='premium'`으로 켠다. 상세는 `app/recommend/personal.py` 머리 주석.
+  요금제 판정은 `app_user.plan`이 아니라 지금 유효한 `entitlement` 행이다(`budget.active_entitlement`).
+  결제 없이 켜려면 `python scripts/billing/grant_entitlement.py --user <id> --plan standard`.
+  상세는 `app/recommend/personal.py` 머리 주석.
 
 **대화로 찾기** (`POST /api/chat`, 로그인 전용, `app/chat/`) — 서버는 대화·조건을 저장하지 않고 브라우저가
 매번 보낸다.
 - **무료**: `parse.py`가 문장을 조건(분류·브랜드·열량/나트륨 상한·목표·매운 것·재료)으로 바꾸고,
   `select_candidates` + `personal_rank`로 고른 뒤 템플릿으로 답한다. LLM 없음. 모르는 말은 모른다고 한다.
-- **premium**: 같은 파서로 확정 조건을 걸고 그 후보 안에서 Claude Sonnet 5가 대화하며 고른다(구조화 출력,
-  메뉴 enum 강제). 하루 30회(`llm_usage`), 넘거나 실패하면 무료 방식으로 대체. 대화에서 드러난 취향은 AI 메모리로.
+- **유료**: 같은 파서로 확정 조건을 걸고 그 후보 안에서 Claude(요금제 모델)가 대화하며 고른다(구조화 출력,
+  메뉴 enum 강제). 이전 대화는 최근 6턴, 입력 추정이 8,000토큰을 넘으면 앞 턴부터 잘라 맞춘다. 요금제별 하루
+  상한(15/30회)과 이용권 예산에 걸리거나 실패하면 무료 방식으로 대체. 대화에서 드러난 취향은 AI 메모리로.
 - 답은 스트리밍하지 않는다 — Lambda Function URL + Mangum 은 응답을 한 번에 돌려준다. 대신 3문장 이내로 짧게 받는다.
+
+**요금제·결제** (`app/billing/`, 프론트 `#plans`) — 30일 선불 이용권(Standard 3,900원 / High 9,900원, 자동 갱신 없음).
+- `plans.py` 가격·모델·`max_tokens`·하루 상한·단가·환율(1달러 1,600원 고정)·예산 비율(순매출의 50%)을 한 곳에.
+- `budget.py` **손해 없음의 핵심**: 호출 전에 최악 비용(입력 상한 8,000토큰 × 입력 단가 + `max_tokens` × 출력 단가)을
+  `UPDATE entitlement SET reserved_krw = reserved_krw + :w WHERE spent_krw + reserved_krw + :w <= budget_krw` 한 문장으로
+  예약하고, 호출 뒤 `usage`로 정산한다. 타임아웃(결과 모름)은 최악 비용으로, 4xx는 0원으로, refusal도 정산.
+  원장은 `llm_spend`(호출마다 추정 입력·실제 입력·최악·실제 비용). 입력 추정 ≥ 실제인지 원장에서 감시한다.
+- `toss.py` 토스페이먼츠 승인·조회(urllib). `router.py` `checkout`(주문·금액은 서버 설정만) → 토스 결제창 →
+  `confirm`(승인 API, 금액·주문번호 대조, 멱등) → 이용권. `webhook`은 본문을 믿지 않고 토스에 다시 조회해
+  취소·환불이면 즉시 무효화. 업그레이드(이용 중 다른 요금제)는 409.
+- 검증: `DATABASE_URL=postgresql://dining:dining@localhost:5432/dining_maps python scripts/eval/verify_billing.py`
+  (손해 없음 — 예산이 바닥날 때까지 최악 입력·출력으로 호출, 동시 요청 20개, 권한, 결제 가짜 전송, 요금제별 본문.
+  운영 DB를 가리키면 거부한다). 외부로 나가는 요청은 없다(Anthropic은 `httpx2.MockTransport`, 토스는 `toss.transport` 교체).
+- 라이브 결제는 사업자등록·통신판매업 신고·토스 계약 뒤. 그 전엔 `test_sk_`/`test_ck_` 테스트 키로 끝까지 돈다.
 
 배포는 `scripts/deploy/deploy_lambda.sh` → 출력된 Function URL을 `scripts/deploy/deploy_frontend.sh`에 넘긴다.
 

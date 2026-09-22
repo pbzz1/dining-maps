@@ -20,7 +20,8 @@ from fastapi.responses import RedirectResponse
 from app.auth import consent, kakao, tokens
 from app.auth.deps import current_user
 from app.auth.schemas import AuthStatusOut, MeOut
-from app.db import connect
+from app.billing import budget
+from app.db import connect, get_connection
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -103,7 +104,12 @@ def kakao_callback(code: str | None = None, state: str | None = None, error: str
 
 @router.get("/me", response_model=MeOut)
 def me(user: dict = Depends(current_user)):
-    return MeOut(**user)
+    conn = get_connection()
+    try:
+        st = budget.status(conn, user["id"])
+    finally:
+        conn.close()
+    return MeOut(**user, plan=st["plan"], plan_ends_at=st["plan_ends_at"], ai_budget_left_pct=st["ai_budget_left_pct"])
 
 
 @router.post("/consent/health", status_code=204, response_class=Response)

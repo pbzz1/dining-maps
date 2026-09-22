@@ -8,6 +8,7 @@ import { useProfileSync } from "./profileSync";
 import PersonalPicks from "./PersonalPicks";
 import { nutritionLine, storeMapUrl } from "./format";
 import { logEvent } from "../auth/api";
+import { isPaid } from "../auth/plan";
 import { IconPin } from "../../components/NavIcons";
 import Skel, { SkelBlock } from "../../components/Skeleton";
 import AffiliateBlock from "../../components/AffiliateBlock";
@@ -251,7 +252,7 @@ export default function RecommendView({ auth }) {
       </details>
 
       {user && (
-        <PersonalPicks pos={pos} refreshKey={picksKey} premium={user.plan === "premium"} />
+        <PersonalPicks pos={pos} refreshKey={picksKey} paid={isPaid(user)} />
       )}
 
       {status && <p className="loading">{status}</p>}

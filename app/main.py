@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth.router import router as auth_router
+from app.billing.router import router as billing_router
 from app.menus.router import router as menus_router
 from app.memory.router import router as memory_router
 from app.chat.router import router as chat_router
@@ -50,6 +51,7 @@ for r in (
     profile_router,
     memory_router,
     chat_router,
+    billing_router,
 ):
     app.include_router(r)
 

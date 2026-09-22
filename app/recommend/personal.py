@@ -8,7 +8,9 @@
 
 LLM 없이도 개인화는 된다 (personal_rank). 키 없음·타임아웃·거절·형식 오류면 같은 후보를
 설정·기록 기반 점수로 다시 줄 세워 source="personal" 로 준다. LLM은 그 위의 선택 사항이다 --
-무료 사용자는 personal, (앞으로) 유료 사용자만 llm 이 되도록 갈라 쓸 수 있게 둔 구조다.
+유효한 이용권(app/billing, Standard=Haiku 4.5 / High=Sonnet 5)이 있는 사용자만 llm 이 되고, 무료는
+어떤 경로로도 LLM을 부르지 않는다. 호출 전에 최악 비용을 이용권 예산에서 예약하고(모자라면 무료 경로),
+호출 뒤 실제 비용으로 정산한다 -- 이용권 하나가 선불 금액을 넘는 비용을 내는 일은 없다.
 source="rule" 은 후보 자체가 없을 때뿐이다.
 """
 import hashlib
@@ -19,6 +21,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 from app.auth import consent
+from app.billing import budget
 from app.db import connect, get_connection
 from app.memory import store as memory
 from app.recommend import taste as taste_model
@@ -26,10 +29,11 @@ from app.recommend.goals import GOALS
 from app.recommend.ranking import diversify, fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import PersonalRecoOut
 
-# premium 전용 모델. 후보 표에서 3개 고르고 이유·기억을 쓰는 일이라 최상위 모델까지는 필요 없고,
-# 구독료 안에서 호출당 비용을 맞추려고 Sonnet 을 쓴다(운영자 결정). 바꾸면 _input_hash 에 들어가
-# 기존 캐시는 자연히 무효가 된다.
-MODEL = "claude-sonnet-5"
+# 모델은 요금제가 정한다(app/billing/plans.py: Standard=claude-haiku-4-5, High=claude-sonnet-5).
+# 후보 표에서 3개 고르고 이유·기억을 쓰는 일이라 최상위 모델까지는 필요 없다. 모델명은 _input_hash 에
+# 들어가므로 요금제가 바뀌면 기존 캐시는 자연히 무효가 된다.
+# 테스트가 가짜 전송 계층(httpx2.MockTransport)을 끼우는 자리. None 이면 SDK 기본.
+http_client = None
 # 노출 기록에 남기는 추천 방식 버전. 방식이 바뀌면 올려서 운영 지표를 버전별로 가른다.
 REC_VERSION = "personal-v1"
 # 효과 측정 비교군 비율(%). control 은 지금 규칙 방식을 계속 받는다 -- 학습형이 정말 나은지
@@ -355,33 +359,52 @@ def _schema(labels):
     }
 
 
-def claude_json(system, messages, schema, what) -> dict | None:
+def request_params(plan, schema) -> dict:
+    """요금제별 요청 본문 차이. 한 곳에 두고 테스트가 그대로 검사한다.
+
+    Sonnet 5: 후보 표에서 고르고 짧게 답하는 일이라 깊은 추론이 필요 없고 사용자가 화면 앞에서 기다린다 --
+    effort low. thinking 은 생략(기본 adaptive).
+    Haiku 4.5: effort 를 보내면 오류가 나므로 보내지 않는다. thinking 도 보내지 않는다(기본 꺼짐).
+    max_tokens 는 요금제의 값 -- 최악 비용 계산의 출력 상한이므로 여기서 다른 값을 쓰면 안 된다.
+    """
+    output_config = {"format": {"type": "json_schema", "schema": schema}}
+    if plan.effort:
+        output_config["effort"] = plan.effort
+    return {"model": plan.model, "max_tokens": plan.max_tokens, "output_config": output_config}
+
+
+def claude_json(system, messages, schema, what, plan, user_id, entitlement_id=None) -> dict | None:
     """Claude 에 구조화 출력(JSON)으로 물어본다. 키 없음·실패·거절·형식 오류면 None.
 
     개인 추천(call_llm)과 대화(app/chat/service.py)가 같이 쓴다 -- 호출 설정과 실패 처리가
-    한 곳에 있어야 한쪽만 고쳐져 어긋나는 일이 없다. what 은 로그 구분용.
+    한 곳에 있어야 한쪽만 고쳐져 어긋나는 일이 없다. what 은 로그·원장 구분용(reco/chat).
+
+    결제가 확인된 사용자만 여기 온다(plan 은 유효한 이용권의 요금제). 호출 전에 최악 비용을 예약하고
+    (budget.reserve -- 안 되면 budget.Denied 가 올라간다, 호출부가 무료 방식으로 답한다), 호출 뒤 실제
+    usage 로 정산한다. 거절(refusal)도 과금될 수 있으니 똑같이 정산한다.
     """
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return None
+    est = budget.estimate_input_tokens(system, messages, schema)
+    reservation = budget.reserve(user_id, what, est, entitlement_id)  # Denied 는 그대로 올린다
     import anthropic  # 지연 import: 키 없는 환경(로컬·CI)에서 SDK 없이도 앱이 뜬다
 
     try:
-        client = anthropic.Anthropic(timeout=LLM_TIMEOUT_SECONDS, max_retries=0)
-        # 서버 쪽 fallbacks 는 쓰지 않는다 -- Opus 5 용으로 넣었던 기능이고 Sonnet 5 의 허용
+        client = anthropic.Anthropic(timeout=LLM_TIMEOUT_SECONDS, max_retries=0, http_client=http_client)
+        # 서버 쪽 fallbacks 는 쓰지 않는다 -- Opus 5 용으로 넣었던 기능이고 Sonnet 5·Haiku 의 허용
         # 대상은 확인되지 않았다(허용 안 되면 요청 전체가 400). 거절(refusal)이 오면 아래에서
         # None 을 돌려 규칙/학습형 추천으로 대체하므로 화면은 비지 않는다.
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=4000,
-            # 후보 표에서 고르고 짧게 답하는 일이라 깊은 추론이 필요 없고, 사용자가 화면 앞에서 기다린다.
-            # thinking 은 생략 -- Sonnet 5 는 기본이 adaptive 라 effort 로만 깊이를 조절한다.
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
-            system=system,
-            messages=messages,
-        )
-    except anthropic.APIError as e:  # 타임아웃·연결·4xx/5xx 전부 -- 어느 쪽이든 룰로 간다
+        response = client.messages.create(system=system, messages=messages, **request_params(plan, schema))
+    except (anthropic.APITimeoutError, anthropic.APIConnectionError) as e:
+        # 처리됐는지 모른다 -- 최악 비용으로 정산한다(손해 없는 쪽으로).
         print(f"{what} LLM failed: {type(e).__name__}: {e}")
+        _settle(reservation, None, "unknown")
         return None
+    except anthropic.APIError as e:  # 4xx/5xx 로 확실히 거절됨 -- 과금 없음
+        print(f"{what} LLM failed: {type(e).__name__}: {e}")
+        _settle(reservation, None, "error")
+        return None
+    _settle(reservation, response.usage, response.stop_reason if response.stop_reason != "end_turn" else "ok")
     if response.stop_reason != "end_turn":  # refusal / max_tokens -- 본문을 믿을 수 없다
         print(f"{what} LLM stop_reason={response.stop_reason}")
         return None
@@ -392,14 +415,25 @@ def claude_json(system, messages, schema, what) -> dict | None:
         return None
 
 
-def call_llm(prompt, labels) -> dict | None:
-    """{"picks": [{menu, reason}], "comment", "new_memories"} 또는 None(키 없음/실패/거절)."""
-    return claude_json(SYSTEM_PROMPT, [{"role": "user", "content": prompt}], _schema(labels), "personal reco")
+def _settle(reservation, usage, outcome):
+    # 정산 실패가 응답을 잃게 하면 안 된다. 예약이 남으면 예산이 줄 뿐 손해는 나지 않는다.
+    try:
+        budget.settle(reservation, usage, outcome)
+    except Exception as e:  # noqa: BLE001
+        print(f"llm settle failed (spend {reservation.spend_id}): {type(e).__name__}: {e}")
 
 
-def _input_hash(goal, profile, history, candidates, memories=()) -> str:
+def call_llm(prompt, labels, plan, user_id, entitlement_id=None) -> dict | None:
+    """{"picks": [{menu, reason}], "comment", "new_memories"} 또는 None(키 없음/실패/거절).
+    예산·상한에 걸리면 budget.Denied."""
+    return claude_json(
+        SYSTEM_PROMPT, [{"role": "user", "content": prompt}], _schema(labels), "reco", plan, user_id, entitlement_id
+    )
+
+
+def _input_hash(goal, profile, history, candidates, memories=(), model=None) -> str:
     key = {
-        "model": MODEL,
+        "model": model,
         "prompt": SYSTEM_PROMPT,
         "goal": goal,
         "profile": {k: v for k, v in profile.items() if k not in ("user_id", "updated_at")},
@@ -420,7 +454,7 @@ def _cached(conn, user_id, input_hash):
     return row["payload"] if row else None
 
 
-def _store_result(user_id, hash_for, payload) -> list[str]:
+def _store_result(user_id, hash_for, payload, model) -> list[str]:
     """새 메모리 추가 + 캐시 저장을 한 트랜잭션으로. 새로 들어간 메모리를 돌려준다.
 
     hash_for(메모리 목록) -> 입력 해시. 캐시 키를 "추가한 뒤의" 메모리로 만든다 -- 추가 전
@@ -437,7 +471,7 @@ def _store_result(user_id, hash_for, payload) -> list[str]:
                ON CONFLICT (user_id) DO UPDATE
                SET input_hash = EXCLUDED.input_hash, payload = EXCLUDED.payload,
                    model = EXCLUDED.model, created_at = now()""",
-            (user_id, input_hash, json.dumps(payload, ensure_ascii=False), MODEL),
+            (user_id, input_hash, json.dumps(payload, ensure_ascii=False), model),
         )
     return added
 
@@ -471,7 +505,7 @@ def variant_for(user_id) -> str:
     return "control" if h % 100 < CONTROL_PERCENT else "ml"
 
 
-def _log_impression(user_id, source, variant, items, scores) -> int | None:
+def _log_impression(user_id, source, variant, items, scores, model=None) -> int | None:
     """보여준 카드 묶음을 남기고 id 를 돌려준다. 실패해도 추천은 나가야 하므로 None 으로 넘어간다.
 
     같은 사용자에게 같은 묶음이 30분 안에 다시 나가면 새 행을 쓰지 않고 기존 id 를 준다 --
@@ -497,18 +531,21 @@ def _log_impression(user_id, source, variant, items, scores) -> int | None:
                        (user_id, surface, source, variant, model_version, menu_item_ids, scores, explore)
                    VALUES (%s, 'personal_picks', %s, %s, %s, %s::integer[], %s::real[], %s::boolean[]) RETURNING id""",
                 (user_id, source, variant,
-                 {"llm": MODEL, "ml": taste_model.MODEL_VERSION}.get(source, REC_VERSION), ids, scores, explore),
+                 {"llm": model, "ml": taste_model.MODEL_VERSION}.get(source, REC_VERSION), ids, scores, explore),
             ).fetchone()["id"]
     except Exception as e:  # noqa: BLE001 -- 계측 실패가 추천을 막으면 안 된다
         print(f"impression log failed: {type(e).__name__}: {e}")
         return None
 
 
-def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> PersonalRecoOut:
-    """use_llm: premium 사용자만 True. free 는 키가 있어도 LLM을 부르지 않는다 -- 무료
+def personal_reco(user_id, lat=None, lng=None, radius_m=3000) -> PersonalRecoOut:
+    """유효한 이용권이 있는 사용자만 LLM. 무료는 키가 있어도 LLM을 부르지 않는다 -- 무료
     사용자 수만큼 과금이 늘면 안 된다. 어느 쪽이든 결과 칸은 채워진다(personal_rank)."""
     conn = get_connection()
     try:
+        entitlement = budget.active_entitlement(conn, user_id)
+        plan = budget.plan_of(entitlement)
+        use_llm = plan is not None
         profile = load_profile(conn, user_id)
         history = load_history(conn, user_id)
         rows = fetch_menus(conn)
@@ -516,21 +553,31 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
             conn, rows, profile, history, lat, lng, radius_m, limit=POOL_LIMIT
         )
         if not pool:
-            return PersonalRecoOut(source="rule", goal=goal, items=[])
+            return PersonalRecoOut(source="rule", goal=goal, items=[], plan=plan.key if plan else "free")
         taste = load_taste(conn, user_id, goal, rows)
         # select_candidates 는 목표 점수 순으로 하나씩 담으므로 앞 15개 = limit=15 로 뽑은 결과와 같다.
         candidates = pool[:CANDIDATE_LIMIT]
 
-        # 메모리는 premium 추천만 쓴다 -- free 경로는 규칙 기반이라 읽을 곳이 없다.
+        # 메모리는 유료 추천만 쓴다 -- free 경로는 규칙 기반이라 읽을 곳이 없다.
         memories = [m["fact"] for m in memory.list_facts(conn, user_id)] if use_llm else []
-        input_hash = _input_hash(goal, profile, history, candidates, memories)
+        model = plan.model if plan else None
+        input_hash = _input_hash(goal, profile, history, candidates, memories, model)
+        # 캐시 적중은 비용 0 -- 예산을 다 썼어도 그대로 준다.
         result = _cached(conn, user_id, input_hash) if use_llm else None
     finally:
         conn.close()
 
     fresh = use_llm and result is None
+    limit_reason = None
     if fresh:
-        result = call_llm(build_prompt(goal, profile, history, candidates, memories), [_label(t[2]) for t in candidates])
+        try:
+            result = call_llm(
+                build_prompt(goal, profile, history, candidates, memories), [_label(t[2]) for t in candidates],
+                plan, user_id, entitlement["id"],
+            )
+        except budget.Denied as e:
+            # 예산·하루 상한·이용권 만료 -- LLM 을 부르지 않았다. 무료 경로로 고르고 이유를 화면에 알린다.
+            result, limit_reason = None, e.reason
 
     by_label = {_label(t[2]): t for t in candidates}
     items, seen = [], set()
@@ -547,20 +594,34 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
     # 없으면 둘은 같은 결과라 source 도 personal 로 둔다. "기록으로 학습"이라고 배지를 달았는데
     # 배운 게 없으면 거짓말이다).
     variant = variant_for(user_id)
+    plan_key = plan.key if plan else "free"
+    pct = _budget_left(user_id) if use_llm else None
     if not items:
         picks = personal_rank(goal, pool, profile, history, taste=taste, rng=hourly_rng(user_id))
         source = "ml" if taste is not None and taste.active else "personal"
         out = [to_out(t[0], why, t[2], nearest) for _, why, t in picks]
         impression = _log_impression(user_id, source, variant, out, [round(total, 4) for total, _, _ in picks])
-        return PersonalRecoOut(source=source, goal=goal, items=out, impression_id=impression, variant=variant)
+        return PersonalRecoOut(
+            source=source, goal=goal, items=out, impression_id=impression, variant=variant,
+            plan=plan_key, limit_reason=limit_reason, ai_budget_left_pct=pct,
+        )
     added = []
     if fresh:
         # 실패(None)는 캐시하지 않는다 -- 키를 넣거나 일시 장애가 풀리면 바로 다시 시도해야 한다.
         added = _store_result(
-            user_id, lambda mems: _input_hash(goal, profile, history, candidates, mems), result
+            user_id, lambda mems: _input_hash(goal, profile, history, candidates, mems, model), result, model
         )
-    impression = _log_impression(user_id, "llm", variant, items, [i.goal_score for i in items])
+    impression = _log_impression(user_id, "llm", variant, items, [i.goal_score for i in items], model)
     return PersonalRecoOut(
         source="llm", goal=goal, comment=result.get("comment"), items=items, memory_added=added,
-        impression_id=impression, variant=variant,
+        impression_id=impression, variant=variant, plan=plan_key, ai_budget_left_pct=pct,
     )
+
+
+def _budget_left(user_id) -> int | None:
+    """정산이 끝난 뒤의 남은 예산 %. 화면의 "이번 기간 AI 남은 양" -- 호출마다 새로 읽는다."""
+    conn = get_connection()
+    try:
+        return budget.budget_left_pct(budget.active_entitlement(conn, user_id))
+    finally:
+        conn.close()

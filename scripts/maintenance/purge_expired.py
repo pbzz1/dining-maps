@@ -3,7 +3,7 @@
 개인정보 처리방침(/privacy/, scripts/build-static-pages.mjs privacyPage)의 2조가 약속한
 기간을 코드로 지키는 곳이다. 기간을 바꾸면 두 군데를 같이 고친다.
 
-  1. 결제 기록(paid/canceled, payment 테이블이 있을 때): 전자상거래법상 대금결제 기록 보관 5년이 지나면 삭제.
+  1. 결제 기록(paid/canceled): 전자상거래법상 대금결제 기록 보관 5년이 지나면 삭제.
   2. 완료되지 않은 주문(ready/failed): 거래 기록이 아니라 보관 의무가 없다. 분쟁 확인용으로
      90일 두고 삭제.
   3. 별도 동의 없는 신체정보: 동의 기능이 생기기 전에 저장된 값, 또는 어떤 경로로든 동의 없이
@@ -37,15 +37,12 @@ def main() -> None:
 
     with connect() as conn:
         apply_schema(conn)  # health_consent_at 이 아직 없는 DB에서 돌아도 되게
-        unlinked = payments = 0
-        # 결제 테이블은 유료 요금제(app/billing)와 함께 생긴다 -- 아직 없는 DB면 건너뛴다.
-        if conn.execute("SELECT to_regclass('payment') IS NOT NULL AS ok").fetchone()["ok"]:
-            # 이용권이 옛 결제를 가리키고 있으면 FK 때문에 결제를 못 지운다 -- 연결만 끊는다.
-            # (5년 지난 이용권은 이미 끝났다. 이용권 자체는 탈퇴 때 CASCADE 로 지워진다.)
-            unlinked = conn.execute(
-                f"UPDATE entitlement SET payment_order_id = NULL WHERE payment_order_id IN ({EXPIRED_PAYMENTS})"
-            ).rowcount
-            payments = conn.execute(f"DELETE FROM payment WHERE order_id IN ({EXPIRED_PAYMENTS})").rowcount
+        # 이용권이 옛 결제를 가리키고 있으면 FK 때문에 결제를 못 지운다 -- 연결만 끊는다.
+        # (5년 지난 이용권은 이미 끝났다. 이용권 자체는 탈퇴 때 CASCADE 로 지워진다.)
+        unlinked = conn.execute(
+            f"UPDATE entitlement SET payment_order_id = NULL WHERE payment_order_id IN ({EXPIRED_PAYMENTS})"
+        ).rowcount
+        payments = conn.execute(f"DELETE FROM payment WHERE order_id IN ({EXPIRED_PAYMENTS})").rowcount
         not_null = " OR ".join(f"p.{f} IS NOT NULL" for f in HEALTH_FIELDS)
         health = conn.execute(
             f"""UPDATE user_profile p SET {', '.join(f'{f} = NULL' for f in HEALTH_FIELDS)}, updated_at = now()
