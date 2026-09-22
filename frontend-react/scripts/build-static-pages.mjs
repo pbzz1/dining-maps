@@ -610,7 +610,7 @@ function dataPage(rows, sample, ctx) {
 // scripts/maintenance/purge_expired.py(보관 기간). 이쪽이 바뀌면 여기도 고치고 시행일을 올린다.
 const PRIVACY_EFFECTIVE = "2026-09-22";
 const PRIVACY_OWNER = "김태훈";
-const PRIVACY_EMAIL = "taehun014747@gmail.com";
+const PRIVACY_EMAIL = "taehun0147@gmail.com";
 
 function privacyPage(ctx) {
   const mail = `<a href="mailto:${PRIVACY_EMAIL}?subject=${encodeURIComponent("Dining Maps 개인정보 문의")}">${PRIVACY_EMAIL}</a>`;
