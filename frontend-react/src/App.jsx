@@ -7,6 +7,7 @@ import RecommendView from "./features/recommend/RecommendView";
 import NewMenuView from "./features/new-menu/NewMenuView";
 import AboutView from "./features/about/AboutView";
 import LoginButton from "./features/auth/LoginButton";
+import ChatFab from "./features/chat/ChatFab";
 import { useAuth } from "./features/auth/useAuth";
 import { fetchStatsQuality } from "./api";
 import { track } from "./constants";
@@ -193,6 +194,9 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* 지도에선 숨긴다 -- 오른쪽 아래가 지도 조작·범례 자리다. 숨기기만 하니 대화는 남는다. */}
+      <ChatFab auth={auth} hidden={view === "map"} />
     </div>
   );
 }
