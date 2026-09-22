@@ -4,6 +4,8 @@
 출발해야 해서 라우터에서 떼어 냈다. 두 화면이 서로 다른 기준으로 거르면 "목록엔
 없는 메뉴를 AI가 추천"하는 모순이 생긴다.
 """
+from collections import Counter
+
 from app.geo import haversine_m
 from app.recommend.goals import is_drink, score_item
 from app.recommend.schemas import NearestStoreOut, RecommendedMenuOut
@@ -38,6 +40,21 @@ def rank(rows, goal, limits, exclude_drinks=False, skip=None):
             scored.append((hit[0], hit[1], row))
     scored.sort(key=lambda t: t[0], reverse=True)
     return scored
+
+
+def diversify(scored, per_brand, limit):
+    """점수순을 유지한 채 브랜드당 per_brand개까지만 담아 limit개. 점수 하나로만 자르면
+    샐러드·샌드위치 브랜드 두어 곳이 목록을 통째로 차지해 매번 같은 매장만 나온다."""
+    counts, picked = Counter(), []
+    for t in scored:
+        brand = t[2]["restaurant_id"]
+        if counts[brand] >= per_brand:
+            continue
+        counts[brand] += 1
+        picked.append(t)
+        if len(picked) == limit:
+            break
+    return picked
 
 
 def nearest_stores(conn, restaurant_ids, lat, lng, radius_m):
@@ -83,3 +100,15 @@ def to_out(score, reason, row, nearest) -> RecommendedMenuOut:
         if ns
         else None,
     )
+
+
+if __name__ == "__main__":
+    # python -m app.recommend.ranking
+    rows = [(100 - i, "", {"restaurant_id": 1}) for i in range(10)] + [(50, "", {"restaurant_id": 2})]
+    rows.sort(key=lambda t: t[0], reverse=True)
+    out = diversify(rows, per_brand=4, limit=20)
+    assert [t[2]["restaurant_id"] for t in out] == [1, 1, 1, 1, 2], out
+    assert [t[0] for t in out] == [100, 99, 98, 97, 50]  # 점수순 유지
+    assert len(diversify(rows, per_brand=4, limit=3)) == 3
+    assert diversify([], per_brand=4, limit=3) == []
+    print("ok")

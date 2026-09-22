@@ -330,6 +330,7 @@ main {
   display: flex;
   min-height: 0;
   position: relative; /* 지도 위 범례 오버레이 기준 */
+  padding-bottom: 16px; /* 지도·목록이 화면 바닥에 딱 붙지 않게 */
 }
 
 #map-container {

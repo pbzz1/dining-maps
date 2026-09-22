@@ -12,6 +12,11 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
+// PORT는 워크트리 등 5173이 이미 다른 세션의 dev server에 점유된 환경용
+// (vite.config.js와 같은 관례). 기본은 5173 그대로.
+const PORT = Number(process.env.PORT) || 5173;
+const BASE_URL = `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   /* Run tests in files in parallel */
@@ -27,7 +32,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    baseURL: 'http://localhost:5173',
+    baseURL: BASE_URL,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -74,8 +79,9 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
+    env: { PORT: String(PORT) },
   },
 });
 

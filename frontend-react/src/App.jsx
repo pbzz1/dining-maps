@@ -15,9 +15,9 @@ import { IconDashboard, IconStar, IconPin, IconList, IconSparkle } from "./compo
 import "./App.css";
 
 const NAV = [
-  { key: "map", label: "지도", Icon: IconPin },
-  { key: "recommend", label: "맞춤 추천", Icon: IconStar },
   { key: "new", label: "신메뉴", Icon: IconSparkle },
+  { key: "recommend", label: "맞춤 추천", Icon: IconStar },
+  { key: "map", label: "지도", Icon: IconPin },
   { key: "dashboard", label: "대시보드", Icon: IconDashboard },
   { key: "list", label: "매장 목록", Icon: IconList },
 ];
@@ -25,14 +25,16 @@ const NAV = [
 // about은 NAV에 없다 -- 사이드바엔 안 뜨지만 #about 링크로는 열린다.
 const VIEWS = new Set([...NAV.map((n) => n.key), "about"]);
 // URL 해시가 곧 현재 뷰 -- "#list" 같은 링크를 공유하면 그 탭으로 바로 열린다.
-// 기본 화면은 지도: Dining Maps니까.
-const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : "map");
+// 기본 화면은 신메뉴: 입력·로그인·위치 없이 바로 볼 게 있고 주 2회 내용이 바뀐다.
+// 지도는 "#map"으로 그대로 열린다 (공유된 링크 유지).
+const HOME_VIEW = "new";
+const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.slice(1) : HOME_VIEW);
 
 // 뷰별 문서 제목. SPA라 제목이 처음 것 그대로면 브라우저 탭·방문기록·북마크가 전부
 // 같은 이름이 되고, GA4 "페이지 제목 및 화면 클래스" 보고서에서도 모든 뷰가 한 줄로 뭉친다.
 const VIEW_LABEL = { ...Object.fromEntries(NAV.map((n) => [n.key, n.label])), menu: "메뉴", about: "소개" };
-const HOME_TITLE = "Dining Maps - 내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기"; // index.html과 같은 문구
-const titleFor = (v) => (v === "map" ? HOME_TITLE : `Dining Maps - ${VIEW_LABEL[v] ?? v}`);
+const HOME_TITLE = "Dining Maps - 프랜차이즈 신메뉴 영양 분석과 내 기준 메뉴 추천"; // index.html과 같은 문구
+const titleFor = (v) => (v === HOME_VIEW ? HOME_TITLE : `Dining Maps - ${VIEW_LABEL[v] ?? v}`);
 
 // SPA 뷰 전환을 GA4에 page_view로 보낸다. gtag('config')는 첫 로딩 때 한 번만 발생하고,
 // setView는 history.pushState로 해시만 바꾸므로 그 뒤의 이동은 아무 데도 안 잡혔다.
@@ -137,7 +139,7 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(지도)으로 완전히 초기화한다. */}
+        {/* 로고 = 홈. 해시를 지우고 새로고침해서 첫 화면(신메뉴)으로 완전히 초기화한다. */}
         <h1 className="brand">
           <a href="/">
             <LogoMark size={34} />
@@ -145,7 +147,7 @@ export default function App() {
           </a>
         </h1>
         <span className="subtitle">
-          내 주변 프랜차이즈, 목표에 맞는 메뉴 찾기
+          신메뉴 영양 분석, 내 기준에 맞는 메뉴 추천
           {" · "}
           {/* 기준일을 아직 못 받아왔어도 링크는 남긴다 -- 데스크톱의 유일한 #about 진입점. */}
           <a href="#about" onClick={() => track("view_change", { view: "about" })}>
@@ -169,12 +171,16 @@ export default function App() {
       </aside>
 
       <main id="app" className={view === "map" ? "main-map" : "main-page"}>
-        {/* MapView stays mounted (just hidden) so the Kakao map instance and its
-            markers survive tab switches -- rebuilding it each time is slow and
-            would lose the current center. */}
-        <div className="map-wrap" style={{ display: view === "map" ? "flex" : "none" }}>
-          <MapView onOpenMenu={openMenu} visible={view === "map"} />
-        </div>
+        {/* Once opened, MapView stays mounted (just hidden) so the Kakao map instance
+            and its markers survive tab switches -- rebuilding it each time is slow and
+            would lose the current center. It is not mounted before the first visit:
+            the map is no longer the home view, and mounting it loads the Kakao SDK
+            and fetches /api/stores. */}
+        {seen.has("map") && (
+          <div className="map-wrap" style={{ display: view === "map" ? "flex" : "none" }}>
+            <MapView onOpenMenu={openMenu} visible={view === "map"} />
+          </div>
+        )}
         <Pane name="dashboard" view={view} seen={seen}><Dashboard /></Pane>
         <Pane name="recommend" view={view} seen={seen}><RecommendView auth={auth} /></Pane>
         <Pane name="new" view={view} seen={seen}><NewMenuView /></Pane>

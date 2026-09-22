@@ -19,7 +19,7 @@ from collections import Counter
 from app.db import connect, get_connection
 from app.memory import store as memory
 from app.recommend.goals import GOALS
-from app.recommend.ranking import fetch_menus, nearest_stores, rank, to_out
+from app.recommend.ranking import diversify, fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import PersonalRecoOut
 
 # premium 전용 모델. 후보 표에서 3개 고르고 이유·기억을 쓰는 일이라 최상위 모델까지는 필요 없고,
@@ -143,16 +143,7 @@ def select_candidates(conn, rows, profile, history, lat, lng, radius_m, limit=CA
         if len(nearby) >= PICKS:
             ranked = nearby
 
-    per_brand, picked = Counter(), []
-    for t in ranked:
-        brand = t[2]["restaurant_id"]
-        if per_brand[brand] >= PER_BRAND_CAP:
-            continue
-        per_brand[brand] += 1
-        picked.append(t)
-        if len(picked) == limit:
-            break
-    return goal, picked, nearest
+    return goal, diversify(ranked, PER_BRAND_CAP, limit), nearest
 
 
 def _balance_excess(n) -> dict:
