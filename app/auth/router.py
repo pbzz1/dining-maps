@@ -14,10 +14,10 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
-from app.auth import kakao, tokens
+from app.auth import consent, kakao, tokens
 from app.auth.deps import current_user
 from app.auth.schemas import AuthStatusOut, MeOut
 from app.billing import budget
@@ -110,3 +110,20 @@ def me(user: dict = Depends(current_user)):
     finally:
         conn.close()
     return MeOut(**user, plan=st["plan"], plan_ends_at=st["plan_ends_at"], ai_budget_left_pct=st["ai_budget_left_pct"])
+
+
+@router.post("/consent/health", status_code=204, response_class=Response)
+def grant_health_consent(user: dict = Depends(current_user)):
+    """신체정보(성별·키·몸무게·나이·알레르기) 서버 저장·AI 전달에 대한 별도 동의.
+    동의 문구는 프론트(features/recommend/HealthConsent.jsx)가 보여 준다."""
+    with connect() as conn:
+        consent.grant(conn, user["id"])
+    return Response(status_code=204)
+
+
+@router.delete("/consent/health", status_code=204, response_class=Response)
+def withdraw_health_consent(user: dict = Depends(current_user)):
+    """동의 철회. 저장돼 있던 신체정보와 그걸로 만든 AI 추천 캐시를 바로 지운다."""
+    with connect() as conn:
+        consent.withdraw(conn, user["id"])
+    return Response(status_code=204)

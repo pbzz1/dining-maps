@@ -2184,3 +2184,18 @@ a.auth-btn { text-decoration: none; }
 @media (max-width: 640px) {
   .profile-row { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* 신체정보 계정 저장 별도 동의 (features/recommend/HealthConsent.jsx) */
+.rec-consent {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.rec-consent-title { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+.rec-consent ul { margin: 0 0 10px; padding-left: 18px; }
+.rec-consent b { color: var(--text); margin-right: 6px; }
+.rec-consent .rec-check { padding-bottom: 8px; font-size: 13px; color: var(--text); }

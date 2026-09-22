@@ -20,6 +20,7 @@ import random
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+from app.auth import consent
 from app.billing import budget
 from app.db import connect, get_connection
 from app.memory import store as memory
@@ -97,7 +98,10 @@ def _split(csv: str | None) -> list[str]:
 
 def load_profile(conn, user_id) -> dict:
     row = conn.execute("SELECT * FROM user_profile WHERE user_id = %s", (user_id,)).fetchone()
-    return dict(row) if row else {}
+    if not row:
+        return {}
+    # 별도 동의가 없으면 신체정보는 프롬프트(Anthropic, 국외)로 가지 않는다 -- 평균값으로 계산한다.
+    return dict(row) if consent.has_health_consent(conn, user_id) else consent.strip_health(dict(row))
 
 
 def load_history(conn, user_id) -> dict:

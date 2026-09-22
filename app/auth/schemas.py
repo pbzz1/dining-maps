@@ -12,6 +12,8 @@ class MeOut(BaseModel):
     plan: str = "free"
     plan_ends_at: datetime | None = None
     ai_budget_left_pct: int | None = None  # 이번 이용권의 남은 AI 예산 %(유료만)
+    # 건강 관련 민감정보 별도 동의 시각. None 이면 프론트는 신체정보를 브라우저에만 둔다(app/auth/consent.py).
+    health_consent_at: datetime | None = None
 
 
 class AuthStatusOut(BaseModel):

@@ -3,6 +3,7 @@ import { formatDistance } from "../../constants";
 import { fetchGoals, fetchRecommendedMenus } from "./api";
 import { ACTIVITY_FACTORS, DEFAULT_PROFILE, KOREAN_AVG, perMealCalorie } from "./bmr";
 import { useLocalStorage } from "./useLocalStorage";
+import HealthConsent from "./HealthConsent";
 import { useProfileSync } from "./profileSync";
 import PersonalPicks from "./PersonalPicks";
 import { nutritionLine, storeMapUrl } from "./format";
@@ -245,6 +246,7 @@ export default function RecommendView({ auth }) {
                 </select>
               </label>
             </div>
+            <HealthConsent auth={auth} />
           </div>
         </div>
       </details>

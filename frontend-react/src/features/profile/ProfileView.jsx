@@ -27,6 +27,10 @@ export default function ProfileView({ auth, visible }) {
       <section className="profile">
         <h2>내 정보</h2>
         <p className="legend-hint">로그인하면 맞춤 추천에서 저장한 메뉴를 여기서 모아 볼 수 있어요.</p>
+        <p className="legend-hint">
+          로그인하면 카카오 회원번호와 닉네임을 받아 계정을 만듭니다(<a href="/privacy/">개인정보 처리방침</a>).
+          만 14세 미만은 가입할 수 없어요.
+        </p>
         {enabled && (
           <button
             type="button"
@@ -201,6 +205,22 @@ function Account({ user, logout }) {
         <dt>추천 설정</dt>
         <dd>
           목표·한 끼 상한·신체정보는 <a href="#recommend">맞춤 추천</a>에서 바꿔요.
+        </dd>
+      </div>
+      <div className="profile-row">
+        <dt>신체정보</dt>
+        <dd>
+          {user.health_consent_at
+            ? `계정에 저장 중 (${user.health_consent_at.slice(0, 10)} 동의)`
+            : "이 브라우저에만 저장 (계정 저장 동의 안 함)"}
+          {" · "}
+          <a href="#recommend">맞춤 추천 › 상세 설정</a>에서 동의·철회
+        </dd>
+      </div>
+      <div className="profile-row">
+        <dt>개인정보</dt>
+        <dd>
+          <a href="/privacy/">개인정보 처리방침</a>
         </dd>
       </div>
       <div className="profile-row">

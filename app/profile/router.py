@@ -5,6 +5,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Response
 
+from app.auth import consent
 from app.auth.deps import current_user
 from app.db import connect, get_connection
 from app.profile.schemas import EventIn, FavoriteOut, ProfileIn, ProfileOut
@@ -21,6 +22,8 @@ def get_profile(user: dict = Depends(current_user)):
         row = conn.execute(
             f"SELECT {', '.join(FIELDS)} FROM user_profile WHERE user_id = %s", (user["id"],)
         ).fetchone()
+        if row and not consent.has_health_consent(conn, user["id"]):
+            row = consent.strip_health(row)
     finally:
         conn.close()
     return ProfileOut(**row) if row else ProfileOut()
@@ -33,8 +36,11 @@ def put_profile(payload: ProfileIn, user: dict = Depends(current_user)):
     columns = ", ".join(FIELDS)
     placeholders = ", ".join(["%s"] * len(FIELDS))
     updates = ", ".join(f"{f} = EXCLUDED.{f}" for f in FIELDS)
-    values = [getattr(payload, f) for f in FIELDS]
     with connect() as conn:
+        # 별도 동의 전의 신체정보는 받아도 버린다 -- 프론트가 막지만 서버가 마지막 선이다.
+        if not consent.has_health_consent(conn, user["id"]):
+            payload = ProfileIn(**consent.strip_health(payload.model_dump()))
+        values = [getattr(payload, f) for f in FIELDS]
         conn.execute(
             f"""INSERT INTO user_profile (user_id, {columns}, updated_at)
                 VALUES (%s, {placeholders}, now())

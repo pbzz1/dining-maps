@@ -2,10 +2,14 @@ import { del, get, post, put } from "../../api";
 
 // 서버에 카카오 키가 없으면 enabled:false -- 로그인 버튼 자체를 숨긴다.
 export const fetchAuthStatus = () => get("/auth/status");
-export const fetchMe = () => get("/auth/me");
-export const fetchProfile = () => get("/profile");
+// 둘 다 fresh -- 결제·동의 뒤 refresh() 가 캐시된 옛 응답(요금제·동의 상태)을 받으면 화면이 안 바뀐다.
+export const fetchMe = () => get("/auth/me", undefined, { fresh: true });
+export const fetchProfile = () => get("/profile", undefined, { fresh: true });
 export const saveProfile = (profile) => put("/profile", profile);
 export const deleteAccount = () => del("/me");
+// 신체정보(성별·키·몸무게·나이·알레르기) 계정 저장 동의. 철회하면 서버가 저장된 값을 바로 지운다.
+export const grantHealthConsent = () => post("/auth/consent/health");
+export const withdrawHealthConsent = () => del("/auth/consent/health");
 
 // 추천 카드를 눌렀다/숨겼다. 실패해도 화면은 그대로 가야 하므로 여기서 삼킨다 --
 // 개인화 신호 하나 놓치는 것과 사용자 동작이 막히는 것은 비교 대상이 아니다.

@@ -32,7 +32,7 @@ def optional_user(request: Request) -> dict | None:
     try:
         return conn.execute(
             # plan 컬럼은 읽지 않는다 -- 요금제는 이용권(app/billing/budget.py active_entitlement)이 정한다.
-            "SELECT id, provider, nickname, created_at FROM app_user WHERE id = %s", (user_id,)
+            "SELECT id, provider, nickname, created_at, health_consent_at FROM app_user WHERE id = %s", (user_id,)
         ).fetchone()
     finally:
         conn.close()

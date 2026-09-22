@@ -268,6 +268,10 @@ CREATE TABLE IF NOT EXISTS app_user (
 -- 결제 연동 전까지는 운영자가 직접 UPDATE 해서 켠다.
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
 
+-- 건강 관련 민감정보(user_profile 의 성별·키·몸무게·나이·알레르기) 별도 동의 시각. NULL = 동의 안 함 --
+-- 그동안 그 칸들은 저장·조회·LLM 전달을 하지 않는다 (app/auth/consent.py).
+ALTER TABLE app_user ADD COLUMN IF NOT EXISTS health_consent_at TIMESTAMPTZ;
+
 -- 기존 localStorage 3개 키(recommend.prefs / .pos / .profile)의 서버 사본.
 -- 컬럼명은 프론트 필드명이 아니라 API 쿼리 파라미터명(max_calorie 등)에 맞췄다 --
 -- 추천 호출에 그대로 실려 가는 값이라 중간 변환을 한 군데(라우터)로 몰기 위해서다.
