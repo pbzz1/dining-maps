@@ -144,7 +144,10 @@ async def webhook(request: Request):
     try:
         payment = toss.fetch_payment(payment_key)
     except toss.TossError as e:
-        # 조회가 안 되면 처리하지 않는다 -- 500 을 주면 토스가 다시 보낸다.
+        if e.status == 404:
+            # 토스에 없는 결제 키(다른 상점·위조) -- 다시 받아도 같으니 재전송을 부르지 않게 200 으로 무시한다.
+            return {"ok": True, "ignored": True}
+        # 일시 장애면 처리하지 않는다 -- 5xx 를 주면 토스가 다시 보낸다.
         raise HTTPException(status_code=502, detail=str(e)) from e
     if payment.get("orderId") != order_id:
         return {"ok": True, "ignored": True}
