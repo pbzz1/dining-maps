@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 # 프로필은 전 필드가 선택이다. 비워 둔 칸은 프론트가 한국 성인 평균(bmr.js의
@@ -30,3 +32,18 @@ class EventIn(BaseModel):
     impression_id: int | None = None
     surface: str | None = Field(default=None, pattern="^(personal_picks|goal_list|chat)$")
     position: int | None = Field(default=None, ge=0, le=50)
+
+
+class FavoriteOut(BaseModel):
+    """즐겨찾기 한 칸. 영양 필드 이름은 추천 카드(format.js nutritionLine)가 읽는 키와 같다."""
+    menu_item_id: int
+    name: str
+    restaurant_name: str
+    category: str | None = None
+    price_krw: int | None = None
+    calorie: float | None = None
+    protein: float | None = None
+    sugar: float | None = None
+    saturated_fat: float | None = None
+    sodium: float | None = None
+    saved_at: datetime

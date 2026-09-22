@@ -5,6 +5,7 @@ import { logEvent } from "../auth/api";
 import { quotaLine } from "../auth/plan";
 import { fetchPersonalPicks } from "./api";
 import MemoryPanel from "../memory/MemoryPanel";
+import { FAVORITE_REMOVED, fetchFavorites, removeFavorite } from "../profile/api";
 import { nutritionLine, storeMapUrl } from "./format";
 
 // 로그인 사용자에게만 뜨는 "오늘 당신에겐" 3개. source 로 누가 골랐는지가 온다:
@@ -26,7 +27,9 @@ const LIMIT_NOTE = {
 export default function PersonalPicks({ pos, refreshKey, paid = false }) {
   const [data, setData] = useState(null); // { source, goal, comment, items }
   const [loading, setLoading] = useState(true);
+  // 저장한 메뉴 = 내 정보의 즐겨찾기. 서버 목록으로 채워 둬야 새로고침 뒤에도 "저장됨"이 남는다.
   const [saved, setSaved] = useState(() => new Set());
+  const pendingSave = useRef(new Map()); // id -> 기록 중인 save 요청. 곧바로 취소하면 기록이 끝난 뒤 지운다
   const [reloadKey, setReloadKey] = useState(0);
   const [memoryKey, setMemoryKey] = useState(0); // 추천이 새로 기억하면 패널을 다시 불러온다
   const shownIds = useRef([]); // 서버가 보여준 순서 -- 이벤트의 position 기준
@@ -58,6 +61,22 @@ export default function PersonalPicks({ pos, refreshKey, paid = false }) {
     };
   }, [pos, refreshKey, reloadKey]);
 
+  useEffect(() => {
+    fetchFavorites()
+      .then((list) => setSaved(new Set(list.map((f) => f.menu_item_id))))
+      .catch(() => {}); // 못 불러와도 저장 단추는 그대로 쓸 수 있다
+    // 내 정보에서 해제하면 이 카드도 "저장"으로 돌아와야 한다 -- 이 뷰는 숨겨진 채 살아 있어 다시 불리지 않는다.
+    const onRemoved = (e) =>
+      setSaved((s) => {
+        if (!s.has(e.detail)) return s;
+        const next = new Set(s);
+        next.delete(e.detail);
+        return next;
+      });
+    window.addEventListener(FAVORITE_REMOVED, onRemoved);
+    return () => window.removeEventListener(FAVORITE_REMOVED, onRemoved);
+  }, []);
+
   // 이벤트에 붙일 문맥: 어느 노출의 몇 번째 카드였나. 위치는 "처음 보여준 순서" 기준이라
   // 빼기로 카드가 줄어든 뒤의 화면 인덱스가 아니라 서버가 준 순서(shownIds)에서 찾는다.
   const ctx = (m) => ({
@@ -66,11 +85,25 @@ export default function PersonalPicks({ pos, refreshKey, paid = false }) {
     position: shownIds.current.indexOf(m.menu_item_id),
   });
 
-  function save(m) {
-    if (saved.has(m.menu_item_id)) return;
-    setSaved((s) => new Set(s).add(m.menu_item_id));
+  // 다시 누르면 저장 취소(= 즐겨찾기 해제). 서버에서 save 기록을 지워 학습에서도 빠진다.
+  function toggleSave(m) {
+    const id = m.menu_item_id;
+    if (saved.has(id)) {
+      setSaved((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+      track("personal_pick_unsave", { source: data?.source, variant: data?.variant });
+      // 404 = 이미 없음. 실패해도 내 정보에서 다시 해제할 수 있다
+      Promise.resolve(pendingSave.current.get(id)).then(() => removeFavorite(id)).catch(() => {});
+      return;
+    }
+    setSaved((s) => new Set(s).add(id));
     track("personal_pick_save", { source: data?.source, variant: data?.variant });
-    logEvent("save", m.menu_item_id, ctx(m));
+    const p = logEvent("save", id, ctx(m));
+    pendingSave.current.set(id, p);
+    p.finally(() => pendingSave.current.get(id) === p && pendingSave.current.delete(id));
   }
 
   async function hide(m) {
@@ -148,7 +181,7 @@ export default function PersonalPicks({ pos, refreshKey, paid = false }) {
                 type="button"
                 className="pick-btn"
                 aria-pressed={saved.has(m.menu_item_id)}
-                onClick={() => save(m)}
+                onClick={() => toggleSave(m)}
               >
                 {saved.has(m.menu_item_id) ? "저장됨" : "저장"}
               </button>

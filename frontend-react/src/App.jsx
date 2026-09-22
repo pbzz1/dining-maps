@@ -7,6 +7,7 @@ import RecommendView from "./features/recommend/RecommendView";
 import NewMenuView from "./features/new-menu/NewMenuView";
 import AboutView from "./features/about/AboutView";
 import PlansView from "./features/billing/PlansView";
+import ProfileView from "./features/profile/ProfileView";
 import { takePayReturnFromUrl } from "./features/billing/toss";
 import LoginButton from "./features/auth/LoginButton";
 import ChatFab from "./features/chat/ChatFab";
@@ -25,8 +26,9 @@ const NAV = [
   { key: "list", label: "매장 목록", Icon: IconList },
 ];
 
-// about·plans 는 NAV에 없다 -- 사이드바엔 안 뜨지만 #about / #plans 링크로는 열린다.
-const VIEWS = new Set([...NAV.map((n) => n.key), "about", "plans"]);
+// about·plans·me 는 NAV에 없다 -- 사이드바엔 안 뜨지만 #about / #plans / #me 링크로는 열린다.
+// me(내 정보)는 상단바의 닉네임 단추가 입구다.
+const VIEWS = new Set([...NAV.map((n) => n.key), "about", "plans", "me"]);
 // URL 해시가 곧 현재 뷰 -- "#list" 같은 링크를 공유하면 그 탭으로 바로 열린다.
 // 기본 화면은 신메뉴: 입력·로그인·위치 없이 바로 볼 게 있고 주 2회 내용이 바뀐다.
 // 지도는 "#map"으로 그대로 열린다 (공유된 링크 유지).
@@ -35,7 +37,7 @@ const viewFromHash = () => (VIEWS.has(location.hash.slice(1)) ? location.hash.sl
 
 // 뷰별 문서 제목. SPA라 제목이 처음 것 그대로면 브라우저 탭·방문기록·북마크가 전부
 // 같은 이름이 되고, GA4 "페이지 제목 및 화면 클래스" 보고서에서도 모든 뷰가 한 줄로 뭉친다.
-const VIEW_LABEL = { ...Object.fromEntries(NAV.map((n) => [n.key, n.label])), menu: "메뉴", about: "소개", plans: "요금제" };
+const VIEW_LABEL = { ...Object.fromEntries(NAV.map((n) => [n.key, n.label])), menu: "메뉴", about: "소개", plans: "요금제", me: "내 정보" };
 const HOME_TITLE = "Dining Maps - 프랜차이즈 신메뉴 영양 분석과 내 기준 메뉴 추천"; // index.html과 같은 문구
 const titleFor = (v) => (v === HOME_VIEW ? HOME_TITLE : `Dining Maps - ${VIEW_LABEL[v] ?? v}`);
 
@@ -93,7 +95,7 @@ export default function App() {
   // 토스 결제창에서 돌아온 진입(?pay=success|fail)인지 먼저 본다 -- 주소를 #plans 로 바꾸므로
   // 아래 viewFromHash 보다 앞서 돌아야 한다(useState 초기화는 선언 순서대로 실행된다).
   const [payReturn] = useState(takePayReturnFromUrl);
-  const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend | about | plans
+  const [view, setViewRaw] = useState(viewFromHash); // map | list | menu | dashboard | recommend | about | plans | me
   const [selected, setSelected] = useState(null);
   const [dataDate, setDataDate] = useState("");
   // 로그인 상태는 여기 한 곳에서만 만든다 -- 상단바 버튼과 맞춤 추천이 같은 값을 본다.
@@ -192,6 +194,7 @@ export default function App() {
         <Pane name="new" view={view} seen={seen}><NewMenuView /></Pane>
         <Pane name="about" view={view} seen={seen}><AboutView dataDate={dataDate} /></Pane>
         <Pane name="plans" view={view} seen={seen}><PlansView auth={auth} payReturn={payReturn} /></Pane>
+        <Pane name="me" view={view} seen={seen}><ProfileView auth={auth} visible={view === "me"} /></Pane>
         <Pane name="list" view={view} seen={seen}><RestaurantList onSelect={openMenu} /></Pane>
         {/* 드릴다운은 매장마다 내용이 달라 keep-alive 대상이 아니다 -- api.js 캐시가 커버. */}
         {view === "menu" && selected && (

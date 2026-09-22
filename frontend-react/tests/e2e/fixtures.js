@@ -78,6 +78,11 @@ export const authStatusOff = { enabled: false, provider: "kakao" };
 export const authStatusOn = { enabled: true, provider: "kakao" };
 export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z", plan: "free", plan_ends_at: null, ai_budget_left_pct: null };
 // 유료 이용권(High). 예전 이름 mePremium 은 기존 스펙이 그대로 쓴다.
+// /api/favorites (app/profile/schemas.py FavoriteOut) -- 최근 저장한 순
+export const favorites = [
+  { menu_item_id: 201, name: "치킨 샐러드", restaurant_name: "샐러디", category: "샐러드", price_krw: 8900, calorie: 320, protein: 28, sugar: 6, saturated_fat: 2, sodium: 640, saved_at: "2026-09-20T03:00:00Z" },
+  { menu_item_id: 202, name: "에그 맥머핀", restaurant_name: "맥도날드", category: "버거", price_krw: null, calorie: 306, protein: 19, sugar: 3, saturated_fat: 5, sodium: 712, saved_at: "2026-09-18T03:00:00Z" },
+];
 export const mePaid = { ...me, plan: "high", plan_ends_at: "2026-02-01T00:00:00Z", ai_budget_left_pct: 63 };
 export const mePremium = mePaid;
 // /api/billing/plans (app/billing/schemas.py PlanOut) -- 가격·모델은 서버 설정이 정본
@@ -214,6 +219,7 @@ export async function mockApi(page) {
   await page.route("**/api/recommend/menus*", (r) => r.fulfill({ json: recommendMenus }));
   await page.route("**/api/recommend/goals", (r) => r.fulfill({ json: goals }));
   await page.route("**/api/memory", (r) => r.fulfill({ json: [] }));
+  await page.route("**/api/favorites", (r) => r.fulfill({ json: [] }));
   await page.route("**/api/chat", (r) => r.fulfill({ json: chatReply() }));
   await page.route("**/api/billing/plans", (r) => r.fulfill({ json: plans }));
   await page.route("**/api/billing/me", (r) => r.fulfill({ json: billingFree }));
