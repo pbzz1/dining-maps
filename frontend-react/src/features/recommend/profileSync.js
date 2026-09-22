@@ -4,9 +4,11 @@ import { fetchProfile, saveProfile } from "../auth/api";
 // localStorage 두 덩어리(prefs, profile) <-> 서버 user_profile 한 행의 변환.
 // 이름이 다른 이유: 프론트는 camelCase, 서버 컬럼은 추천 API 쿼리 파라미터명을 따른다.
 // 변환을 이 파일에만 두면 필드가 늘어도 고칠 곳이 한 군데다.
-export function toServer(prefs, profile) {
+// healthConsent 가 없으면 신체정보 칸은 null 로 보낸다 -- 브라우저에만 두고 서버엔 안 올린다
+// (별도 동의 전 민감정보. 서버도 같은 규칙으로 버린다: app/auth/consent.py).
+export function toServer(prefs, profile, healthConsent = false) {
   const num = (v) => (v === "" || v == null ? null : Number(v));
-  return {
+  const row = {
     goal: prefs.goal ?? null,
     sex: profile?.sex ?? null,
     height_cm: num(profile?.heightCm),
@@ -19,6 +21,7 @@ export function toServer(prefs, profile) {
     allergies: null,
     dislikes: null,
   };
+  return healthConsent ? row : { ...row, sex: null, height_cm: null, weight_kg: null, age: null };
 }
 
 export function fromServer(row, prefs, profile) {
@@ -53,6 +56,7 @@ const isEmpty = (row) => !row || Object.values(row).every((v) => v == null || v 
  * 비로그인이면 아무 일도 하지 않는다 -- 기존 localStorage 동작 그대로.
  */
 export function useProfileSync({ user, prefs, profile, setPrefs, setProfile, onSaved }) {
+  const consented = !!user?.health_consent_at;
   // 서버에서 받은 값을 state에 넣는 것 자체가 "변경"으로 보여서 곧바로 다시 저장되는
   // 왕복을 막는다. 아직 pull이 안 끝났으면 push도 하지 않는다.
   const pulled = useRef(false);
@@ -75,14 +79,14 @@ export function useProfileSync({ user, prefs, profile, setPrefs, setProfile, onS
         if (cancelled) return;
         if (isEmpty(row)) {
           // 첫 로그인 업로드
-          const payload = toServer(prefs, profile);
+          const payload = toServer(prefs, profile, consented);
           return saveProfile(payload).then(() => {
             lastSaved.current = JSON.stringify(payload);
             onSavedRef.current?.();
           });
         }
         const next = fromServer(row, prefs, profile);
-        lastSaved.current = JSON.stringify(toServer(next.prefs, next.profile));
+        lastSaved.current = JSON.stringify(toServer(next.prefs, next.profile, consented));
         setPrefs(next.prefs);
         setProfile(next.profile);
       })
@@ -99,7 +103,8 @@ export function useProfileSync({ user, prefs, profile, setPrefs, setProfile, onS
 
   useEffect(() => {
     if (!user || !pulled.current) return;
-    const payload = toServer(prefs, profile);
+    // 동의가 막 생기면 payload 에 신체정보가 새로 실려 lastSaved 와 달라진다 -> 한 번 올라간다.
+    const payload = toServer(prefs, profile, consented);
     const key = JSON.stringify(payload);
     if (key === lastSaved.current) return;
     // 숫자 입력은 한 글자마다 바뀐다 -- 멈춘 뒤에 한 번만 보낸다.
@@ -114,5 +119,5 @@ export function useProfileSync({ user, prefs, profile, setPrefs, setProfile, onS
       800
     );
     return () => clearTimeout(t);
-  }, [user, prefs, profile]);
+  }, [user, prefs, profile, consented]);
 }

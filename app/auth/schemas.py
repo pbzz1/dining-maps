@@ -9,6 +9,8 @@ class MeOut(BaseModel):
     nickname: str | None
     created_at: datetime
     plan: str = "free"  # free | premium -- 프론트가 유료 기능 안내를 띄울지 정한다
+    # 건강 관련 민감정보 별도 동의 시각. None 이면 프론트는 신체정보를 브라우저에만 둔다(app/auth/consent.py).
+    health_consent_at: datetime | None = None
 
 
 class AuthStatusOut(BaseModel):
