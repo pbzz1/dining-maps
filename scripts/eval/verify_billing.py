@@ -250,6 +250,10 @@ try:
     check(body["messages"][0]["role"] == "user", "잘린 뒤에도 user 로 시작")
     chars = sum(len(m["content"]) for m in body["messages"]) + len(body["system"])
     check(est >= chars, f"추정 {est} ≥ 문자 수 {chars} (한글 글자당 2토큰으로 세므로)")
+    # 실측(2026-09-22): 스키마 약 600토큰 -> 실제 증가분 최대 880. 추정은 그 이상이어야 한다.
+    sch = fake.requests[-1]["output_config"]["format"]["schema"]
+    over = budget.estimate_input_tokens("", [], sch) - budget.estimate_input_tokens("", [], None)
+    check(over >= 1000, f"스키마 오버헤드 추정 {over} ≥ 실측 최대 880")
     check(budget.estimate_input_tokens("", [{"role": "user", "content": "x" * 30000}], None) > INPUT_TOKEN_CAP,
           "터무니없이 긴 입력은 상한을 넘는다고 판정")
 

@@ -72,7 +72,9 @@ def estimate_input_tokens(system: str, messages: list[dict], schema: dict | None
         content = m["content"] if isinstance(m["content"], str) else json.dumps(m["content"], ensure_ascii=False)
         total += count(content) + 8
     if schema:
-        total += count(json.dumps(schema, ensure_ascii=False)) + 32
+        # 구조화 출력은 스키마 본문보다 훨씬 많은 토큰을 더한다 -- 실측(2026-09-22, count_tokens 와 실제 usage 비교):
+        # 스키마 JSON 이 약 600토큰일 때 실제 입력 증가분은 590~880토큰(문법 프롬프트가 붙는다). 1.5배 + 300 으로 덮는다.
+        total += int(count(json.dumps(schema, ensure_ascii=False)) * 1.5) + 300
     return total + 200
 
 
