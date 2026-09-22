@@ -80,6 +80,9 @@ export const fetchDietGrade = (id) => get(`/restaurants/${id}/diet-grade`);
 export const fetchStats = (id) => get(`/restaurants/${id}/stats`);
 export const fetchMenu = (id) => get(`/restaurants/${id}/menu`);
 export const fetchStores = (params) => get("/stores", params);
+// 지도 추천의 "무엇을 먹을지" 축. params: { goal, category? } -- 매장 목록과 따로 불러서
+// 목표만 바꿀 때 반경 안 매장을 다시 받지 않는다.
+export const fetchBrandReco = (params) => get("/stores/brand-reco", params);
 export const fetchStatsBrands = () => get("/stats/brands");
 export const fetchStatsQuality = () => get("/stats/quality");
 // 메뉴 탐색기. params: { sort, category?, restaurant_id?, limit? }

@@ -34,7 +34,9 @@
 
 ### 지도
 
-반경 안 매장을 다이어트 등급(A~D) 마커로 뿌리고 브랜드마다 추천 메뉴 한 줄 이유를 카드로 붙인다. 이유 문장은 재채점 때 미리 생성해 둔 캐시(`brand_menu_reco`)를 읽는다. 런타임에 LLM을 부르지 않는다.
+반경 안 매장을 등급(A~D) 마커로 뿌리고, 브랜드마다 **지금 고른 목표·음식 종류 기준의 추천 메뉴 한 줄**을 카드로 붙인다(`/api/stores/brand-reco`). 추천 순서는 목표 적합도 60% + 거리 40%로 매긴다 — 브랜드 평균 등급만으로 줄을 세우면 어느 동네에서 열어도 같은 브랜드가 1~3위를 차지했다. 이유 문장은 영양값에서 그 자리에서 계산하고, 런타임에 LLM을 부르지 않는다(브랜드 고정 추천 `brand_menu_reco`는 폴백으로만 남는다).
+
+영양정보를 가진 브랜드는 16곳뿐이라 그 밖의 식당은 지도에 아예 없었다. **"영양정보 없는 주변 식당도 보기"** 를 켜면 카카오 장소 검색(FD6)으로 주변 식당을 회색 핀으로 함께 보여준다 — 등급은 매기지 않고, 영양정보가 없다는 사실을 팝업에 그대로 적는다.
 
 ### 맞춤 추천
 
@@ -276,6 +278,7 @@ erDiagram
 | 화면 | 엔드포인트 | 쿼리 파라미터 | 읽는 테이블 |
 |---|---|---|---|
 | 지도 | `/api/stores` | `lat, lng, radius_m, grade_type, min_grade` | store, diet_score, brand_menu_reco |
+| 지도 | `/api/stores/brand-reco` | `goal, category` | menu_item, nutrition_fact, diet_score |
 | 매장 목록 | `/api/restaurants` | — | restaurant, diet_score |
 | 메뉴 | `/api/restaurants/{id}/menu` | — | menu_item, nutrition_fact, diet_score |
 | 메뉴 | `/api/restaurants/{id}/stats` | — | menu_item, nutrition_fact |

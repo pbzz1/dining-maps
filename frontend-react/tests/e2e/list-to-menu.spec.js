@@ -14,7 +14,9 @@ test("매장 카드를 누르면 그 매장의 메뉴 화면으로 간다", asyn
 
   await expect(page.getByRole("heading", { name: "샐러디" })).toBeVisible();
   await expect(page.getByText("메뉴 2개")).toBeVisible();
-  await expect(page.getByText("치킨 샐러드")).toBeVisible();
+  // 메뉴 목록 안에서 찾는다 -- 같은 메뉴명이 뒤에 숨어 있는 지도 탭의 추천 한 줄에도
+  // 있어서, 화면 전체에서 텍스트로 잡으면 두 개가 걸린다.
+  await expect(page.locator(".menu-item-name", { hasText: "치킨 샐러드" })).toBeVisible();
 });
 
 test("메뉴 화면에서 뒤로가기를 누르면 목록으로 돌아온다", async ({ page }) => {

@@ -60,6 +60,20 @@ export const stores = [
   },
 ];
 
+// 목표·음식 종류별 브랜드 추천 메뉴 (/api/stores/brand-reco).
+// "버거"를 고르면 샐러디는 후보에서 빠진다 -- 카테고리가 추천 목록 자체를 바꾸는 흐름.
+export const brandReco = {
+  diet: [
+    { restaurant_id: 1, menu_item_id: 11, menu_name: "치킨 샐러드", category_group: "샐러드·샌드위치",
+      reason: "320kcal · 다이어트 점수 80/100", score: 80, rank: 1 },
+  ],
+  protein: [
+    { restaurant_id: 1, menu_item_id: 12, menu_name: "연어 샐러드", category_group: "샐러드·샌드위치",
+      reason: "단백질 30g / 380kcal", score: 7.9, rank: 1 },
+  ],
+  버거: [],
+};
+
 export const authStatusOff = { enabled: false, provider: "kakao" };
 export const authStatusOn = { enabled: true, provider: "kakao" };
 export const me = { id: 1, provider: "kakao", nickname: "테스트유저", created_at: "2026-01-01T00:00:00Z", plan: "free" };
@@ -186,4 +200,9 @@ export async function mockApi(page) {
   await page.route("**/api/restaurants/1/menu", (r) => r.fulfill({ json: menu }));
   await page.route("**/api/restaurants/1/diet-grade", (r) => r.fulfill({ json: dietGrade }));
   await page.route("**/api/stores?*", (r) => r.fulfill({ json: stores }));
+  await page.route("**/api/stores/brand-reco*", (r) => {
+    const q = new URL(r.request().url()).searchParams;
+    const key = q.get("category") ?? q.get("goal") ?? "diet";
+    r.fulfill({ json: brandReco[key] ?? [] });
+  });
 }

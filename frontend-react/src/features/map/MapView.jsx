@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { track } from "../../constants";
-import { fetchStores } from "../../api";
+import { fetchStores, fetchBrandReco } from "../../api";
 import { useKakaoMap } from "./useKakaoMap";
 import {
-  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, BRAND_SLUGS, formatDistance,
+  DEFAULT_CENTER, SEARCH_RADIUS_M, GRADE_COLOR, GRADE_CLASS, GRADE_RANK, ALL_GRADES, BRAND_SLUGS,
+  MAP_GOALS, MAP_CATEGORIES, formatDistance,
 } from "../../constants";
 
 
@@ -59,8 +60,29 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const [keyword, setKeyword] = useState("");
   const [radiusM, setRadiusM] = useState(SEARCH_RADIUS_M);
   const [limit, setLimit] = useState(RECOMMEND_LIMIT);
+  // 무엇을 먹을지(목표·음식 종류). 이 두 개가 추천 순서를 바꾸는 축이다 -- 없을 때는
+  // 브랜드 평균 등급 하나로만 줄을 세워서, 어느 동네에서 열어도 같은 브랜드가 1~3위였다.
+  const [goal, setGoal] = useState("diet");
+  const [category, setCategory] = useState(null); // null = 전체
+  const [reco, setReco] = useState(new Map()); // restaurant_id -> 그 목표·종류의 추천 메뉴
+  // 우리가 영양정보를 가진 16개 브랜드 밖의 식당들. 카카오 장소 검색(FD6)으로 그 자리에서
+  // 채우고, 영양정보가 없다는 걸 화면에서 분명히 밝힌 채로만 보여준다.
+  const [showNearby, setShowNearby] = useState(false);
+  const [nearby, setNearby] = useState([]);
+  const [centerKey, setCenterKey] = useState(""); // 중심이 바뀌면 주변 식당도 다시 받는다
+  const nearbyOverlaysRef = useRef([]);
   // 목록↔지도 호버 연동의 단일 출처. 어느 쪽에 커서를 올려도 여기로 모인다.
   const [hoverId, setHoverId] = useState(null);
+
+  // 목표/종류가 바뀌면 이것만 다시 받는다 -- 브랜드 수만큼이라 작고, 반경 안 매장
+  // 목록은 그대로 두니 화면이 즉시 다시 정렬된다.
+  useEffect(() => {
+    let alive = true;
+    fetchBrandReco(category ? { goal, category } : { goal })
+      .then((rows) => alive && setReco(new Map(rows.map((r) => [r.restaurant_id, r]))))
+      .catch(() => alive && setReco(new Map()));
+    return () => { alive = false; };
+  }, [goal, category]);
 
   function toggleGrade(g) {
     setActiveGrades((prev) => {
@@ -72,27 +94,38 @@ export default function MapView({ onOpenMenu, visible = true }) {
 
   // A/B/C/D 온오프는 클라이언트에서 필터링한다 -- /api/stores의 min_grade는
   // "이 등급 이상"만 지원해서 서버에서 임의 조합(예: A,C만 켜기)을 걸 수 없다.
-  // 그 다음 브랜드당 최근접 매장 1곳으로 추리고, 등급 좋은순 → 가까운순으로
-  // 상위 15곳만 남긴다 -- 같은 브랜드 지점 15개를 "추천"이라고 줄세우지 않기 위해.
+  // 그 다음 브랜드당 최근접 매장 1곳으로 추리고(같은 브랜드 지점 15개를 "추천"이라고
+  // 줄세우지 않기 위해), 아래 점수로 상위 N곳만 남긴다.
   const visibleStores = useMemo(() => {
     const gradeOf = (s) => (gradeType === "absolute" ? s.absolute_grade : s.relative_grade);
     const nearestPerBrand = new Map();
     for (const s of stores) {
       const g = gradeOf(s);
       if (g != null && !activeGrades.has(g)) continue;
+      // 음식 종류를 골랐으면 그 종류 메뉴가 있는 브랜드만 남긴다 -- "버거"를 고른
+      // 사람에게 커피 브랜드를 추천 1위로 내밀지 않기 위해.
+      if (category && !reco.has(s.restaurant_id)) continue;
       const prev = nearestPerBrand.get(s.restaurant_id);
       if (!prev || (s.distance_m ?? Infinity) < (prev.distance_m ?? Infinity)) {
         nearestPerBrand.set(s.restaurant_id, s);
       }
     }
+    // 추천 점수 = 목표 적합도 60% + 가까움 40%.
+    // 등급만으로 정렬하면 순위가 브랜드 고정값이라 어디서 열어도 같은 줄이 나온다.
+    // 목표(다이어트/근성장/저나트륨)와 실제 거리가 함께 순위를 만들도록 섞는다.
+    const GRADE_FIT = { A: 0.75, B: 0.5, C: 0.25, D: 0 };
+    const scoreOf = (s) => {
+      const r = reco.get(s.restaurant_id);
+      // 목표 기준으로 추천할 메뉴를 못 찾은 브랜드(영양정보 결측)는 등급으로 대신하되,
+      // 근거가 약하므로 같은 등급의 추천 가능 브랜드보다 앞에 서지 못하게 낮춰 잡는다.
+      const fit = r ? r.rank : (GRADE_FIT[gradeOf(s)] ?? 0) * 0.6;
+      const near = 1 - Math.min(s.distance_m ?? radiusM, radiusM) / radiusM;
+      return fit * 0.6 + near * 0.4;
+    };
     return [...nearestPerBrand.values()]
-      .sort(
-        (a, b) =>
-          (GRADE_RANK[gradeOf(a)] ?? 9) - (GRADE_RANK[gradeOf(b)] ?? 9) ||
-          (a.distance_m ?? 0) - (b.distance_m ?? 0)
-      )
+      .sort((a, b) => scoreOf(b) - scoreOf(a) || (a.distance_m ?? 0) - (b.distance_m ?? 0))
       .slice(0, limit);
-  }, [stores, gradeType, activeGrades, limit]);
+  }, [stores, gradeType, activeGrades, limit, reco, category, radiusM]);
 
   const clearOverlays = useCallback(() => {
     overlaysRef.current.forEach((o) => o.setMap(null));
@@ -119,6 +152,10 @@ export default function MapView({ onOpenMenu, visible = true }) {
       highlightPin(store.id);
       const ratio =
         store.good_menu_ratio != null ? `${Math.round(store.good_menu_ratio * 100)}%` : "-";
+      // 선택한 목표·종류로 계산한 추천 메뉴가 우선. 없으면 기존 LLM 고정 추천으로 폴백.
+      const pick = reco.get(store.restaurant_id);
+      const recoMenu = pick?.menu_name ?? store.reco_menu;
+      const recoReason = pick?.reason ?? store.reco_reason ?? "";
 
       const el = document.createElement("div");
       el.className = "store-popup";
@@ -127,7 +164,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         <div class="store-popup-title">${store.restaurant_name} ${store.branch_name}</div>
         <div class="store-popup-meta">절대 ${store.absolute_grade ?? "-"} · 상대 ${store.relative_grade ?? "-"} · 도움 메뉴 ${ratio}</div>
         <div class="store-popup-meta">${formatDistance(store.distance_m)}${store.address ? " · " + store.address : ""}</div>
-        ${store.reco_menu ? `<div class="store-reco">🤖 <b>${store.reco_menu}</b><span>${store.reco_reason ?? ""}</span></div>` : ""}
+        ${recoMenu ? `<div class="store-reco"><b>${recoMenu}</b><span>${recoReason}</span></div>` : ""}
         <button class="store-popup-menu-btn" type="button">이 브랜드 메뉴 보기</button>
       `;
       el.addEventListener("click", (ev) => ev.stopPropagation()); // 팝업 안 클릭으로는 안 닫힘
@@ -169,7 +206,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
         if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`;
       });
     },
-    [map, onOpenMenu, highlightPin]
+    [map, onOpenMenu, highlightPin, reco]
   );
 
   // 실제 위치 파악에 성공했을 때만 호출된다 -- 기본 중심(서울시청) 폴백에는
@@ -196,6 +233,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
   const loadStores = useCallback(
     async (lat, lng) => {
       centerRef.current = { lat, lng };
+      setCenterKey(`${lat},${lng}`);
       setStatus("매장 불러오는 중...");
       clearOverlays();
       try {
@@ -293,7 +331,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       const lng = group.reduce((a, g) => a + g.store.lng, 0) / group.length;
       const el = document.createElement("div");
       el.className = "map-cluster";
-      el.style.background = GRADE_COLOR[grade] ?? "#999";
+      el.style.setProperty("--pin-color", GRADE_COLOR[grade] ?? "#999");
       el.title = group.map((g) => `${g.store.restaurant_name} ${g.store.branch_name ?? ""}`).join(" / ");
       el.innerHTML = `<b>${group.length}</b><span>곳</span>`;
       const pos = new window.kakao.maps.LatLng(lat, lng);
@@ -319,7 +357,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
       const isSelected = selectedIdRef.current === store.id;
       const el = document.createElement("div");
       el.className = `map-pin${isTop ? " map-pin-top" : ""}${isSelected ? " is-selected" : ""}`;
-      el.style.background = GRADE_COLOR[displayGrade] ?? "#999";
+      el.style.setProperty("--pin-color", GRADE_COLOR[displayGrade] ?? "#999");
       el.innerHTML =
         (isTop ? `<em class="pin-rank">${rank + 1}</em>` : "") +
         `<b class="pin-grade">${displayGrade ?? "?"}</b>` +
@@ -348,6 +386,97 @@ export default function MapView({ onOpenMenu, visible = true }) {
       pinsRef.current.set(store.id, { el, overlay, baseZ });
     }
   }, [visibleStores, ready, map, gradeType, showPopup, level]);
+
+  // --- 영양정보가 없는 주변 식당 (카카오 장소 검색) ---
+  //
+  // 우리가 영양정보를 가진 브랜드는 16곳뿐이라, 그 밖의 식당은 지도에서 아예 존재하지
+  // 않는 것처럼 보였다. 밥집 자체는 카카오가 알고 있으니 그 자리에서 받아와 "여기도
+  // 식당이 있다"까지는 보여주고, 영양정보가 없다는 사실은 숨기지 않는다.
+  useEffect(() => {
+    if (!showNearby) {
+      setNearby([]);
+      return;
+    }
+    if (!ready || !places) return;
+    const { lat, lng } = centerRef.current;
+    let alive = true;
+    const { Status, SortBy } = window.kakao.maps.services;
+    const brands = Object.keys(BRAND_SLUGS);
+    places.categorySearch(
+      "FD6",
+      (data, status) => {
+        if (!alive) return;
+        if (status !== Status.OK) {
+          setNearby([]);
+          return;
+        }
+        // 이미 등급 핀이 꽂힌 프랜차이즈는 빼고 -- 같은 매장이 두 번 보이면 등급 있는
+        // 핀과 없는 핀이 나란히 서서 어느 쪽을 믿어야 할지 알 수 없게 된다.
+        setNearby(data.filter((pl) => !brands.some((b) => pl.place_name.includes(b))));
+      },
+      {
+        location: new window.kakao.maps.LatLng(lat, lng),
+        radius: Math.min(radiusM, 20000), // 20km가 카카오 허용 최대치
+        size: 15,
+        sort: SortBy.DISTANCE,
+      }
+    );
+    return () => { alive = false; };
+  }, [showNearby, ready, places, radiusM, centerKey]);
+
+  const showNearbyPopup = useCallback(
+    (place) => {
+      if (popupRef.current) popupRef.current.setMap(null);
+      const el = document.createElement("div");
+      el.className = "store-popup";
+      el.innerHTML = `
+        <button class="store-popup-close" type="button">&times;</button>
+        <div class="store-popup-title">${place.place_name}</div>
+        <div class="store-popup-meta">${place.category_name ?? ""}</div>
+        <div class="store-popup-meta">${formatDistance(Number(place.distance))}${place.road_address_name ? " · " + place.road_address_name : ""}</div>
+        <div class="store-nodata">영양정보 없음 — 등급을 매길 근거가 없습니다.</div>
+        <a class="store-popup-menu-btn" href="${place.place_url}" target="_blank" rel="noreferrer">카카오맵에서 보기</a>
+      `;
+      el.addEventListener("click", (ev) => ev.stopPropagation());
+      el.querySelector(".store-popup-close").addEventListener("click", () => {
+        popupRef.current?.setMap(null);
+        popupRef.current = null;
+      });
+      const overlay = new window.kakao.maps.CustomOverlay({
+        position: new window.kakao.maps.LatLng(Number(place.y), Number(place.x)),
+        content: el,
+        yAnchor: 1.4,
+        zIndex: 300000,
+      });
+      overlay.setMap(map);
+      popupRef.current = overlay;
+    },
+    [map]
+  );
+
+  useEffect(() => {
+    if (!ready || !map) return;
+    nearbyOverlaysRef.current.forEach((o) => o.setMap(null));
+    nearbyOverlaysRef.current = [];
+    for (const place of nearby) {
+      const el = document.createElement("div");
+      el.className = "map-pin map-pin-plain";
+      el.innerHTML = `<span class="pin-name">${place.place_name}</span>`;
+      el.title = `${place.place_name} (영양정보 없음)`;
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        showNearbyPopup(place);
+      });
+      const overlay = new window.kakao.maps.CustomOverlay({
+        position: new window.kakao.maps.LatLng(Number(place.y), Number(place.x)),
+        content: el,
+        yAnchor: 1,
+        zIndex: 1000, // 등급 있는 추천 핀보다 항상 뒤
+      });
+      overlay.setMap(map);
+      nearbyOverlaysRef.current.push(overlay);
+    }
+  }, [nearby, ready, map, showNearbyPopup]);
 
   // 지도의 빈 곳을 누르면 열려 있던 매장 팝업을 닫는다 (닫기 버튼만으로는 답답하다).
   useEffect(() => {
@@ -463,6 +592,45 @@ export default function MapView({ onOpenMenu, visible = true }) {
           <button onClick={() => { track("map_locate"); handleLocate(); }}>내 위치</button>
         </div>
 
+        {/* 무엇을 먹을지부터 고르게 한다 -- 등급 필터는 그 다음 문제다. */}
+        <div className="goal-controls">
+          <div className="filter-group">
+            <span className="filter-label">목표</span>
+            <div className="chip-row" role="group" aria-label="추천 목표">
+              {MAP_GOALS.map((g) => (
+                <button
+                  key={g.key}
+                  className={`chip${goal === g.key ? " active" : ""}`}
+                  title={g.hint}
+                  onClick={() => { track("map_goal", { goal: g.key }); setGoal(g.key); }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-group">
+            <span className="filter-label">먹고 싶은 것</span>
+            <div className="chip-row" role="group" aria-label="음식 종류">
+              <button
+                className={`chip${category === null ? " active" : ""}`}
+                onClick={() => { track("map_category", { category: "전체" }); setCategory(null); }}
+              >
+                전체
+              </button>
+              {MAP_CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  className={`chip${category === c ? " active" : ""}`}
+                  onClick={() => { track("map_category", { category: c }); setCategory(category === c ? null : c); }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="filter-controls">
           <div className="filter-group">
             <span className="filter-label">검색 반경</span>
@@ -517,6 +685,16 @@ export default function MapView({ onOpenMenu, visible = true }) {
             ))}
           </div>
         </div>
+        <div className="filter-group">
+          <label className="nearby-toggle">
+            <input
+              type="checkbox"
+              checked={showNearby}
+              onChange={(e) => { track("map_nearby", { on: e.target.checked }); setShowNearby(e.target.checked); }}
+            />
+            영양정보 없는 주변 식당도 보기
+          </label>
+        </div>
         {(sdkError ?? status) && <span className="map-status">{sdkError ?? status}</span>}
       </div>
 
@@ -533,7 +711,7 @@ export default function MapView({ onOpenMenu, visible = true }) {
           <span className="legend-divider" />
           <span>
             <em className="pin-rank">1</em>
-            골드 = 다이어트 추천 상위 3곳
+            골드 = 추천 상위 3곳
           </span>
         </div>
         <div className="store-list">
@@ -559,15 +737,44 @@ export default function MapView({ onOpenMenu, visible = true }) {
                   <span className="store-card-distance">{formatDistance(store.distance_m)}</span>
                 </div>
                 <div className="store-card-address">{store.address}</div>
-                {store.reco_menu && (
-                  <div className="store-reco">
-                    🤖 <b>{store.reco_menu}</b>
-                    <span>{store.reco_reason}</span>
-                  </div>
-                )}
+                {(() => {
+                  const pick = reco.get(store.restaurant_id);
+                  const name = pick?.menu_name ?? store.reco_menu;
+                  if (!name) return null;
+                  return (
+                    <div className="store-reco">
+                      <b>{name}</b>
+                      <span>{pick?.reason ?? store.reco_reason}</span>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
+          {showNearby && (
+            <>
+              <div className="store-list-divider">
+                영양정보 없는 주변 식당 {nearby.length}곳 <span>카카오맵 · 등급 없음</span>
+              </div>
+              {nearby.map((place) => (
+                <div
+                  key={place.id}
+                  className="store-card store-card-plain"
+                  onClick={() => {
+                    map.panTo(new window.kakao.maps.LatLng(Number(place.y), Number(place.x)));
+                    showNearbyPopup(place);
+                  }}
+                >
+                  <div className="store-card-head">
+                    <span className="grade-badge grade-none" title="영양정보 없음">-</span>
+                    <span className="store-card-name">{place.place_name}</span>
+                    <span className="store-card-distance">{formatDistance(Number(place.distance))}</span>
+                  </div>
+                  <div className="store-card-address">{place.category_name}</div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </section>

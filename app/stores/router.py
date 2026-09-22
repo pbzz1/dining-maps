@@ -3,7 +3,9 @@ from fastapi import APIRouter, HTTPException
 from app.db import get_connection
 from app.geo import haversine_m
 from app.grading import GRADE_RANK, absolute_grade_for, brand_relative_grades
-from app.stores.schemas import StoreOut
+from app.menu_category import GROUPS, category_group, is_drink
+from app.recommend.goals import GOALS, score_item
+from app.stores.schemas import BrandRecoOut, StoreOut
 
 router = APIRouter(prefix="/api/stores", tags=["stores"])
 
@@ -106,3 +108,71 @@ def list_stores(
         result.sort(key=lambda s: s.distance_m)
 
     return result
+
+
+@router.get("/brand-reco", response_model=list[BrandRecoOut])
+def brand_reco(goal: str = "diet", category: str | None = None):
+    """선택한 목표·음식 종류 기준으로 브랜드마다 가장 맞는 메뉴 한 건.
+
+    지도 화면이 /api/stores 와 따로 호출한다. 목표만 바꿀 때 반경 안 매장을 다시
+    받지 않아도 되고(응답이 브랜드 수만큼이라 작다), 추천 근거가 "브랜드 평균 등급"
+    하나에 고정돼 어디서 들어와도 같은 매장만 뜨던 문제도 여기서 풀린다.
+
+    category 는 menu_category.GROUPS 중 하나. 걸면 그 종류 메뉴가 있는 브랜드만 남아
+    지도 추천 목록 자체가 바뀐다 (예: '샐러드·샌드위치'면 커피 브랜드가 빠진다).
+    """
+    if goal not in GOALS:
+        raise HTTPException(status_code=400, detail=f"goal must be one of {list(GOALS)}")
+    if category is not None and category not in GROUPS:
+        raise HTTPException(status_code=400, detail=f"category must be one of {list(GROUPS)}")
+
+    conn = get_connection()
+    rows = conn.execute(
+        """SELECT mi.id, mi.name, mi.category, mi.restaurant_id,
+                  ds.score AS diet_score,
+                  json_object_agg(nf.nutrient_name, nf.value) AS nutrients
+           FROM menu_item mi
+           JOIN nutrition_fact nf ON nf.menu_item_id = mi.id
+           LEFT JOIN diet_score ds ON ds.menu_item_id = mi.id
+           GROUP BY mi.id, ds.score"""
+    ).fetchall()
+    conn.close()
+
+    best: dict[int, tuple[float, BrandRecoOut]] = {}
+    for row in rows:
+        group = category_group(row["category"], row["name"])
+        if category is not None and group != category:
+            continue
+        drink = is_drink(row["category"], row["name"])
+        # 음료를 고르지 않았으면 음료는 대표 메뉴가 될 수 없다. 지도는 "지금 뭘 먹을까"의
+        # 화면인데, diet 기준으로는 10kcal 아메리카노가 어느 밥집 메뉴보다도 높은 점수라
+        # 그대로 두면 커피 브랜드가 추천 1위를 독차지한다.
+        if drink and category != "음료":
+            continue
+        hit = score_item(goal, row["nutrients"], row["diet_score"], {}, drink=drink)
+        if hit is None:
+            continue
+        score, reason = hit
+        prev = best.get(row["restaurant_id"])
+        if prev is not None and prev[0] >= score:
+            continue
+        best[row["restaurant_id"]] = (
+            score,
+            BrandRecoOut(
+                restaurant_id=row["restaurant_id"],
+                menu_item_id=row["id"],
+                menu_name=row["name"],
+                category_group=group,
+                reason=reason,
+                score=round(score, 2),
+                rank=0.0,  # 아래에서 브랜드끼리 줄 세운 뒤 채운다
+            ),
+        )
+
+    # goal 마다 점수 단위가 달라(0~100 / g per 100kcal / -mg) 그대로는 거리와 섞을 수
+    # 없다. 응답 안에서의 상대 순위 0~1 로 바꿔 지도 정렬이 쓰게 한다.
+    out = [r for _, r in sorted(best.values(), key=lambda t: t[0], reverse=True)]
+    last = len(out) - 1
+    for i, reco in enumerate(out):
+        reco.rank = 1.0 if last == 0 else round((last - i) / last, 4)
+    return out
