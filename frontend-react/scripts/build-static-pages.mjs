@@ -5,6 +5,7 @@
 //   /brand/<브랜드>/<메뉴>/        메뉴 1개 = 1페이지 ("빅맥 칼로리" 같은 검색의 착지점)
 //   /best/<목표>/<분류>/           목표별 랭킹 ("다이어트 버거 추천" 계열)
 //   /data/                       데이터셋 안내 (VITE_CONTACT_EMAIL 이 있을 때만)
+//   /privacy/                    개인정보 처리방침 (항상)
 //   sitemap.xml (index) + sitemap-*.xml, robots.txt, ads.txt(애드센스 켰을 때만)
 //
 // 왜 필요한가: 이 앱은 SPA라 서버가 보내는 HTML이 <div id="root"></div> 뿐이다.
@@ -18,7 +19,7 @@
 //   VITE_GOOGLE_SITE_VERIFICATION / VITE_NAVER_SITE_VERIFICATION  검색엔진 소유 확인 메타
 //   VITE_ADSENSE_CLIENT (ca-pub-...) [+ VITE_ADSENSE_SLOT]        애드센스 (커스텀 도메인 필요)
 //   VITE_DONATE_URL                                               푸터 후원 링크
-//   VITE_CONTACT_EMAIL                                            /data/ 페이지 문의처
+//   VITE_CONTACT_EMAIL                                            /data/ 페이지·개인정보 문의처
 // 제휴 링크는 src/affiliate.json 에서 읽는다 (url 이 빈 링크는 안 나온다).
 //
 // 실패하면 0이 아닌 코드로 죽는다 = 배포가 멈춘다. 예전엔 경고만 남기고 통과했는데,
@@ -163,6 +164,8 @@ th{background:#f4f4f5;font-weight:600}
 .aff a{display:inline-block;margin:0 .8rem .3rem 0}
 .aff small,.ad small{display:block;margin-top:.5rem;color:#777;font-size:.75rem}
 .ad{margin:2rem 0 0}
+.doc th,.doc td{text-align:left;white-space:normal;vertical-align:top}
+.doc li{margin:.2rem 0}
 nav.more{margin-top:2rem;padding-top:1rem;border-top:1px solid #ddd;font-size:.9rem}
 nav.more a{display:inline-block;margin:0 .7rem .4rem 0}
 footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid #ddd;font-size:.82rem;color:#555}
@@ -222,6 +225,7 @@ function page({ title, description, canonical, body, pageType, jsonLd = [] }, ct
     `<a href="/best/">목표별 추천 랭킹</a>`,
     `<a href="/#about" data-app="about">등급 기준</a>`,
     ctx.hasDataPage ? `<a href="/data/">데이터 안내</a>` : "",
+    `<a href="/privacy/">개인정보 처리방침</a>`,
     DONATE_URL ? `<a href="${esc(DONATE_URL)}" target="_blank" rel="noopener" data-aff="donate">서버비 후원</a>` : "",
   ].join("");
   return `<!doctype html>
@@ -599,6 +603,111 @@ function dataPage(rows, sample, ctx) {
   }, ctx);
 }
 
+// 개인정보 처리방침. 수집 항목·보관 기간·국외 이전은 코드에서 확인한 사실만 적는다 --
+// db/schema.sql 의 app_user~llm_spend, app/auth/kakao.py(scope), app/recommend/personal.py·
+// app/chat/service.py(프롬프트에 들어가는 값), index.html 의 GA4·Clarity. 이쪽이 바뀌면 여기도 고친다.
+// 시행일은 내용을 바꿀 때마다 올린다 (7조: 변경 시 공지).
+const PRIVACY_EFFECTIVE = "2026-09-22";
+
+function privacyPage(ctx) {
+  const contact = CONTACT_EMAIL
+    ? `<a href="mailto:${esc(CONTACT_EMAIL)}?subject=${encodeURIComponent("Dining Maps 개인정보 문의")}">${esc(CONTACT_EMAIL)}</a>`
+    : `<a href="https://github.com/pbzz1/dining-maps/issues" target="_blank" rel="noopener">GitHub 이슈</a>`;
+  const row = (...cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+  const adsense = ADSENSE_CLIENT
+    ? row("Google LLC (AdSense)", "미국", "광고 쿠키, 광고 식별자, 기기·브라우저 정보", "맞춤·비맞춤 광고 게재와 부정 클릭 방지", "Google 정책에 따름")
+    : "";
+  return page({
+    title: "개인정보 처리방침 | Dining Maps",
+    description: "Dining Maps가 어떤 개인정보를 왜 수집하고, 얼마나 보관하며, 어디로 보내는지 설명합니다.",
+    canonical: `${SITE}/privacy/`,
+    pageType: "privacy",
+    body: `<div class="doc">
+<h1>개인정보 처리방침</h1>
+<p class="lead">Dining Maps(이하 "서비스")는 개인이 운영하는 프랜차이즈 메뉴 영양정보 서비스입니다.
+로그인하지 않아도 지도·메뉴·랭킹·맞춤 추천을 쓸 수 있으며, 이 경우 서비스 서버에 개인을 알아볼 수 있는 정보를 저장하지 않습니다.
+시행일 ${PRIVACY_EFFECTIVE}.</p>
+
+<h2>1. 수집하는 개인정보와 목적</h2>
+<div class="wrap"><table>
+<tr><th>언제</th><th>항목</th><th>목적</th></tr>
+${row("카카오 로그인", "카카오 회원번호, 닉네임(선택 동의)", "회원 식별, 화면에 이름 표시")}
+${row("추천 설정 저장(로그인 시)", "목표, 성별, 키, 몸무게, 나이, 활동량, 칼로리·나트륨 상한, 알레르기, 싫어하는 재료", "기기 간 설정 동기화, 한 끼 적정 열량 계산, 알레르기 메뉴 제외")}
+${row("서비스 이용(로그인 시)", "메뉴 조회·저장·숨김 기록, 추천에 노출된 메뉴 목록, AI 메모리(취향 요약 문장)", "맞춤 추천 개선")}
+${row("유료 요금제 결제", "주문번호, 요금제, 금액, 결제 키, 결제 승인 결과(결제수단 종류 등 토스페이먼츠 응답)", "이용권 지급, 환불·취소 처리, 법정 거래기록 보관")}
+${row("AI 기능 이용", "AI 호출 시각·용도·토큰 수·비용", "요금제별 사용 한도 계산")}
+${row("위치 기반 기능", "현재 위치 좌표(브라우저 권한 허용 시)", "가까운 매장 찾기. 서버에 저장하지 않고 요청 처리에만 씁니다")}
+${row("모든 방문자", "쿠키, 브라우저·기기 정보, 방문 페이지, 클릭·스크롤 등 이용 행태", "방문 통계, 화면 개선(아래 5조)")}
+</table></div>
+<p>비밀번호, 이메일, 전화번호, 결제카드 번호는 서비스가 받지 않습니다. 카드 정보는 토스페이먼츠가 직접 처리합니다.
+AI 대화의 내용은 답변을 만드는 데만 쓰고 서비스 서버에 저장하지 않습니다.</p>
+
+<h2>2. 보유 기간과 파기</h2>
+<ul>
+<li>회원 정보, 추천 설정, 이용 기록, AI 메모리: <b>탈퇴 즉시</b> 삭제합니다.</li>
+<li>결제 기록: 「전자상거래 등에서의 소비자보호에 관한 법률」에 따라 <b>5년</b> 보관합니다. 탈퇴하면 회원과의 연결을 끊어 누구의 결제인지 알 수 없게 한 뒤 보관합니다.</li>
+<li>AI 호출 비용 기록: 탈퇴하면 회원과의 연결을 끊고 서비스 비용 집계용으로만 남깁니다.</li>
+<li>브라우저에 저장된 추천 설정·위치·로그인 토큰은 이용자의 기기에만 있으며, 로그아웃하거나 브라우저 사이트 데이터를 지우면 사라집니다.</li>
+</ul>
+<p>전자 파일은 복구할 수 없는 방법으로 데이터베이스에서 삭제합니다.</p>
+
+<h2>3. 제3자 제공</h2>
+<p>서비스는 이용자의 개인정보를 제3자에게 판매하거나 제공하지 않습니다. 법령에 따라 수사기관 등이 요구하는 경우는 예외입니다.</p>
+
+<h2>4. 처리 위탁과 국외 이전</h2>
+<p>서비스 운영을 위해 아래 업체에 개인정보 처리를 맡깁니다. 해외 업체에는 이용 시점에 네트워크로 전송됩니다.
+이전을 원하지 않으면 로그인·AI 기능을 쓰지 않거나(서버·AI 업체로의 이전 거부) 브라우저에서 쿠키와 추적을 차단하면 됩니다(통계 업체로의 이전 거부). 이 경우에도 로그인 없는 기본 기능은 그대로 쓸 수 있습니다.</p>
+<div class="wrap"><table>
+<tr><th>업체</th><th>국가</th><th>항목</th><th>목적</th><th>보유 기간</th></tr>
+${row("(주)카카오", "대한민국", "카카오 회원번호, 닉네임", "로그인 인증", "카카오 정책에 따름")}
+${row("(주)토스페이먼츠", "대한민국", "결제 정보", "결제 처리", "관련 법령에 따라 5년")}
+${row("Amazon Web Services, Inc.", "호주(시드니)", "서비스 서버를 거치는 모든 정보", "서버·웹 호스팅", "처리 즉시(저장하지 않음)")}
+${row("Neon (Databricks, Inc.)", "싱가포르", "1조의 로그인 회원 정보 전부", "데이터베이스 보관", "2조의 기간")}
+${row("Anthropic, PBC", "미국", "AI 대화 내용, 성별·나이·목표·칼로리 상한·알레르기 등 추천 설정, AI 메모리, 추천 후보 메뉴", "AI 추천·대화 답변 생성(유료 요금제)", "Anthropic API 정책에 따름(모델 학습에 쓰이지 않음)")}
+${row("Google LLC (Google Analytics)", "미국", "쿠키, 기기·브라우저 정보, 방문 페이지, 이벤트", "방문 통계", "Google Analytics 보관 설정에 따름")}
+${row("Microsoft Corporation (Clarity)", "미국", "쿠키, 기기·브라우저 정보, 클릭·스크롤·화면 이동", "화면 사용성 분석", "Microsoft 정책에 따름")}
+${adsense}
+</table></div>
+
+<h2>5. 쿠키와 브라우저 저장소</h2>
+<p>서비스는 방문 통계(Google Analytics)와 화면 사용성 분석(Microsoft Clarity)을 위해 쿠키를 씁니다.${ADSENSE_CLIENT ? " 광고(Google AdSense)는 Google과 그 파트너가 쿠키를 써서 이용자의 이전 방문 기록에 따라 광고를 보여줄 수 있습니다. 맞춤 광고는 <a href=\"https://adssettings.google.com\" target=\"_blank\" rel=\"noopener\">Google 광고 설정</a>에서 끌 수 있습니다." : ""}
+쿠팡 파트너스 등 제휴 링크를 누르면 해당 사이트가 자체 쿠키를 쓰며, 서비스는 이를 통해 일정액의 수수료를 받을 수 있습니다.
+추천 설정, 마지막 위치, 로그인 토큰은 쿠키가 아니라 브라우저의 localStorage에 저장합니다.</p>
+<p>브라우저 설정에서 쿠키를 거부하거나 지울 수 있습니다. 쿠키를 막아도 서비스 이용에는 지장이 없습니다.</p>
+
+<h2>6. 이용자의 권리</h2>
+<ul>
+<li>추천 설정은 맞춤 추천 화면에서 언제든 확인하고 고치거나 지울 수 있습니다.</li>
+<li>AI 메모리는 목록에서 문장 하나씩 확인하고 지울 수 있습니다.</li>
+<li>탈퇴하면 2조에 적은 대로 즉시 삭제됩니다. 화면에서 탈퇴하기 어렵다면 아래 연락처로 요청하세요.</li>
+<li>개인정보 열람·정정·삭제·처리정지는 아래 연락처로 요청할 수 있으며, 지체 없이 처리합니다.</li>
+</ul>
+<p>만 14세 미만은 회원으로 가입할 수 없습니다.</p>
+
+<h2>7. 안전성 확보 조치</h2>
+<ul>
+<li>모든 통신은 HTTPS로 암호화합니다.</li>
+<li>비밀번호를 받지 않고 카카오 인증을 씁니다. 로그인 토큰은 서명해 위조를 막습니다.</li>
+<li>데이터베이스 접속 정보와 API 키는 공개 저장소에 두지 않고, 운영자만 접근합니다.</li>
+<li>AI 대화 내용과 위치 좌표는 저장하지 않습니다.</li>
+</ul>
+
+<h2>8. 개인정보 보호책임자</h2>
+<p>개인정보 보호책임자: Dining Maps 운영자<br>연락처: ${contact}</p>
+<p>개인정보 침해에 대한 신고나 상담은 아래 기관에도 할 수 있습니다.</p>
+<ul>
+<li>개인정보침해신고센터 (국번없이) 118 · privacy.kisa.or.kr</li>
+<li>개인정보분쟁조정위원회 1833-6972 · www.kopico.go.kr</li>
+<li>대검찰청 사이버수사과 (국번없이) 1301</li>
+<li>경찰청 사이버수사국 (국번없이) 182</li>
+</ul>
+
+<h2>9. 변경</h2>
+<p>이 방침을 바꾸면 이 페이지에 시행일과 함께 공지합니다. 현재 버전 시행일: ${PRIVACY_EFFECTIVE}.</p>
+</div>`,
+  }, ctx);
+}
+
 const csvCell = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 
 function sampleCsv(brand, menu) {
@@ -731,6 +840,9 @@ async function main() {
     await write("data/index.html", dataPage(rows, { brand: smallest.brand.name, count: smallest.menu.length }, ctx));
     pagePaths.push("/data/");
   }
+
+  await write("privacy/index.html", privacyPage(ctx));
+  pagePaths.push("/privacy/");
 
   sitemaps.unshift(["sitemap-pages.xml", pagePaths]);
   for (const [name, paths] of sitemaps) await write(name, urlset(paths, dataDate));

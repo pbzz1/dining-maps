@@ -35,7 +35,7 @@
 ## 3. 후원 링크 · 데이터 문의
 
 - `VITE_DONATE_URL` — 토스 송금 링크 등. About 화면과 정적 페이지 푸터.
-- `VITE_CONTACT_EMAIL` — 있으면 `/data/` 페이지가 생긴다. **공개 페이지에 그대로 노출되는 주소**다.
+- `VITE_CONTACT_EMAIL` — 있으면 `/data/` 페이지가 생긴다. `/privacy/`(개인정보 처리방침)의 보호책임자 연락처로도 쓰이고, 없으면 거기엔 GitHub 이슈 링크가 대신 들어간다. **공개 페이지에 그대로 노출되는 주소**다.
 
 ## 4. 애드센스 (커스텀 도메인 이후)
 
@@ -43,7 +43,8 @@
 
 1. CloudFront 대체 도메인 + ACM 인증서(us-east-1), 카카오 개발자 콘솔에 새 도메인 등록, `ALLOWED_ORIGINS`·`FRONTEND_URL` 갱신.
 2. 옛 주소 색인을 옮기려면 CloudFront 함수(`dining-maps-index`)에서 Host가 `*.cloudfront.net`이면 새 도메인으로 301.
-3. 승인 후 `VITE_ADSENSE_CLIENT`(`ca-pub-…`) → 자동 광고 스크립트와 `ads.txt`가 생긴다. `VITE_ADSENSE_SLOT`까지 넣으면 고정 단위(`AdSlot`)도 그려진다.
+3. 신청 전: `/privacy/`가 떠 있는지 확인(심사 거절 흔한 사유). `VITE_ADSENSE_CLIENT`를 넣으면 처리방침에 AdSense 국외 이전·광고 쿠키 문단이 자동으로 붙는다.
+4. 승인 후 `VITE_ADSENSE_CLIENT`(`ca-pub-…`) → 자동 광고 스크립트와 `ads.txt`가 생긴다. `VITE_ADSENSE_SLOT`까지 넣으면 고정 단위(`AdSlot`)도 그려진다.
 
 ## 5. 측정 (GA4 이벤트)
 
