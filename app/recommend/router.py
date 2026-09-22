@@ -54,4 +54,5 @@ def recommend_personal(
 ):
     """로그인 사용자의 서버 프로필·행동 이력으로 고른 3개 + 한 줄 조언.
     위치는 서버에 저장하지 않으므로 매 요청 쿼리로 받는다 (/menus 와 같다)."""
-    return personal_reco(user["id"], lat, lng, radius_m, use_llm=user.get("plan") == "premium")
+    # LLM 을 쓸지는 personal_reco 가 유효한 이용권(app/billing)으로 정한다 -- app_user.plan 은 읽지 않는다.
+    return personal_reco(user["id"], lat, lng, radius_m)

@@ -28,7 +28,7 @@ class ChatIn(BaseModel):
     message: str = Field(default="", max_length=300)
     filters: ChatFilters | None = None
     remove: str | None = Field(default=None, max_length=60)
-    # premium 대화의 이전 턴. 무료는 쓰지 않는다. 길이는 서버가 다시 자른다.
+    # 유료 대화의 이전 턴. 무료는 쓰지 않는다. 길이는 서버가 다시 자른다.
     history: list[ChatTurn] = Field(default=[], max_length=20)
     lat: float | None = None
     lng: float | None = None
@@ -41,12 +41,15 @@ class Chip(BaseModel):
 
 class ChatOut(BaseModel):
     reply: str
-    # filter: 규칙 파서(무료, LLM 없음) / llm: Claude 대화(premium)
+    # filter: 규칙 파서(무료, LLM 없음) / llm: Claude 대화(유료)
     source: str
     understood: bool
     filters: ChatFilters
     chips: list[Chip]
     items: list[RecommendedMenuOut]
     memory_added: list[str] = []
-    # premium 이 오늘 AI 대화 한도를 다 써서 이번 답은 규칙 파서가 했다는 뜻
+    # 유료인데 예산·하루 상한에 걸려 이번 답은 규칙 파서가 했다는 뜻. limit_reason: budget / daily / input / no_plan
     limit_reached: bool = False
+    limit_reason: str | None = None
+    plan: str = "free"                     # free / standard / high
+    ai_budget_left_pct: int | None = None  # 이번 이용권의 남은 AI 예산 %(유료만)

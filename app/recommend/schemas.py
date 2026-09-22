@@ -47,3 +47,9 @@ class PersonalRecoOut(BaseModel):
     # "보여준 것 중 무엇을 골랐고 무엇을 무시했나"를 학습할 수 있다. 후보가 없으면(rule) None.
     impression_id: int | None = None
     variant: str = "control"  # 효과 측정 비교군. control = 기존 규칙, ml = 학습형
+    # 요금제(free / standard / high). 유료인데 source 가 llm 이 아니면 limit_reason 이 이유를 말한다:
+    # budget(이번 기간 AI 예산 소진) / daily(오늘 상한) / input(입력이 너무 김). None 이면 호출 실패·캐시 등.
+    plan: str = "free"
+    limit_reason: str | None = None
+    # 이번 이용권의 남은 AI 예산 비율(유료만). 화면이 막대 없이 글자로 보여준다.
+    ai_budget_left_pct: int | None = None
