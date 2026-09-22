@@ -20,7 +20,7 @@ from app.menu_category import category_group
 from app.recommend.goals import GOALS
 from app.recommend.personal import (
     CANDIDATE_LIMIT, PICKS, POOL_LIMIT, _label, _meal_kcal, claude_json, load_history, load_profile,
-    personal_rank, select_candidates,
+    hourly_rng, load_taste, personal_rank, select_candidates,
 )
 from app.recommend.ranking import fetch_menus, to_out
 
@@ -166,6 +166,8 @@ def chat(user: dict, body) -> ChatOut:
         goal, pool, nearest = select_candidates(
             conn, rows, eff, history, body.lat, body.lng, 3000, limit=POOL_LIMIT, extra_skip=make_skip(f)
         )
+        # 무료 대화도 "오늘 당신에겐"과 같은 모델로 고른다(비교군 ml 이면 학습형 취향 포함).
+        taste = load_taste(conn, user["id"], goal, rows)
         memories = [m["fact"] for m in memory.list_facts(conn, user["id"])] if premium else []
     finally:
         conn.close()
@@ -174,7 +176,10 @@ def chat(user: dict, body) -> ChatOut:
         reply=reply, source=source, understood=understood, filters=ChatFilters(**f),
         chips=[Chip(**c) for c in P.chips(f)], items=items, **kw,
     )
-    free_items = lambda: [to_out(t[0], why, t[2], nearest) for _, why, t in personal_rank(goal, pool, eff, history)]
+    free_items = lambda: [
+        to_out(t[0], why, t[2], nearest)
+        for _, why, t in personal_rank(goal, pool, eff, history, taste=taste, rng=hourly_rng(user["id"]))
+    ]
 
     # premium: 메시지가 있으면(칩 지우기만 한 건 제외) 모델에게 묻는다. 파서가 못 알아들은 말도 모델은 안다.
     limit_reached = False

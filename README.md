@@ -510,6 +510,10 @@ DATABASE_URL=postgresql://... python scripts/migrate/apply_schema.py
 - **무료(`plan=free`, 기본)**: 목표 점수에 한 끼 적정 열량(신체정보), 영양 균형(나트륨·당·포화지방,
   `docs/diet_score.md`와 같은 기준), 최근 저장·클릭한 브랜드를 더해 서로 다른 브랜드 3개를 고른다.
   LLM을 부르지 않아 비용이 없다. `source:"personal"`.
+  비교군 `ml`(사용자 id 해시 85%)은 여기에 **학습형 취향 모델**(`app/recommend/taste.py`)을 더한다: 요청 때
+  최근 60일 노출·행동으로 사용자별 베이지안 로지스틱 회귀를 즉석 학습(순수 파이썬, 수 ms), 보정 폭 ±0.6,
+  목표 영양소 부호 제약, 톰슨 샘플링 + 탐색 칸. 기록이 있을 때만 켜지고 그때 `source:"ml"`.
+  바꾸기 전에 `python scripts/eval/simulate_personal.py`(가상 사용자 8유형 시뮬레이션, 통과 조건 내장)를 돌린다.
 - **유료(`plan=premium`)**: 후보 15개 중 Claude가 3개를 골라 이유를 쓴다. 메뉴명은 후보 enum으로 강제,
   같은 입력은 1시간 캐시(`llm_reco_cache`), 실패하면 무료 경로로 대체. `source:"llm"`.
   같은 호출이 최근 행동에서 취향을 뽑아 `user_memory`에 기억하고(`new_memories`), 다음 추천 프롬프트에

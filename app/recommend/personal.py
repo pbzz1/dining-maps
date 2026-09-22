@@ -14,10 +14,13 @@ source="rule" 은 후보 자체가 없을 때뿐이다.
 import hashlib
 import json
 import os
+import random
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 
 from app.db import connect, get_connection
 from app.memory import store as memory
+from app.recommend import taste as taste_model
 from app.recommend.goals import GOALS
 from app.recommend.ranking import diversify, fetch_menus, nearest_stores, rank, to_out
 from app.recommend.schemas import PersonalRecoOut
@@ -175,7 +178,7 @@ def _meal_fit(kcal, target) -> float | None:
 BALANCE_TOPIC = {"sodium": "나트륨은", "sugar": "당류는", "saturated_fat": "포화지방은"}
 
 
-def personal_rank(goal, candidates, profile, history):
+def personal_rank(goal, candidates, profile, history, taste=None, rng=None):
     """LLM 없이 하는 개인화: [(개인점수, 이유문장, (score, reason, row))] 를 3개, 서로 다른 브랜드로.
 
     뼈대는 목표 점수(후보 안 순위를 0~1로), 보정은 네 가지:
@@ -183,10 +186,29 @@ def personal_rank(goal, candidates, profile, history):
       초과 감점) / 브랜드 선호(최근 저장·클릭) / 저장한 메뉴.
     신규 사용자도 앞의 둘은 적용되므로 목표 점수 목록과 다른 답이 나온다 -- 기록이 쌓이면
     뒤의 둘이 더해진다.
+
+    taste: 학습형 취향 모델(app/recommend/taste.py). 행동 근거가 있을 때만 켜지고, 켜지면
+    위 점수에 학습된 보정(±CLIP)을 더한다. 근거가 없으면(taste.active=False) 결과는 taste 없이
+    부른 것과 정확히 같다.
+
+    rng: 있으면 탐색을 켠다 -- 가중치를 사후분포에서 뽑아 채점하고(톰슨 샘플링), 가끔 세 번째 칸을
+    고른 적 없는 분류로 채운다. 이유 문장은 샘플이 아니라 사후 평균으로 쓴다(흔들린 값으로 설명하지 않는다).
     """
+    learned = taste is not None and taste.active
     target = profile.get("max_calorie") or _meal_kcal(profile)
+    # 브랜드 가점은 학습형에서도 둔다. 처음엔 "모델이 브랜드를 배우니 두 번 세지 않게" 뺐는데,
+    # 모델은 브랜드를 강하게 규제해서(λ=3) 기록이 적을 땐 거의 못 배운다 -- 저장 한 번에 받던
+    # 가점이 사라져 오히려 덜 개인화됐다(검증에서 저장한 메뉴가 다음 추천에서 빠졌다).
+    # 학습 보정 전체가 ±CLIP 으로 묶여 있어 겹쳐 세는 폭은 제한된다.
     liked = history["liked_brands"]
     size = max(len(candidates) - 1, 1)
+    phis, pool_mean = [], {}
+    weights = taste.sample(rng) if learned and rng is not None else None
+    if learned:
+        phis = [taste.phi(t[2]) for t in candidates]
+        for phi in phis:
+            for k, v in phi.items():
+                pool_mean[k] = pool_mean.get(k, 0.0) + v / len(phis)
     scored = []
     for i, t in enumerate(candidates):
         row = t[2]
@@ -204,10 +226,16 @@ def personal_rank(goal, candidates, profile, history):
             total += W_BRAND * (1 - brand_rank / len(liked))  # 자주 본 순서대로 가점
         if saved:
             total += W_SAVED
+        learned_why = None
+        if learned:
+            total += taste.score(phis[i], weights)
+            learned_why = taste.explain(phis[i], pool_mean)
 
         # 이유: 목표 수치(t[1]) + 이 사람에게 해당하는 근거 하나. 가장 개인적인 것부터.
         if saved:
             why = "저장해 둔 메뉴"
+        elif learned_why:
+            why = learned_why
         elif brand_rank is not None:
             why = f"최근 자주 본 {row['restaurant_name']}"
         elif fit == 1.0:
@@ -230,11 +258,23 @@ def personal_rank(goal, candidates, profile, history):
         brands.add(item[2][2]["restaurant_id"])
         picks.append(item)
         if len(picks) == PICKS:
-            return picks
-    for item in scored:  # 브랜드가 3개 미만이면 남는 자리는 같은 브랜드로라도 채운다
-        if item not in picks:
-            picks.append(item)
-            if len(picks) == PICKS:
+            break
+    else:
+        for item in scored:  # 브랜드가 3개 미만이면 남는 자리는 같은 브랜드로라도 채운다
+            if item not in picks:
+                picks.append(item)
+                if len(picks) == PICKS:
+                    break
+
+    # 탐색 칸: 배운 취향만 보여주면 그 밖의 메뉴를 누를 기회가 없어 취향이 바뀌어도 못 배운다.
+    # 가끔 세 번째 칸을 고른 적 없는 분류에서 채우고, 그렇다고 문장에 밝힌다(취향 맞춤인 척하지 않는다).
+    if learned and rng is not None and len(picks) == PICKS and rng.random() < taste_model.EXPLORE_RATE:
+        liked_groups = taste.liked_groups()
+        kept_brands = {p[2][2]["restaurant_id"] for p in picks[:-1]}
+        for total, _, t in scored:
+            row = t[2]
+            if (row.get("category_group") or "기타") not in liked_groups and row["restaurant_id"] not in kept_brands:
+                picks[-1] = (total, f"{t[1]} · {taste_model.EXPLORE_REASON}", t)
                 break
     return picks
 
@@ -398,6 +438,28 @@ def _store_result(user_id, hash_for, payload) -> list[str]:
     return added
 
 
+def load_taste(conn, user_id, goal, rows):
+    """비교군 ml 사용자의 학습형 취향 모델. control 이면 None(기존 규칙 그대로).
+    rows 는 fetch_menus 결과 -- 예시 메뉴의 특징과 영양 밀도 기준을 같은 데이터에서 뽑는다."""
+    if variant_for(user_id) != "ml":
+        return None
+    by_id = {r["id"]: r for r in rows}
+    stats = taste_model.density_stats(rows)
+    examples = [
+        (taste_model.featurize(by_id[mid], stats), y, w, mid)
+        for mid, y, w in taste_model.load_examples(conn, user_id)
+        if mid in by_id
+    ]
+    return taste_model.fit(examples, goal, stats)
+
+
+def hourly_rng(user_id):
+    """탐색용 난수. 사용자·날짜·시간으로 시드를 고정해 한 시간 안에는 새로고침해도 같은 3개가 나온다
+    (매번 바뀌면 방금 본 메뉴를 다시 찾을 수 없고, 노출 기록도 중복 방지에 안 걸려 부풀려진다)."""
+    now = datetime.now(timezone(timedelta(hours=9)))
+    return random.Random(f"{user_id}:{now:%Y-%m-%d:%H}")
+
+
 def variant_for(user_id) -> str:
     """사용자 id 해시로 고정 배정. 매 요청 무작위면 같은 사람이 두 방식을 오가서 비교가 안 된다.
     버전 문자열을 섞어 두면 나중에 실험을 새로 짤 때 배정도 새로 섞인다."""
@@ -413,6 +475,8 @@ def _log_impression(user_id, source, variant, items, scores) -> int | None:
     멀쩡한 메뉴를 싫어하는 것으로 배운다.
     """
     ids = [i.menu_item_id for i in items]
+    # 탐색 칸이었는지 -- 운영 지표에서 탐색 칸 참여를 따로 떼어 봐야 학습 효과가 섞이지 않는다.
+    explore = [i.reason.endswith(taste_model.EXPLORE_REASON) for i in items]
     try:
         with connect() as conn:
             row = conn.execute(
@@ -426,9 +490,10 @@ def _log_impression(user_id, source, variant, items, scores) -> int | None:
                 return row["id"]
             return conn.execute(
                 """INSERT INTO reco_impression
-                       (user_id, surface, source, variant, model_version, menu_item_ids, scores)
-                   VALUES (%s, 'personal_picks', %s, %s, %s, %s::integer[], %s::real[]) RETURNING id""",
-                (user_id, source, variant, MODEL if source == "llm" else REC_VERSION, ids, scores),
+                       (user_id, surface, source, variant, model_version, menu_item_ids, scores, explore)
+                   VALUES (%s, 'personal_picks', %s, %s, %s, %s::integer[], %s::real[], %s::boolean[]) RETURNING id""",
+                (user_id, source, variant,
+                 {"llm": MODEL, "ml": taste_model.MODEL_VERSION}.get(source, REC_VERSION), ids, scores, explore),
             ).fetchone()["id"]
     except Exception as e:  # noqa: BLE001 -- 계측 실패가 추천을 막으면 안 된다
         print(f"impression log failed: {type(e).__name__}: {e}")
@@ -442,11 +507,13 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
     try:
         profile = load_profile(conn, user_id)
         history = load_history(conn, user_id)
+        rows = fetch_menus(conn)
         goal, pool, nearest = select_candidates(
-            conn, fetch_menus(conn), profile, history, lat, lng, radius_m, limit=POOL_LIMIT
+            conn, rows, profile, history, lat, lng, radius_m, limit=POOL_LIMIT
         )
         if not pool:
             return PersonalRecoOut(source="rule", goal=goal, items=[])
+        taste = load_taste(conn, user_id, goal, rows)
         # select_candidates 는 목표 점수 순으로 하나씩 담으므로 앞 15개 = limit=15 로 뽑은 결과와 같다.
         candidates = pool[:CANDIDATE_LIMIT]
 
@@ -472,14 +539,16 @@ def personal_reco(user_id, lat=None, lng=None, radius_m=3000, use_llm=False) -> 
         if len(items) == PICKS:
             break
 
-    # 비교군은 계측만 먼저 붙인다(P0). 아직 두 군 모두 같은 규칙 방식을 받고, 학습형은 P1에서
-    # variant == "ml" 에만 켠다 -- 계측이 먼저 쌓여야 켠 뒤의 차이를 잴 수 있다.
+    # 비교군: control 은 기존 규칙, ml 은 학습형 취향 모델을 더한다(행동 근거가 있을 때만 --
+    # 없으면 둘은 같은 결과라 source 도 personal 로 둔다. "기록으로 학습"이라고 배지를 달았는데
+    # 배운 게 없으면 거짓말이다).
     variant = variant_for(user_id)
     if not items:
-        picks = personal_rank(goal, pool, profile, history)
+        picks = personal_rank(goal, pool, profile, history, taste=taste, rng=hourly_rng(user_id))
+        source = "ml" if taste is not None and taste.active else "personal"
         out = [to_out(t[0], why, t[2], nearest) for _, why, t in picks]
-        impression = _log_impression(user_id, "personal", variant, out, [round(total, 4) for total, _, _ in picks])
-        return PersonalRecoOut(source="personal", goal=goal, items=out, impression_id=impression, variant=variant)
+        impression = _log_impression(user_id, source, variant, out, [round(total, 4) for total, _, _ in picks])
+        return PersonalRecoOut(source=source, goal=goal, items=out, impression_id=impression, variant=variant)
     added = []
     if fresh:
         # 실패(None)는 캐시하지 않는다 -- 키를 넣거나 일시 장애가 풀리면 바로 다시 시도해야 한다.

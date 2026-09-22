@@ -55,6 +55,20 @@ test("무료 사용자는 내 설정·기록 기반 배지로 뜬다", async ({ 
   await expect(s.getByRole("article")).toHaveCount(3);
 });
 
+test("기록으로 학습한 결과(ml)는 그렇다고 배지로 밝히고 근거 문장을 보여준다", async ({ page }) => {
+  await loggedIn(page);
+  const learned = personalReco.items.map((it, i) =>
+    i === 0 ? { ...it, reason: "단백질 28g / 320kcal · 최근 저장·클릭 5개 중 4개가 샐러드·샌드위치 메뉴" } : it
+  );
+  await page.route("**/api/recommend/personal*", (r) =>
+    r.fulfill({ json: { ...personalReco, source: "ml", comment: null, items: learned } })
+  );
+  await page.goto("/?token=fake-jwt#recommend");
+  const s = section(page);
+  await expect(s.getByText("내 기록으로 학습")).toBeVisible();
+  await expect(s.getByText("최근 저장·클릭 5개 중 4개가 샐러드·샌드위치 메뉴", { exact: false })).toBeVisible();
+});
+
 test("고를 후보가 없으면(rule) 추천 칸만 접고, 대화 칸과 목록은 남는다", async ({ page }) => {
   await loggedIn(page);
   let served = false;
