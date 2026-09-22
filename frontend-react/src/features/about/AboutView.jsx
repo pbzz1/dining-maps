@@ -147,6 +147,11 @@ export default function AboutView({ dataDate }) {
           </p>
         </section>
       )}
+
+      {/* 정적 페이지(scripts/build-static-pages.mjs 의 privacyPage)라 앱 밖으로 나간다 */}
+      <p className="dash-footnote">
+        <a href="/privacy/">개인정보 처리방침</a>
+      </p>
     </div>
   );
 }
