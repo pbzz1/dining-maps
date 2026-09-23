@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { track } from "../../constants";
 import { startLogin } from "../auth/api";
 import { PLAN_LABEL, quotaLine } from "../auth/plan";
@@ -38,8 +38,10 @@ export default function PlansView({ auth, payReturn }) {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 토스 성공 주소로 돌아온 경우: 로그인 확인이 끝난 뒤 한 번만 서버 승인을 부른다.
+  // user 는 승인 뒤 auth.refresh() 로 새 객체가 되어 effect 가 다시 돈다 -- ref 로 두 번째 승인을 막는다.
+  const confirmStarted = useRef(false);
   useEffect(() => {
-    if (!payReturn || loading) return;
+    if (!payReturn || loading || confirmStarted.current) return;
     if (payReturn.status === "fail") {
       setNotice({ kind: "error", text: `결제가 되지 않았어요. ${payReturn.message ?? ""}`.trim() });
       return;
@@ -48,21 +50,17 @@ export default function PlansView({ auth, payReturn }) {
       setNotice({ kind: "error", text: "로그인 상태가 풀려 결제를 확인하지 못했어요. 다시 로그인하면 이어서 확인합니다." });
       return;
     }
-    let cancelled = false;
+    confirmStarted.current = true;
     setBusy("confirm");
     confirmPayment({ payment_key: payReturn.payment_key, order_id: payReturn.order_id, amount: payReturn.amount })
       .then((ent) => {
-        if (cancelled) return;
         track("purchase", { plan: ent.plan });
         setNotice({ kind: "done", text: `${PLAN_LABEL[ent.plan]} 이용권이 시작됐어요. ${fmtDate(ent.ends_at)}까지 AI 추천과 대화를 쓸 수 있어요.` });
         auth.refresh?.();
         return reloadMe();
       })
-      .catch((e) => !cancelled && setNotice({ kind: "error", text: e.status === 402 ? "카드사에서 결제를 승인하지 않았어요." : "결제 확인에 실패했어요. 결제가 됐다면 잠시 뒤 다시 열어 주세요." }))
-      .finally(() => !cancelled && setBusy(""));
-    return () => {
-      cancelled = true;
-    };
+      .catch((e) => setNotice({ kind: "error", text: e.status === 402 ? "카드사에서 결제를 승인하지 않았어요." : "결제 확인에 실패했어요. 결제가 됐다면 잠시 뒤 다시 열어 주세요." }))
+      .finally(() => setBusy(""));
   }, [payReturn, loading, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function buy(plan) {
