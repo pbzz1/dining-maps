@@ -1,4 +1,12 @@
 ﻿restaurant,menu_name,menu_category,weight_g,price_krw,calorie_kcal,protein_g,sugar_g,saturated_fat_g,sodium_mg,caffeine_mg,nutrition_basis,total_weight_g
+커피빈,Pure Dream Tea 퓨어 드림 티,신음료,,,14,0,0,0,4,11,,
+커피빈,Iced Pure Dream Tea 아이스 퓨어 드림 티,신음료,,,14,0,0,0,4,11,,
+커피빈,Pure Dream Red Vin Chaud 퓨어 드림 레드뱅쇼,신음료,,,212,1,48,0,18,11,,
+커피빈,Iced Pure Dream Red Vin Chaud 아이스 퓨어 드림 레드뱅쇼,신음료,,,251,1,57,0,18,11,,
+커피빈,Gingerbread Latte 진저 브레드 라떼,신음료,,,421,9,29,13,315,91,,
+커피빈,Iced Gingerbread Latte 아이스 진저 브레드 라떼,신음료,,,407,8,27,12,290,182,,
+커피빈,Roasted Chestnut Oolong Tea Latte 구운밤 우롱티 라떼,신음료,,,437,7,39,15,126,0,,
+커피빈,Iced Roasted Chestnut Oolong Tea Latte 아이스 구운밤 우롱티 라떼,신음료,,,342,5,35,10,93,0,,
 커피빈,Sparkling Apple Spice 스파클링 애플 스파이스,신음료,,,204,0,44,0,0,0,,
 커피빈,Apple Spice Tea 애플 스파이스 티,신음료,,,248,0,54,0,0,0,,
 커피빈,Apple Pie Cream Latte 애플파이 크림라떼,신음료,,,655,12,74,9,274,91,,
